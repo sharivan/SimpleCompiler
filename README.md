@@ -43,7 +43,7 @@ programa Programa1
 
 A compilação desse código utilizando o compilador simples deste projeto irá gerar um código intermediário que utiliza um conjunto de instruções do tipo bytecode, no qual cada opcode possui apenas um byte. Estas instruções por sua vez são interpretadas por uma máquina virtual quando o programa compilado é executado.
 
-Ainda existem diversos bugs a serem corrigidos nos quais posso destacara alguns:
+Ainda existem diversos bugs a serem corrigidos nos quais posso destacar:
 
 - O compilador não gera as instruções corretas para atribuição de tipos compatíveis, porém diferentes. Exemplo, se x for float, a instrução x = 1 não fará a conversão do inteiro 1 para ponto flutuante, gerando um valor incorreto para a atribuição em x.
 
