@@ -1,0 +1,115 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{403A9289-040A-4EC9-A78F-BCE30DDC8460}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>SimpleCompiler</RootNamespace>
+    <AssemblyName>SimpleCompiler</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Deployment" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="compiler\ArrayType.cs" />
+    <Compile Include="compiler\Assembler.cs" />
+    <Compile Include="compiler\ByteLiteral.cs" />
+    <Compile Include="compiler\CharLiteral.cs" />
+    <Compile Include="compiler\Context.cs" />
+    <Compile Include="compiler\DoubleLiteral.cs" />
+    <Compile Include="compiler\Field.cs" />
+    <Compile Include="compiler\Function.cs" />
+    <Compile Include="compiler\GlobalVariable.cs" />
+    <Compile Include="compiler\Label.cs" />
+    <Compile Include="compiler\LocalVariable.cs" />
+    <Compile Include="compiler\Opcode.cs" />
+    <Compile Include="compiler\Compiler.cs" />
+    <Compile Include="compiler\FloatLiteral.cs" />
+    <Compile Include="compiler\IntLiteral.cs" />
+    <Compile Include="compiler\Keyword.cs" />
+    <Compile Include="compiler\LongLiteral.cs" />
+    <Compile Include="compiler\NumericLiteral.cs" />
+    <Compile Include="compiler\Lexer.cs" />
+    <Compile Include="compiler\Parameter.cs" />
+    <Compile Include="compiler\ParserException.cs" />
+    <Compile Include="compiler\PointerType.cs" />
+    <Compile Include="compiler\PrimitiveType.cs" />
+    <Compile Include="compiler\ShortLiteral.cs" />
+    <Compile Include="compiler\StringLiteral.cs" />
+    <Compile Include="compiler\StructType.cs" />
+    <Compile Include="compiler\Symbol.cs" />
+    <Compile Include="compiler\Token.cs" />
+    <Compile Include="compiler\Identifier.cs" />
+    <Compile Include="compiler\AbstractType.cs" />
+    <Compile Include="compiler\Variable.cs" />
+    <Compile Include="compiler\VM.cs" />
+    <Compile Include="FrmSimpleCompiler.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FrmSimpleCompiler.Designer.cs">
+      <DependentUpon>FrmSimpleCompiler.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="FrmSimpleCompiler.resx">
+      <DependentUpon>FrmSimpleCompiler.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
