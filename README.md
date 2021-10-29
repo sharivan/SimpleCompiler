@@ -41,7 +41,7 @@ programa Programa1
 }
 ```
 
-A compilação desse código utilizando o compilador simples deste projeto irá gerar um código intermediário que utiliza um conjunto de instruções do tipo bytecode, no qual cada opcode possui apenas um byte.
+A compilação desse código utilizando o compilador simples deste projeto irá gerar um código intermediário que utiliza um conjunto de instruções do tipo bytecode, no qual cada opcode possui apenas um byte. Estas instruções por sua vez são interpretadas por uma máquina virtual quando o programa compilado é executado.
 
 Ainda existem diversos bugs a serem corrigidos nos quais posso destacara alguns:
 
