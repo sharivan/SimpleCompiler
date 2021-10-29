@@ -8,6 +8,7 @@ Uma linguagem gramática nova foi criada para ser aceita por este compilador, a 
 
 A seguir, temos um exemplo simples de um programa escrito nessa linguagem:
 
+```c#
 programa Programa1
 {
 	estrutura Vetor
@@ -38,6 +39,7 @@ programa Programa1
 		escreva t;
 	}
 }
+```
 
 A compilação desse código utilizando o compilador simples desse projeto irá gerar um código intermediário que utiliza um conjunto de instruções do tipo bytecode, no qual cada opcode possui apenas um byte.
 
