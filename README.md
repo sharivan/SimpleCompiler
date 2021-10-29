@@ -1,8 +1,8 @@
 # SimpleCompiler
 Um compilador simples que foi desenvolvido em um único dia, durante uma live de devstream em meu canal na twitch no dia 28/10/2021.
 
-IDE de desenvolvimento: Microsoft Visual Studio Community 2019
-Linguagem: C#
+- IDE de desenvolvimento: Microsoft Visual Studio Community 2019
+- Linguagem: C#
 
 Uma linguagem gramática nova foi criada para ser aceita por este compilador, a sintaxe de tal gramática é bastante semelhante com C e possui declarações parecidas com Action Script 2.0. Diversas palavras chaves da linguagem C foram traduzidas para o portugues e inseridas como palavras chave para a gramática desta nova linguagem.
 
