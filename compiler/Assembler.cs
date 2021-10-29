@@ -11,7 +11,8 @@ namespace compiler
     {
 		private MemoryStream output;
 		private BinaryWriter writer;
-		internal List<Label> labels;
+		private List<Label> issuedLabels;
+		private List<Label> bindedLabels;
 
 		public long Position
 		{
@@ -38,7 +39,8 @@ namespace compiler
 		{
 			output = new MemoryStream();
 			writer = new BinaryWriter(output);
-			labels = new List<Label>();
+			issuedLabels = new List<Label>();
+			bindedLabels = new List<Label>();
 		}
 
 		public byte[] GetCode()
@@ -51,20 +53,17 @@ namespace compiler
 			output.Position = 0;
 		}
 
-		public Label CreateLabel()
-        {
-			return new Label(this);
-        }
-
 		public void BindLabel(Label label)
         {
-			label.Bind((int) output.Position);
-        }
+			label.Bind(this, (int) output.Position);
+			bindedLabels.Add(label);
+		}
 
 		public void EmitLabel(Label label)
 		{
-			label.AddReference((int) output.Position, false);
-			EmitLoadConst(label.IP);
+			label.AddReference(this, (int) output.Position);
+			EmitLoadConst(label.BindedIP);
+			issuedLabels.Add(label);
 		}
 
 		public void Emit(Assembler other)
@@ -73,13 +72,30 @@ namespace compiler
 			byte[] code = other.GetCode();
 			output.Write(code, 0, code.Length);
 
-			for (int i = 0; i < other.labels.Count; i++)
+			for (int i = 0; i < other.issuedLabels.Count; i++)
 			{
-				Label label = other.labels[i];
-				label.assembler = this;
-				label.Bind((int) (label.IP + startPosition));
-				labels.Add(label);
+				Label label = other.issuedLabels[i];
+
+				for (int j = 0; j < label.references.Count; j++)
+                {
+					Tuple<Assembler, int> reference = label.references[j];
+					int referenceIP = reference.Item2;
+					label.references[j] = new Tuple<Assembler, int>(this, (int) (referenceIP + startPosition));
+				}
+				
+				issuedLabels.Add(label);
 			}
+
+			for (int i = 0; i < other.bindedLabels.Count; i++)
+			{
+				Label label = other.bindedLabels[i];
+				label.bindedAssembler = this;
+				label.bindedIP += (int)startPosition;
+				bindedLabels.Add(label);
+			}
+
+			other.issuedLabels.Clear();
+			other.bindedLabels.Clear();
 		}
 
 		public void EmitNop()
@@ -126,13 +142,13 @@ namespace compiler
 		public void EmitLoadConst(float number)
 		{
 			writer.Write((byte)Opcode.LC32);
-			writer.Write(number);
+			writer.Write(BitConverter.ToInt32(BitConverter.GetBytes(number), 0));
 		}
 
 		public void EmitLoadConst(double number)
 		{
 			writer.Write((byte)Opcode.LC64);
-			writer.Write(number);
+			writer.Write(BitConverter.ToInt64(BitConverter.GetBytes(number), 0));
 		}
 
 		public void EmitLoadIP()
@@ -180,7 +196,7 @@ namespace compiler
 			writer.Write((byte)Opcode.SS);
 		}
 
-		public void EmitSStack64()
+		public void EmitStoreStack64()
 		{
 			writer.Write((byte)Opcode.SS64);
 		}
@@ -636,6 +652,11 @@ namespace compiler
 		public void EmitFPrint64()
 		{
 			writer.Write((byte)Opcode.FPRINT64);
+		}
+
+		public void EmitHalt()
+		{
+			writer.Write((byte)Opcode.HALT);
 		}
 	}
 }

@@ -267,6 +267,7 @@ namespace compiler
 
 			while (ip < code.Length)
 			{
+				int lastIP = ip;
 				int op = ReadCodeByte(ref ip) & 0xff;
 				Opcode Opcode = (Opcode)op;
 
@@ -988,7 +989,7 @@ namespace compiler
 					case Opcode.JMP:
 						{
 							int delta = Pop();
-							ip += delta;
+							ip = lastIP + delta;
 							break;
 						}
 
@@ -998,7 +999,7 @@ namespace compiler
 							int value = Pop() & 1;
 
 							if (value == 1)
-								ip += delta;
+								ip = lastIP + delta;
 
 							break;
 						}
@@ -1009,7 +1010,7 @@ namespace compiler
 							int value = Pop() & 1;
 
 							if (value == 0)
-								ip += delta;
+								ip = lastIP + delta;
 
 							break;
 						}
@@ -1073,12 +1074,12 @@ namespace compiler
 						}
 
 					case Opcode.CALL:
-						{
+						{							
 							int delta = Pop();
 							Push(ip);
 							Push(bp);
 							bp = sp;
-							ip += delta;
+							ip = lastIP + delta;
 							break;
 						}
 
@@ -1185,8 +1186,13 @@ namespace compiler
 							break;
 						}
 
+					case Opcode.HALT:
+						{
+							return;
+						}
+
 					default:
-						throw new Exception("Illegal Opcode " + op + " at IP " + (ip - 1));
+						throw new Exception("Illegal Opcode " + op + " at IP " + lastIP);
 				}
 			}
 		}
@@ -1879,6 +1885,12 @@ namespace compiler
 					case Opcode.FPRINT64:
 						{
 							PrintLine(lastIP, op, "FPRINT64");
+							break;
+						}
+
+					case Opcode.HALT:
+						{
+							PrintLine(lastIP, op, "HALT");
 							break;
 						}
 

@@ -8,23 +8,23 @@ namespace compiler
 {
     public class Label
     {
-        internal Assembler assembler;
-        private int ip;
-        private List<int> references;
+        internal Assembler bindedAssembler;
+        internal int bindedIP;
+        internal List<Tuple<Assembler, int>> references;
 
-        public Assembler Assembler
+        public Assembler BindedAssembler
         {
             get
             {
-                return assembler;
+                return bindedAssembler;
             }
         }
 
-        public int IP
+        public int BindedIP
         {
             get
             {
-                return ip;
+                return bindedIP;
             }
         }
 
@@ -36,7 +36,7 @@ namespace compiler
             }
         }
 
-        public int this[int index]
+        public Tuple<Assembler, int> this[int index]
         {
             get
             {
@@ -44,50 +44,41 @@ namespace compiler
             }
         }
 
-        internal Label(Assembler assembler, int ip = -1)
+        internal Label()
         {
-            this.assembler = assembler;
-            this.ip = ip;
+            bindedAssembler = null;
+            bindedIP = -1;
 
-            references = new List<int>();
+            references = new List<Tuple<Assembler, int>>();
         }
 
         private void UpdateReference(int index)
         {
-            long lastPosition = assembler.Position;
-            int referenceIP = references[index];
-            assembler.Position = referenceIP;
-            assembler.EmitLoadConst(ip - referenceIP - 6);
-            assembler.Position = lastPosition;
+            Tuple<Assembler, int> reference = references[index];
+            Assembler referenceAssembler = reference.Item1;
+            int referenceIP = reference.Item2;
+
+            long lastPosition = referenceAssembler.Position;
+            referenceAssembler.Position = referenceIP;
+            referenceAssembler.EmitLoadConst(bindedIP - referenceIP - 5);
+            referenceAssembler.Position = lastPosition;
         }
 
-        private void UpdateReferences()
+        internal void UpdateReferences()
         {
-            long lastPosition = assembler.Position;
-
             for (int i = 0; i < references.Count; i++)
-            {
-                int referenceIP = references[i];
-                assembler.Position = referenceIP;
-                assembler.EmitLoadConst(ip - referenceIP - 6);
-            }
-
-            assembler.Position = lastPosition;
+                UpdateReference(i);
         }
 
-        internal void Bind(int ip)
+        internal void Bind(Assembler assembler, int ip)
         {
-            this.ip = ip;
-
-            UpdateReferences();
+            bindedAssembler = assembler;
+            bindedIP = ip;
         }
 
-        internal void AddReference(int ip, bool update = true)
+        internal void AddReference(Assembler assembler, int ip)
         {
-            references.Add(ip);
-
-            if (update && this.ip != -1)
-                UpdateReference(references.Count - 1);
+            references.Add(new Tuple<Assembler, int>(assembler, ip));
         }
     }
 }

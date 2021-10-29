@@ -20,6 +20,8 @@ namespace compiler
         private List<GlobalVariable> globals;
         private List<StructType> structs;
         private List<Function> functions;
+        private List<Label> labels;
+
         private int globalVariableOffset;
         private Function entryPoint;
 
@@ -29,9 +31,17 @@ namespace compiler
             globals = new List<GlobalVariable>();
             structs = new List<StructType>();
             functions = new List<Function>();
+            labels = new List<Label>();
 
             globalVariableOffset = 0;
             entryPoint = null;
+        }
+
+        public Label CreateLabel()
+        {
+            Label result = new Label();
+            labels.Add(result);
+            return result;
         }
 
         public GlobalVariable FindGlobalVariable(string name)
@@ -99,7 +109,7 @@ namespace compiler
             if (result != null)
                 return null;
 
-            result = new Function(name);
+            result = new Function(this, name);
             functions.Add(result);
             return result;
         }
@@ -199,6 +209,11 @@ namespace compiler
                     if (lexer.NextSymbol(")", false) != null)
                     {
                         assembler.EmitCall();
+                        assembler.EmitLoadSP();
+                        assembler.EmitLoadConst(-f.ParameterOffset - 2);
+                        assembler.EmitSub();
+                        assembler.EmitStoreSP();
+
                         return f.ReturnType;
                     }
 
@@ -212,6 +227,11 @@ namespace compiler
 
                     assembler.EmitLabel(f.EntryLabel);
                     assembler.EmitCall();
+                    assembler.EmitLoadSP();
+                    assembler.EmitLoadConst(-f.ParameterOffset - 2);
+                    assembler.EmitSub();
+                    assembler.EmitStoreSP();
+
                     return f.ReturnType;
                 }
 
@@ -1292,26 +1312,24 @@ namespace compiler
                         case Primitive.SHORT:
                         case Primitive.INT:
                         case Primitive.FLOAT:
-                            assembler.EmitLoadStack();
+                            assembler.EmitStoreStack();
                             break;
 
                         case Primitive.LONG:
                         case Primitive.DOUBLE:
-                            assembler.EmitLoadStack64();
+                            assembler.EmitStoreStack64();
                             break;
                     }
                 }
                 else
                     // TODO Implementar
                     throw new ParserException("???");
-            }
-            else
-            {
-                lexer.PreviusToken();
-                return ParseLogicalOrExpression(context, assembler);
+
+                return null;
             }
 
-            return var.Type;
+            lexer.PreviusToken();
+            return ParseLogicalOrExpression(context, assembler);
         }
 
         public AbstractType ParseType()
@@ -1534,10 +1552,32 @@ namespace compiler
                             assembler.EmitLoadConst(function.ReturnOffset);
                             assembler.EmitAdd();
 
-                            type = ParseExpression(context, assembler);
+                            AbstractType returnType = ParseExpression(context, assembler);
                             lexer.NextSymbol(";");
 
-                            assembler.EmitStoreStack();
+                            if (returnType is PrimitiveType)
+                            {
+                                PrimitiveType p = (PrimitiveType)returnType;
+                                switch (p.Primitive)
+                                {
+                                    case Primitive.BOOL:
+                                    case Primitive.BYTE:
+                                    case Primitive.CHAR:
+                                    case Primitive.SHORT:
+                                    case Primitive.INT:
+                                    case Primitive.FLOAT:
+                                        assembler.EmitStoreStack();
+                                        break;
+
+                                    case Primitive.LONG:
+                                    case Primitive.DOUBLE:
+                                        assembler.EmitStoreStack64();
+                                        break;
+                                }
+                            }
+                            else
+                                // TODO Implementar
+                                throw new ParserException("???");
 
                             assembler.EmitLabel(function.ReturnLabel);
                             assembler.EmitJump();
@@ -1557,15 +1597,31 @@ namespace compiler
             type = ParseExpression(context, assembler);
             lexer.NextSymbol(";");
 
-            int size = type != null ? type.Size() : 0;
-            if (size > 0)
+            if (type != null)
             {
-                if (size <= 4)
-                    assembler.EmitPop();
-                else if (size <= 8)
-                    assembler.EmitPop2();
+                if (type is PrimitiveType)
+                {
+                    PrimitiveType p = (PrimitiveType)type;
+                    switch (p.Primitive)
+                    {
+                        case Primitive.BOOL:
+                        case Primitive.BYTE:
+                        case Primitive.CHAR:
+                        case Primitive.SHORT:
+                        case Primitive.INT:
+                        case Primitive.FLOAT:
+                            assembler.EmitPop();
+                            break;
+
+                        case Primitive.LONG:
+                        case Primitive.DOUBLE:
+                            assembler.EmitPop2();
+                            break;
+                    }
+                }
                 else
-                    assembler.EmitPopN(GetSizeInDWords(size));
+                    // TODO Implementar
+                    throw new ParserException("???");
             }
         }
 
@@ -1606,12 +1662,12 @@ namespace compiler
                         case Primitive.SHORT:
                         case Primitive.INT:
                         case Primitive.FLOAT:
-                            assembler.EmitLoadStack();
+                            assembler.EmitStoreStack();
                             break;
 
                         case Primitive.LONG:
                         case Primitive.DOUBLE:
-                            assembler.EmitLoadStack64();
+                            assembler.EmitStoreStack64();
                             break;
                     }
                 }
@@ -1645,11 +1701,11 @@ namespace compiler
             Context context = new Context(f);
             Assembler tempAssembler = new Assembler();
 
-            f.CreateReturnLabel(tempAssembler);
+            f.CreateReturnLabel();
             ParseBlock(f, context, tempAssembler);
             f.BindReturnLabel(tempAssembler);
 
-            f.CreateEntryLabel(assembler);
+            f.CreateEntryLabel();
             f.BindEntryLabel(assembler);
 
             f.BeginBlock(assembler);
@@ -1704,11 +1760,11 @@ namespace compiler
                 Context context = new Context(f);
                 Assembler tempAssembler = new Assembler();
 
-                f.CreateReturnLabel(tempAssembler);
+                f.CreateReturnLabel();
                 ParseBlock(f, context, tempAssembler);
                 f.BindReturnLabel(tempAssembler);
 
-                f.CreateEntryLabel(assembler);
+                f.CreateEntryLabel();
                 f.BindEntryLabel(assembler);
 
                 f.BeginBlock(assembler);
@@ -1746,6 +1802,7 @@ namespace compiler
             {
                 assembler.EmitLabel(entryPoint.EntryLabel);
                 assembler.EmitCall();
+                assembler.EmitHalt();
             }
 
             assembler.Emit(tempAssembler);
@@ -1777,6 +1834,13 @@ namespace compiler
             lexer.Input = source;
 
             ParseProgram(assembler);
+
+            for (int i = 0; i < labels.Count; i++)
+            {
+                Label label = labels[i];
+                if (label.BindedIP != -1)
+                    label.UpdateReferences();
+            }
 
             Token token = lexer.NextToken();
             if (token != null)

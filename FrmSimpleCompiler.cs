@@ -123,11 +123,17 @@ namespace SimpleCompiler
         {
             assembler.Reset();
 
-            compiler.CompileProgram(txtSource.Text, assembler);
-
-            vm.Initialize(assembler);
-            vm.Print();
-            btnRun.Enabled = true;
+            try
+            {
+                compiler.CompileProgram(txtSource.Text, assembler);
+                vm.Initialize(assembler);
+                vm.Print();
+                btnRun.Enabled = true;
+            }
+            catch (ParserException ex)
+            {
+                ConsolePrintLn(ex.Message);
+            }
         }
 
         private void mnuConsoleCopy_Click(object sender, EventArgs e)

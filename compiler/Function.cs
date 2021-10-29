@@ -8,6 +8,7 @@ namespace compiler
 {
     public class Function
     {
+        private Compiler compiler;
         private string name;
         private List<Parameter> parameters;
         private AbstractType returnType;
@@ -16,6 +17,14 @@ namespace compiler
         private int returnOffset;
         private Label entryLabel;
         private Label returnLabel;
+
+        public Compiler Compiler
+        {
+            get
+            {
+                return compiler;
+            }
+        }
 
         public string Name
         {
@@ -99,25 +108,26 @@ namespace compiler
         }
 
 
-        public Function(string name)
+        public Function(Compiler compiler, string name)
         {
+            this.compiler = compiler;
             this.name = name;
 
             parameters = new List<Parameter>();
             returnType = null;
-            parameterOffset = -8;
+            parameterOffset = -2;
             localVariableOffset = 0;
-            returnOffset = 0;
+            returnOffset = -2;
         }
 
-        internal void CreateEntryLabel(Assembler assembler)
+        internal void CreateEntryLabel()
         {
-            entryLabel = assembler.CreateLabel();
+            entryLabel = compiler.CreateLabel();
         }
 
-        internal void CreateReturnLabel(Assembler assembler)
+        internal void CreateReturnLabel()
         {
-            returnLabel = assembler.CreateLabel();
+            returnLabel = compiler.CreateLabel();
         }
 
         internal void BindEntryLabel(Assembler assembler)
@@ -165,14 +175,13 @@ namespace compiler
             if (result != null)
                 return null;
 
-            result = new Parameter(this, name, type, parameterOffset);
             parameterOffset -= Compiler.GetSizeInDWords(type.Size());
+            result = new Parameter(this, name, type, parameterOffset);            
             parameters.Add(result);
 
             returnOffset = parameterOffset;
             if (returnType != null)
                 returnOffset -= Compiler.GetSizeInDWords(returnType.Size());
-
 
             return result;
         }

@@ -112,6 +112,7 @@ namespace compiler
 		PRINT,
 		PRINT64,
 		FPRINT,
-		FPRINT64
+		FPRINT64,
+		HALT
 	}
 }
