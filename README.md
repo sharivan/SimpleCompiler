@@ -4,7 +4,7 @@ Um compilador simples que foi desenvolvido em um único dia, durante uma live de
 - IDE de desenvolvimento: Microsoft Visual Studio Community 2019
 - Linguagem: C#
 
-Uma nova gramática foi criada para ser aceita por este compilador, a sintaxe de tal gramática é bastante semelhante com C e possui declarações parecidas com Action Script 2.0. Diversas palavras chaves da linguagem C foram traduzidas para o portugues e inseridas como palavras chave para a gramática desta nova linguagem.
+Uma nova gramática foi criada para ser aceita por este compilador, a sintaxe de tal gramática é bastante semelhante com C e possui declarações parecidas com Action Script 2.0. Diversas palavras chaves da linguagem C foram traduzidas para o português e inseridas como palavras chave para a gramática desta nova linguagem.
 
 A seguir, temos um exemplo simples de um programa escrito nessa linguagem:
 
