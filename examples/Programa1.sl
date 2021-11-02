@@ -17,9 +17,13 @@ programa Programa1
 	}
 	
 	{
-		declare x:int = 1;
-		declare y:int = 2;
-		declare z:real = 3.3;
+		declare x:int;
+		declare y:int;
+		declare z:real;
+		
+		leia x;
+		leia y;
+		leia z;
 		
 		declare w:int = g(x, y);
 		declare t:real = f(z);

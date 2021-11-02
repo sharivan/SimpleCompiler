@@ -19,6 +19,8 @@ namespace compiler
             "long",
             "float",
             "real", // double
+            // conversão de tipo
+            "cast",
             // declarações
             "declare",
             "função",

@@ -9,7 +9,15 @@ namespace compiler
         public static bool IsLetter(char c)
         {
             return 'A' <= c && c <= 'Z' || 
-                'a' <= c && c <= 'z' || 
+                'a' <= c && c <= 'z' ||
+                c == 'Ç' ||
+                c == 'Ã' ||
+                c == 'Õ' ||
+                c == 'Á' ||
+                c == 'É' ||
+                c == 'Í' ||
+                c == 'Ó' ||
+                c == 'Ú' ||
                 c == 'ç' || 
                 c == 'ã' || 
                 c == 'õ' || 

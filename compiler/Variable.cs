@@ -34,6 +34,11 @@ namespace compiler
             {
                 return offset;
             }
+
+            set
+            {
+                offset = value;
+            }
         }
 
         public Variable(string name, AbstractType type, int offset)

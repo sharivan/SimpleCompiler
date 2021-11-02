@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace compiler
 {
-    public class StringLiteral : Token
+    public class StringLiteral : Literal
     {
         private string value;
 

@@ -142,18 +142,25 @@ namespace compiler
 
         internal void BeginBlock(Assembler assembler)
         {
-            assembler.EmitLoadSP();
-            assembler.EmitLoadConst(localVariableOffset);
-            assembler.EmitAdd();
-            assembler.EmitStoreSP();
+            if (localVariableOffset > 0)
+            {
+                assembler.EmitLoadSP();
+                assembler.EmitLoadConst(localVariableOffset);
+                assembler.EmitAdd();
+                assembler.EmitStoreSP();
+            }
         }
 
         internal void EndBlock(Assembler assembler)
-        {            
-            assembler.EmitLoadSP();
-            assembler.EmitLoadConst(localVariableOffset);
-            assembler.EmitSub();
-            assembler.EmitStoreSP();
+        {
+            if (localVariableOffset > 0)
+            {
+                assembler.EmitLoadSP();
+                assembler.EmitLoadConst(localVariableOffset);
+                assembler.EmitSub();
+                assembler.EmitStoreSP();             
+            }
+
             assembler.EmitRet();
         }
 
@@ -184,6 +191,17 @@ namespace compiler
                 returnOffset -= Compiler.GetSizeInDWords(returnType.Size());
 
             return result;
+        }
+
+        public void ComputeParametersOffsets()
+        {
+            int offset = -2;
+            for (int i = parameters.Count - 1; i >= 0; i--)
+            {
+                Parameter parameter = parameters[i];
+                offset -= Compiler.GetSizeInDWords(parameter.Type.Size());
+                parameter.Offset = offset;              
+            }
         }
 
         internal void CheckLocalVariableOffset(int offset)

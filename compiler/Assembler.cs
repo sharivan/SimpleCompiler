@@ -453,7 +453,7 @@ namespace compiler
 
 		public void EmitCompareLess()
 		{
-			writer.Write((byte)Opcode.CMPLE);
+			writer.Write((byte)Opcode.CMPL);
 		}
 
 		public void EmitCompareLessOrEquals()

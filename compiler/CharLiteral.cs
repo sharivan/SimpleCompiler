@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace compiler
 {
-    public class CharLiteral
+    public class CharLiteral : Literal
     {
         private char value;
 

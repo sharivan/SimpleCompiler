@@ -47,7 +47,7 @@ namespace compiler
 		FNEG64,
 		I32I64,
 		I64I32,
-		I32F32,
+		I32F32, // int32 to float32
 		I32F64,
 		I64F64,
 		F32F64,

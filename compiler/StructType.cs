@@ -68,6 +68,23 @@ namespace compiler
             return result;
         }
 
+        public override bool Equals(object obj)
+        {
+            if (ReferenceEquals(this, obj))
+                return true;
+
+            if (obj == null)
+                return false;
+
+            if (obj is StructType s)
+            {
+                string otherName = s.name;
+                return name == otherName;
+            }
+
+            return false;
+        }
+
         public override string ToString()
         {
             string result = "estrutura " + name + "\n{\n";
@@ -81,6 +98,19 @@ namespace compiler
         public override int Size()
         {
             return size;
+        }
+
+        public override bool CoerceWith(AbstractType other, bool isExplicit)
+        {
+            return Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            int hashCode = -1735305858;
+            hashCode = hashCode * -1521134295 + EqualityComparer<string>.Default.GetHashCode(name);
+            hashCode = hashCode * -1521134295 + EqualityComparer<List<Field>>.Default.GetHashCode(fields);
+            return hashCode;
         }
     }
 }

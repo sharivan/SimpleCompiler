@@ -52,10 +52,12 @@
     <Compile Include="compiler\CharLiteral.cs" />
     <Compile Include="compiler\Context.cs" />
     <Compile Include="compiler\DoubleLiteral.cs" />
+    <Compile Include="compiler\Expression.cs" />
     <Compile Include="compiler\Field.cs" />
     <Compile Include="compiler\Function.cs" />
     <Compile Include="compiler\GlobalVariable.cs" />
     <Compile Include="compiler\Label.cs" />
+    <Compile Include="compiler\Literal.cs" />
     <Compile Include="compiler\LocalVariable.cs" />
     <Compile Include="compiler\Opcode.cs" />
     <Compile Include="compiler\Compiler.cs" />
@@ -70,6 +72,7 @@
     <Compile Include="compiler\PointerType.cs" />
     <Compile Include="compiler\PrimitiveType.cs" />
     <Compile Include="compiler\ShortLiteral.cs" />
+    <Compile Include="compiler\Statement.cs" />
     <Compile Include="compiler\StringLiteral.cs" />
     <Compile Include="compiler\StructType.cs" />
     <Compile Include="compiler\Symbol.cs" />

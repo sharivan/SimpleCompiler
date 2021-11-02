@@ -8,6 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Threading;
 
 using compiler;
 
@@ -15,16 +16,20 @@ namespace SimpleCompiler
 {
     public partial class FrmSimpleCompiler : Form
     {
-        private AbstractType type;
+        private AbstractType type = null;
         private Compiler compiler;
         private Assembler assembler;
+        private bool vmRunning = false;
         private VM vm;
+        private Thread vmThread;
+        private object inputLock = new object ();
+        private bool waitingForInput = false;
+        private string input = null;
 
         public FrmSimpleCompiler()
         {
             InitializeComponent();
 
-            type = null;
             compiler = new Compiler();
             assembler = new Assembler();
             vm = new VM();
@@ -34,13 +39,44 @@ namespace SimpleCompiler
 
         private string ConsoleRead()
         {
-            // TODO Implementar
-            return null;
+            string result = null;
+
+            lock (inputLock)
+            {
+                while (waitingForInput)
+                    Monitor.Wait(inputLock);
+
+                input = null;
+
+                waitingForInput = true;
+                Invoke((MethodInvoker) delegate
+                {
+                    txtInput.Clear();
+                    txtInput.ForeColor = Color.White;
+                    txtInput.BackColor = Color.Black;
+                    txtInput.Focus();
+                });
+
+                while (input == null)
+                    Monitor.Wait(inputLock);
+
+                result = input;
+                input = null;
+            }
+
+            return result;
         }
 
         private void ConsolePrint(string message)
         {
-            lbConsole.Items.Add(message);
+            if (InvokeRequired)
+                Invoke(new Action(() => ConsolePrint(message)));
+            else
+            {
+                lbConsole.Items.Add(message);
+                int visibleItems = lbConsole.ClientSize.Height / lbConsole.ItemHeight;
+                lbConsole.TopIndex = Math.Max(lbConsole.Items.Count - visibleItems + 1, 0);
+            }
         }
 
         private void ConsolePrintLn(string message)
@@ -64,59 +100,83 @@ namespace SimpleCompiler
             lbConsole.Items.Clear();
         }
 
-        private void btnRun_Click(object sender, EventArgs e)
+        public void VMRun()
         {
             vm.Run();
-            if (type is PrimitiveType)
+            Invoke((MethodInvoker) delegate
             {
-                PrimitiveType p = (PrimitiveType)type;
-                switch (p.Primitive)
+                btnCompile.Enabled = true;
+                btnCompileProgram.Enabled = true;
+                btnRun.Text = "Start";
+                vmRunning = false;
+
+                if (type is PrimitiveType)
                 {
-                    case Primitive.BOOL:
+                    PrimitiveType p = (PrimitiveType) type;
+                    switch (p.Primitive)
+                    {
+                        case Primitive.BOOL:
                         {
                             bool result = (vm.Pop() & 1) != 0;
                             ConsolePrintLn("Result=" + result);
                             break;
                         }
 
-                    case Primitive.CHAR:
+                        case Primitive.CHAR:
                         {
                             char result = (char) vm.Pop();
                             ConsolePrintLn("Result='" + result + "'");
                             break;
                         }
 
-                    case Primitive.BYTE:
-                    case Primitive.SHORT:
-                    case Primitive.INT:
+                        case Primitive.BYTE:
+                        case Primitive.SHORT:
+                        case Primitive.INT:
                         {
                             int result = vm.Pop();
                             ConsolePrintLn("Result=" + result);
                             break;
                         }
 
-                    case Primitive.LONG:
+                        case Primitive.LONG:
                         {
                             long result = vm.PopLong();
                             ConsolePrintLn("Result=" + result);
                             break;
                         }
 
-                    case Primitive.FLOAT:
+                        case Primitive.FLOAT:
                         {
                             float result = vm.PopFloat();
                             ConsolePrintLn("Result=" + result.ToString(CultureInfo.InvariantCulture));
                             break;
                         }
 
-                    case Primitive.DOUBLE:
+                        case Primitive.DOUBLE:
                         {
                             double result = vm.PopDouble();
                             ConsolePrintLn("Result=" + result.ToString(CultureInfo.InvariantCulture));
                             break;
                         }
+                    }
                 }
+            });          
+        }
+
+        private void btnRun_Click(object sender, EventArgs e)
+        {
+            if (vmRunning)
+            {
+                vmThread.Abort();
+                return;
             }
+
+            vmRunning = true;
+            btnCompile.Enabled = false;
+            btnCompileProgram.Enabled = false;
+            btnRun.Text = "Stop";
+            vmThread = new Thread(() => VMRun());
+            vmThread.Start();
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -149,6 +209,24 @@ namespace SimpleCompiler
         {
             for (int i = 0; i < lbConsole.Items.Count; i++)
                 lbConsole.SelectedItems.Add(lbConsole.Items[i]);
+        }
+
+        private void txtInput_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            if (e.KeyChar == 13)
+            {
+                lock (inputLock)
+                {
+                    input = txtInput.Text;
+                    txtInput.Clear();
+                    txtInput.ForeColor = Color.Black;
+                    txtInput.BackColor = Color.White;
+                    waitingForInput = false;
+                    e.KeyChar = '\0';
+                    e.Handled = true;
+                    Monitor.PulseAll(inputLock);
+                }
+            }
         }
     }
 }

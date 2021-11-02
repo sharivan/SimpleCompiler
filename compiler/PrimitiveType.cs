@@ -34,9 +34,25 @@ namespace compiler
             return type.primitive == Primitive.BOOL;
         }
 
+        public static bool IsPrimitiveBool(AbstractType type)
+        {
+            if (type is PrimitiveType p)
+                return IsPrimitiveBool(p);
+
+            return false;
+        }
+
         public static bool IsPrimitiveNumber(PrimitiveType type)
         {
             return IsPrimitiveInteger(type) || IsPrimitiveFloat(type);
+        }
+
+        public static bool IsPrimitiveNumber(AbstractType type)
+        {
+            if (type is PrimitiveType p)
+                return IsPrimitiveNumber(p);
+
+            return false;
         }
 
         public static bool IsPrimitiveInteger(PrimitiveType type)
@@ -44,9 +60,38 @@ namespace compiler
             return type.primitive == Primitive.BYTE || type.primitive == Primitive.SHORT || type.primitive == Primitive.INT || type.primitive == Primitive.LONG;
         }
 
+        public static bool IsPrimitiveInteger(AbstractType type)
+        {
+            if (type is PrimitiveType p)
+                return IsPrimitiveInteger(p);
+
+            return false;
+        }
+
+        public static bool IsPrimitiveChar(PrimitiveType type)
+        {
+            return type.primitive == Primitive.CHAR;
+        }
+
+        public static bool IsPrimitiveChar(AbstractType type)
+        {
+            if (type is PrimitiveType p)
+                return IsPrimitiveChar(p);
+
+            return false;
+        }
+
         public static bool IsPrimitiveFloat(PrimitiveType type)
         {
             return type.primitive == Primitive.FLOAT || type.primitive == Primitive.DOUBLE;
+        }
+
+        public static bool IsPrimitiveFloat(AbstractType type)
+        {
+            if (type is PrimitiveType p)
+                return IsPrimitiveFloat(p);
+
+            return false;
         }
 
         public static bool IsUpTo32BitsInt(PrimitiveType type)
@@ -54,9 +99,25 @@ namespace compiler
             return type.primitive == Primitive.BYTE || type.primitive == Primitive.SHORT || type.primitive == Primitive.INT;
         }
 
+        public static bool IsUpTo32BitsInt(AbstractType type)
+        {
+            if (type is PrimitiveType p)
+                return IsUpTo32BitsInt(p);
+
+            return false;
+        }
+
         public static bool Is64BitsInt(PrimitiveType type)
         {
             return type.primitive == Primitive.LONG;
+        }
+
+        public static bool Is64BitsInt(AbstractType type)
+        {
+            if (type is PrimitiveType p)
+                return Is64BitsInt(p);
+
+            return false;
         }
 
         public static bool Is32BitsFloat(PrimitiveType type)
@@ -64,9 +125,25 @@ namespace compiler
             return type.primitive == Primitive.FLOAT;
         }
 
+        public static bool Is32BitsFloat(AbstractType type)
+        {
+            if (type is PrimitiveType p)
+                return Is32BitsFloat(p);
+
+            return false;
+        }
+
         public static bool Is64BitsFloat(PrimitiveType type)
         {
             return type.primitive == Primitive.DOUBLE;
+        }
+
+        public static bool Is64BitsFloat(AbstractType type)
+        {
+            if (type is PrimitiveType p)
+                return Is64BitsFloat(p);
+
+            return false;
         }
 
         private Primitive primitive;
@@ -82,6 +159,20 @@ namespace compiler
         private PrimitiveType(Primitive primitive)
         {
             this.primitive = primitive;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (ReferenceEquals(this, obj))
+                return true;
+
+            if (obj == null)
+                return false;
+
+            if (obj is PrimitiveType p)
+                return primitive == p.primitive;
+
+            return false;
         }
 
         public override string ToString()
@@ -146,6 +237,68 @@ namespace compiler
             }
 
             return -1;
+        }
+
+        public override bool CoerceWith(AbstractType other, bool isExplicit)
+        {
+            if (other is PrimitiveType o)
+            {
+                switch (primitive)
+                {
+                    case Primitive.BOOL:
+                        return isExplicit ? true : o.primitive == Primitive.BOOL;
+
+                    case Primitive.BYTE:
+                        return isExplicit ? o.primitive != Primitive.BOOL : o.primitive >= Primitive.BYTE && o.primitive != Primitive.CHAR;
+
+                    case Primitive.CHAR:
+                        return isExplicit ? o.primitive != Primitive.BOOL : o.primitive == Primitive.CHAR;
+
+                    case Primitive.SHORT:
+                        return isExplicit ? o.primitive != Primitive.BOOL : o.primitive >= Primitive.SHORT;
+
+                    case Primitive.INT:
+                        return isExplicit ? o.primitive != Primitive.BOOL : o.primitive >= Primitive.INT;
+
+                    case Primitive.LONG:
+                        return isExplicit ? o.primitive != Primitive.BOOL : o.primitive >= Primitive.LONG;
+
+                    case Primitive.FLOAT:
+                        return isExplicit ? o.primitive != Primitive.BOOL : o.primitive >= Primitive.FLOAT;
+
+                    case Primitive.DOUBLE:
+                        return isExplicit ? o.primitive != Primitive.BOOL : o.primitive == Primitive.DOUBLE;
+                }
+            }
+
+            if (other is PointerType)
+            {
+                switch (primitive)
+                {
+                    case Primitive.BOOL:
+                    case Primitive.BYTE:
+                    case Primitive.CHAR:
+                    case Primitive.SHORT:
+                        return false;
+
+                    case Primitive.INT:
+                        return isExplicit;
+
+                    case Primitive.LONG:
+                        return isExplicit;
+
+                    case Primitive.FLOAT:
+                    case Primitive.DOUBLE:
+                        return false;
+                }
+            }
+
+            return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return 1968834918 + primitive.GetHashCode();
         }
     }
 }

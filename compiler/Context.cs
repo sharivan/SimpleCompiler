@@ -12,6 +12,7 @@ namespace compiler
         private Context parent;
         private List<Variable> variables;
         private int offset;
+        private Stack<Label> breakLabels;
 
         public Function Function
         {
@@ -47,6 +48,7 @@ namespace compiler
             this.parent = parent;
             
             variables = new List<Variable>();
+            breakLabels = new Stack<Label>();
 
             if (parent == null)
                 AddParams(function);
@@ -98,6 +100,29 @@ namespace compiler
                 return parent.FindVariable(name, true);
 
             return null;
+        }
+
+        public void PushBreakLabel(Label label)
+        {
+            breakLabels.Push(label);
+        }
+
+        public void DropBreakLabel()
+        {
+            breakLabels.Pop();
+        }
+
+        public Label FindNearestBreakLabel()
+        {
+            if (breakLabels.Count == 0)
+            {
+                if (parent != null)
+                    return parent.FindNearestBreakLabel();
+
+                return null;
+            }
+
+            return breakLabels.Pop();
         }
     }
 }

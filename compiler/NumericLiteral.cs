@@ -4,7 +4,7 @@ using System.Text;
 
 namespace compiler
 {
-    public abstract class NumericLiteral : Token
+    public abstract class NumericLiteral : Literal
     {
         public abstract byte AsByte();
 

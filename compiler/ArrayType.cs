@@ -47,6 +47,33 @@ namespace compiler
             boundaries.Add(boundary);
         }
 
+        public override bool Equals(object obj)
+        {
+            if (ReferenceEquals(this, obj))
+                return true;
+
+            if (obj == null)
+                return false;
+
+            if (obj is ArrayType a)
+            {
+                AbstractType otherType = a.Type;
+                if (type != otherType)
+                    return false;
+
+                if (boundaries.Count != a.boundaries.Count)
+                    return false;
+
+                for (int i = 0; i < boundaries.Count; i++)
+                    if (boundaries[i] != a.boundaries[i])
+                        return false;
+
+                return true;
+            }
+
+            return false;
+        }
+
         public override string ToString()
         {
             string result = type + "[";
@@ -67,6 +94,19 @@ namespace compiler
                 result *= boundaries[i];
 
             return result;
+        }
+
+        public override bool CoerceWith(AbstractType other, bool isExplicit)
+        {
+            return Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            int hashCode = 13823892;
+            hashCode = hashCode * -1521134295 + EqualityComparer<AbstractType>.Default.GetHashCode(type);
+            hashCode = hashCode * -1521134295 + EqualityComparer<List<int>>.Default.GetHashCode(boundaries);
+            return hashCode;
         }
     }
 }
