@@ -176,7 +176,7 @@ namespace compiler
             if (result != null)
                 return null;
 
-            parameterOffset -= type.Size();
+            parameterOffset -= byRef ? 4 : type.Size();
             result = new Parameter(this, name, type, parameterOffset, byRef);            
             parameters.Add(result);
 
@@ -193,8 +193,8 @@ namespace compiler
             for (int i = parameters.Count - 1; i >= 0; i--)
             {
                 Parameter parameter = parameters[i];
-                offset -= parameter.Type.Size();
-                parameter.Offset = offset;              
+                offset -= parameter.ByRef ? 4 : parameter.Type.Size();
+                parameter.Offset = offset;
             }
         }
 

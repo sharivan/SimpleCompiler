@@ -35,7 +35,7 @@ namespace compiler
             labels = new List<Label>();
             stringTable = new Dictionary<string, int>();
 
-            globalVariableOffset = 0;
+            globalVariableOffset = 1;
             entryPoint = null;
         }
         
@@ -583,7 +583,7 @@ namespace compiler
             AbstractType type = ParseType();
             lexer.NextSymbol(">");
             lexer.NextSymbol("(");
-            Expression operand = ParseUnaryExpression();
+            Expression operand = ParseExpression();
             lexer.NextSymbol(")");
 
             return new CastExpression(type, operand);
@@ -1254,7 +1254,8 @@ namespace compiler
                 Expression operand = f.Operand;
                 string fieldName = f.Field;
 
-                AbstractType operandType = CompileAssignableExpression(function, context, assembler, operand, out Variable storeVar2);
+
+                AbstractType operandType = CompileAssignableExpression(function, context, assembler, operand, out _);
 
                 if (operandType is StructType s)
                 {
@@ -1275,7 +1276,7 @@ namespace compiler
             if (expression is ArrayAccessorExpression a)
             {
                 Expression operand = a.Operand;               
-                AbstractType operandType = CompileAssignableExpression(function, context, assembler, operand, out Variable storeVar2);
+                AbstractType operandType = CompileAssignableExpression(function, context, assembler, operand, out _);
 
                 if (operandType is ArrayType at)
                 {
@@ -1316,6 +1317,7 @@ namespace compiler
                 IdentifierExpression id = (IdentifierExpression) p;
                 string name = id.Name;
 
+                bool byRef = false;
                 Variable var = context.FindVariable(id.Name);
                 if (var == null)
                 {
@@ -1331,17 +1333,17 @@ namespace compiler
                 {
                     // variável local ou parâmetro
                     int offset = var.Offset;
-                    assembler.EmitLoadLocalAddress(offset);
+                    
+                    if (var is Parameter param && param.ByRef)
+                    {
+                        byRef = true;
+                        assembler.EmitLoadLocal32(offset);
+                    }
+                    else
+                        assembler.EmitLoadLocalAddress(offset);
                 }
 
-                if (var is Parameter param && param.ByRef)
-                {
-                    storeVar = null;
-                    CompileLoad(assembler, var.Type);
-                }
-                else
-                    storeVar = var.Type is PrimitiveType || var.Type is PointerType ? var : null;
-
+                storeVar = !byRef && (var.Type is PrimitiveType || var.Type is PointerType) ? var : null;
                 return var.Type;
             }
 
@@ -4920,14 +4922,23 @@ namespace compiler
                     if (function == null)
                         throw new ParserException("Variável global não pode ser inicializada.");
 
+                    bool useVar = false;
                     if (var is GlobalVariable)
                         assembler.EmitLoadConst(var.Offset);
                     else
-                        assembler.EmitLoadLocalAddress(var.Offset);
+                    {
+                        useVar = var.Type is PrimitiveType || var.Type is PointerType;
+                        if (!useVar)
+                            assembler.EmitLoadLocalAddress(var.Offset);
+                    }
 
                     AbstractType initializerType = CompileExpression(function, context, assembler, initializer);
                     CompileCast(assembler, initializerType, type, false);
-                    CompileStore(assembler, type);
+
+                    if (useVar)
+                        CompileStore(assembler, var);
+                    else
+                        CompileStore(assembler, type);
                 }
             }
         }
@@ -5061,11 +5072,17 @@ namespace compiler
 
         public AbstractType CompileAdditiveExpression(string expression, Assembler assembler)
         {
+            globalVariableOffset = 1;
+            entryPoint = null;
+
             globals.Clear();
             structs.Clear();
             functions.Clear();
+            labels.Clear();
+            stringTable.Clear();
 
             lexer.Input = expression;
+
             Context context = new Context(null);
             Expression expr = ParseAdditiveExpression();
             AbstractType type = CompileExpression(null, context, assembler, expr);
@@ -5079,9 +5096,14 @@ namespace compiler
 
         public void CompileProgram(string source, Assembler assembler)
         {
+            globalVariableOffset = 1;
+            entryPoint = null;
+
             globals.Clear();
             structs.Clear();
             functions.Clear();
+            labels.Clear();
+            stringTable.Clear();
 
             lexer.Input = source;
 

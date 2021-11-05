@@ -422,8 +422,18 @@ namespace compiler
             if (pos >= input.Length)
                 return null;
 
-            SkipBlanks();
-            SkipComments();
+            while (true)
+            {
+                int lastPos = pos;
+
+                SkipBlanks();
+                SkipComments();
+
+                if (lastPos == pos)
+                    break;
+
+                lastPos = pos;
+            }
 
             char c = input[pos++];
            

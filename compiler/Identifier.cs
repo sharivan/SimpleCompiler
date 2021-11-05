@@ -8,24 +8,10 @@ namespace compiler
     {
         public static bool IsLetter(char c)
         {
-            return 'A' <= c && c <= 'Z' || 
+            return 'A' <= c && c <= 'Z' ||
                 'a' <= c && c <= 'z' ||
-                c == 'Ç' ||
-                c == 'Ã' ||
-                c == 'Õ' ||
-                c == 'Á' ||
-                c == 'É' ||
-                c == 'Í' ||
-                c == 'Ó' ||
-                c == 'Ú' ||
-                c == 'ç' || 
-                c == 'ã' || 
-                c == 'õ' || 
-                c == 'á' || 
-                c == 'é' || 
-                c == 'í' || 
-                c == 'ó' ||
-                c == 'ú';
+                c != '\u00d7' && '\u00c0' <= c && c <= '\u00dd' ||
+                c != '\u00f7' && '\u00e0' <= c && c <= '\u00ff';
         }
 
         public static bool CanBeAVariableIntentifier(string name)
