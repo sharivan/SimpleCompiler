@@ -108,5 +108,21 @@ namespace compiler
             hashCode = hashCode * -1521134295 + EqualityComparer<List<int>>.Default.GetHashCode(boundaries);
             return hashCode;
         }
+
+        public static bool operator ==(ArrayType t1, ArrayType t2)
+        {
+            if (ReferenceEquals(t1, t2))
+                return true;
+
+            if (((object) t1) == null || ((object) t2) == null)
+                return false;
+
+            return t1.Equals(t2);
+        }
+
+        public static bool operator !=(ArrayType t1, ArrayType t2)
+        {
+            return !(t1 == t2);
+        }
     }
 }

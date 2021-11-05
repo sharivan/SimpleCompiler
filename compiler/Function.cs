@@ -62,8 +62,8 @@ namespace compiler
                 returnType = value;
 
                 returnOffset = parameterOffset;
-                if (returnType != null)
-                    returnOffset -= Compiler.GetSizeInDWords(returnType.Size());
+                if (!PrimitiveType.IsPrimitiveVoid(returnType))
+                    returnOffset -= returnType.Size();
             }
         }
 
@@ -114,10 +114,10 @@ namespace compiler
             this.name = name;
 
             parameters = new List<Parameter>();
-            returnType = null;
-            parameterOffset = -2;
+            returnType = PrimitiveType.VOID;
+            parameterOffset = -8;
             localVariableOffset = 0;
-            returnOffset = -2;
+            returnOffset = -8;
         }
 
         internal void CreateEntryLabel()
@@ -143,25 +143,19 @@ namespace compiler
         internal void BeginBlock(Assembler assembler)
         {
             if (localVariableOffset > 0)
-            {
-                assembler.EmitLoadSP();
-                assembler.EmitLoadConst(localVariableOffset);
-                assembler.EmitAdd();
-                assembler.EmitStoreSP();
-            }
+                assembler.EmitAddSP(localVariableOffset);
         }
 
         internal void EndBlock(Assembler assembler)
         {
             if (localVariableOffset > 0)
-            {
-                assembler.EmitLoadSP();
-                assembler.EmitLoadConst(localVariableOffset);
-                assembler.EmitSub();
-                assembler.EmitStoreSP();             
-            }
+                assembler.EmitSubSP(localVariableOffset);
 
-            assembler.EmitRet();
+            int count = -parameterOffset - 8;
+            if (count > 0)
+                assembler.EmitRetN(count);
+            else
+                assembler.EmitRet();
         }
 
         public Parameter FindParameter(string name)
@@ -176,30 +170,30 @@ namespace compiler
             return null;
         }
 
-        public Parameter DeclareParameter(string name, AbstractType type)
+        public Parameter DeclareParameter(string name, AbstractType type, bool byRef)
         {
             Parameter result = FindParameter(name);
             if (result != null)
                 return null;
 
-            parameterOffset -= Compiler.GetSizeInDWords(type.Size());
-            result = new Parameter(this, name, type, parameterOffset);            
+            parameterOffset -= type.Size();
+            result = new Parameter(this, name, type, parameterOffset, byRef);            
             parameters.Add(result);
 
             returnOffset = parameterOffset;
-            if (returnType != null)
-                returnOffset -= Compiler.GetSizeInDWords(returnType.Size());
+            if (!PrimitiveType.IsPrimitiveVoid(returnType))
+                returnOffset -= returnType.Size();
 
             return result;
         }
 
         public void ComputeParametersOffsets()
         {
-            int offset = -2;
+            int offset = -8;
             for (int i = parameters.Count - 1; i >= 0; i--)
             {
                 Parameter parameter = parameters[i];
-                offset -= Compiler.GetSizeInDWords(parameter.Type.Size());
+                offset -= parameter.Type.Size();
                 parameter.Offset = offset;              
             }
         }

@@ -29,6 +29,7 @@ namespace compiler
             // leitura e escrita
             "leia",
             "escreva",
+            "escrevaln",
             // literais lógicos
             "verdadeiro", // true
             "falso", // false

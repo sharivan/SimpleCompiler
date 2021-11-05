@@ -15,11 +15,12 @@ namespace compiler
         NEGATION, // -a
         BITWISE_NOT, // ~a
         LOGICAL_NOT, // !a
-        POINTER_DEFERENCE, // *a
+        POINTER_INDIRECTION, // *a
         PRE_INCREMENT, // ++a
         PRE_DECREMENT, // --a
         POST_INCREMENT, // a++
-        POST_DECREMENT // a--
+        POST_DECREMENT, // a--
+        POINTER_TO, // &a
     }
 
     public class UnaryExpression : Expression
@@ -499,7 +500,7 @@ namespace compiler
 
         protected override AbstractType GetType()
         {
-            return new PointerType(PrimitiveType.CHAR);
+            return PointerType.STRING;
         }
     }
 
@@ -511,7 +512,7 @@ namespace compiler
 
         protected override AbstractType GetType()
         {
-            return new PointerType();
+            return PointerType.NULL;
         }
     }
 

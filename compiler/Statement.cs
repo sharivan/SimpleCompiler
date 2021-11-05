@@ -105,31 +105,24 @@ namespace compiler
 
     public class PrintStatement : Statement
     {
+        private bool lineBreak;
         private List<Expression> expressions;
 
-        public int ExpressionCount
-        {
-            get
-            {
-                return expressions.Count;
-            }
-        }
+        public bool LineBreak => lineBreak;
+
+        public int ExpressionCount => expressions.Count;
 
         public Expression this[int index]
         {
-            get
-            {
-                return expressions[index];
-            }
+            get => expressions[index];
 
-            set
-            {
-                expressions[index] = value;
-            }
+            set => expressions[index] = value;
         }
 
-        public PrintStatement()
+        public PrintStatement(bool lineBreak)
         {
+            this.lineBreak = lineBreak;
+
             expressions = new List<Expression>();
         }
 

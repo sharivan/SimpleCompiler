@@ -69,7 +69,7 @@ namespace compiler
                 return null;
 
             LocalVariable result = new LocalVariable(function, name, type, RealOffset);
-            offset += Compiler.GetSizeInDWords(type.Size());
+            offset += type.Size();
             function.CheckLocalVariableOffset(offset);
             variables.Add(result);
             return result;

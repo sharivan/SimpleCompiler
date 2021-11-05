@@ -124,7 +124,7 @@ namespace SimpleCompiler
             this.btnCompileProgram.TabIndex = 5;
             this.btnCompileProgram.Text = "Compilar Programa";
             this.btnCompileProgram.UseVisualStyleBackColor = true;
-            this.btnCompileProgram.Click += new System.EventHandler(this.button1_Click);
+            this.btnCompileProgram.Click += new System.EventHandler(this.btnCompileProgram_Click);
             // 
             // txtInput
             // 

@@ -21,6 +21,7 @@ namespace compiler
         private List<StructType> structs;
         private List<Function> functions;
         private List<Label> labels;
+        private Dictionary<string, int> stringTable;
 
         private int globalVariableOffset;
         private Function entryPoint;
@@ -32,16 +33,29 @@ namespace compiler
             structs = new List<StructType>();
             functions = new List<Function>();
             labels = new List<Label>();
+            stringTable = new Dictionary<string, int>();
 
             globalVariableOffset = 0;
             entryPoint = null;
         }
-
+        
         public Label CreateLabel()
         {
             Label result = new Label();
             labels.Add(result);
             return result;
+        }
+
+        public int GetStringOffset(string value)
+        {
+            if (stringTable.ContainsKey(value))
+                return stringTable[value];
+
+            int size = (value.Length + 1) * 2;
+            int offset = globalVariableOffset;
+            stringTable.Add(value, offset);
+            globalVariableOffset += size;
+            return offset;
         }
 
         public GlobalVariable FindGlobalVariable(string name)
@@ -63,7 +77,19 @@ namespace compiler
                 return null;
 
             result = new GlobalVariable(name, type, globalVariableOffset);
-            globalVariableOffset += GetSizeInDWords(type.Size());
+            globalVariableOffset += type.Size();
+            globals.Add(result);
+            return result;
+        }
+
+        public GlobalVariable DeclareGlobalVariable(string name, AbstractType type, object initialValue)
+        {
+            GlobalVariable result = FindGlobalVariable(name);
+            if (result != null)
+                return null;
+
+            result = new GlobalVariable(name, type, globalVariableOffset, initialValue);
+            globalVariableOffset += type.Size();
             globals.Add(result);
             return result;
         }
@@ -140,6 +166,9 @@ namespace compiler
                 {
                     switch (p.Primitive)
                     {
+                        case Primitive.VOID:
+                            throw new ParserException("Conversão inválida de 'void' para '" + tp + "'.");
+
                         case Primitive.BOOL:
                             if (isExplicit ? false : tp.Primitive != Primitive.BOOL)
                                 throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
@@ -257,6 +286,7 @@ namespace compiler
                 {
                     switch (p.Primitive)
                     {
+                        case Primitive.VOID:
                         case Primitive.BOOL:
                         case Primitive.BYTE:
                         case Primitive.CHAR:
@@ -284,7 +314,7 @@ namespace compiler
                     return;
                 }
 
-                throw new ParserException("Unknow type '" + toType + "'.");
+                throw new ParserException("Tipo desconhecido: '" + toType + "'.");
             }
 
             if (fromType is StructType s)
@@ -303,12 +333,13 @@ namespace compiler
                 return;
             }
 
-            if (fromType is PointerType ptr)
+            if (fromType is PointerType fptr)
             {
                 if (toType is PrimitiveType tp)
                 {
                     switch (tp.Primitive)
                     {
+                        case Primitive.VOID:
                         case Primitive.BOOL:
                             throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
@@ -358,22 +389,25 @@ namespace compiler
 
                 if (toType is PointerType tptr)
                 {
+                    if (fptr.Type == null)
+                        return;
+
                     AbstractType otherType = tptr.Type;
-                    if (isExplicit ? false : ptr.Type != otherType)
+                    if (isExplicit ? false : !PrimitiveType.IsPrimitiveVoid(otherType) && fptr.Type != otherType)
                         throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
                 }
 
-                throw new ParserException("Unknow type '" + toType + "'.");
+                throw new ParserException("Tipo desconhecido: '" + toType + "'.");
             }
 
-            throw new ParserException("Unknow type '" + fromType + "'.");
+            throw new ParserException("Tipo desconhecido: '" + fromType + "'.");
         }
 
         private Expression ParsePrimaryExpression()
         {
             Token token = lexer.NextToken();
             if (token == null)
-                throw new ParserException("End of expression reached but primary expression expected.");
+                throw new ParserException("Fim do arquivo encontrado mas token esperado.");
 
             if (token is Keyword kw)
             {
@@ -441,7 +475,7 @@ namespace compiler
             if (token is Symbol symbol)
             {
                 if (symbol.Value != "(")
-                    throw new ParserException("'(' expected but '" + symbol.Value + "' found");
+                    throw new ParserException("'(' esperado mas '" + symbol.Value + "' encontrado.");
 
                 Expression result = ParseExpression();
 
@@ -450,40 +484,95 @@ namespace compiler
                 return result;
             }
 
-            throw new ParserException("Unexpected token: " + token);
+            throw new ParserException("Token não esperado: " + token);
+        }
+
+        private Expression ParsePostFixExpression()
+        {
+            Expression operand = ParsePrimaryExpression();
+
+            Symbol symbol = lexer.NextSymbol(false);
+            if (symbol == null)
+                return operand;
+
+            switch (symbol.Value)
+            {
+                case "++":
+                    return new UnaryExpression(UnaryOperation.POST_INCREMENT, operand);
+
+                case "--":
+                    return new UnaryExpression(UnaryOperation.POST_DECREMENT, operand);
+
+                case ".":
+                {
+                    Identifier id = lexer.NextIdentifier();
+                    return new FieldAcessorExpression(operand, id.Name);
+                }
+
+                case "[":
+                {
+                    ArrayAccessorExpression result = new ArrayAccessorExpression(operand);
+                    Expression indexer = ParseExpression();
+                    result.AddIndexer(indexer);
+
+                    while (lexer.NextSymbol(",", false) != null)
+                    {
+                        indexer = ParseExpression();
+                        result.AddIndexer(indexer);
+                    }
+
+                    lexer.NextSymbol("]");
+                    return result;
+                }
+            }
+
+            lexer.PreviusToken();
+            return operand;
         }
 
         private Expression ParseUnaryExpression()
         {
             Symbol symbol = lexer.NextSymbol(false);
             if (symbol == null)
-                return ParsePrimaryExpression();
+                return ParsePostFixExpression();
 
             Expression operand;
             switch (symbol.Value)
             {
                 case "+":
-                    return ParsePrimaryExpression();
+                    return ParsePostFixExpression();
 
                 case "-":
-                    operand = ParsePrimaryExpression();
+                    operand = ParsePostFixExpression();
                     return new UnaryExpression(UnaryOperation.NEGATION, operand);
 
                 case "*":
-                    operand = ParsePrimaryExpression();
-                    return new UnaryExpression(UnaryOperation.POINTER_DEFERENCE, operand);
+                    operand = ParsePostFixExpression();
+                    return new UnaryExpression(UnaryOperation.POINTER_INDIRECTION, operand);
 
                 case "!":
-                    operand = ParsePrimaryExpression();
+                    operand = ParsePostFixExpression();
                     return new UnaryExpression(UnaryOperation.LOGICAL_NOT, operand);
 
                 case "~":
-                    operand = ParsePrimaryExpression();
+                    operand = ParsePostFixExpression();
                     return new UnaryExpression(UnaryOperation.BITWISE_NOT, operand);
+
+                case "++":
+                    operand = ParsePostFixExpression();
+                    return new UnaryExpression(UnaryOperation.PRE_INCREMENT, operand);
+
+                case "--":
+                    operand = ParsePostFixExpression();
+                    return new UnaryExpression(UnaryOperation.PRE_DECREMENT, operand);
+
+                case "&":
+                    operand = ParsePostFixExpression();
+                    return new UnaryExpression(UnaryOperation.POINTER_TO, operand);
             }
 
             lexer.PreviusToken();
-            return ParsePrimaryExpression();
+            return ParsePostFixExpression();
         }
         private Expression ParseCastExpression()
         {
@@ -790,58 +879,122 @@ namespace compiler
 
         public AbstractType ParseType()
         {
+            AbstractType result = null;
+
             Keyword kw = lexer.NextKeyword(false);
             if (kw != null)
             {
                 switch (kw.Value)
                 {
+                    case "void":
+                        result = PrimitiveType.VOID;
+                        break;
+
                     case "bool":
-                        return PrimitiveType.BOOL;
+                        result = PrimitiveType.BOOL;
+                        break;
 
                     case "byte":
-                        return PrimitiveType.BYTE;
+                        result = PrimitiveType.BYTE;
+                        break;
 
                     case "char":
-                        return PrimitiveType.CHAR;
+                        result = PrimitiveType.CHAR;
+                        break;
 
                     case "short":
-                        return PrimitiveType.SHORT;
+                        result = PrimitiveType.SHORT;
+                        break;
 
                     case "int":
-                        return PrimitiveType.INT;
+                        result = PrimitiveType.INT;
+                        break;
 
                     case "long":
-                        return PrimitiveType.LONG;
+                        result = PrimitiveType.LONG;
+                        break;
 
                     case "float":
-                        return PrimitiveType.FLOAT;
+                        result = PrimitiveType.FLOAT;
+                        break;
 
                     case "real":
-                        return PrimitiveType.DOUBLE;
-                }
+                        result = PrimitiveType.DOUBLE;
+                        break;
 
-                lexer.PreviusToken();
+                    default:
+                        lexer.PreviusToken();
+                        break;
+                }
             }
 
-            Identifier id = lexer.NextIdentifier();
-            StructType st = FindStruct(id.Name);
-            if (st == null)
-                throw new ParserException("Undeclared type '" + id.Name + "'");
+            if (result == null)
+            {
+                Identifier id = lexer.NextIdentifier();
+                result = FindStruct(id.Name);
+                if (result == null)
+                    throw new ParserException("Tipo não declarado: '" + id.Name + "'");
+            }
 
-            return st;
+            while (true)
+            {
+                if (lexer.NextSymbol("*", false) != null)
+                    result = new PointerType(result);
+                else if (lexer.NextSymbol("[", false) != null)
+                {
+                    if (PrimitiveType.IsPrimitiveVoid(result))
+                        throw new ParserException("Uso inválido do tipo void.");
+
+                    ArrayType a = new ArrayType(result);
+
+                    NumericLiteral number = lexer.NextNumber();
+                    if (!(number is IntLiteral n))
+                        throw new ParserException("Literal inteiro esperado.");
+
+                    if (n.Value <= 0)
+                        throw new ParserException("Tamanho de array deve ser maior que zero.");
+
+                    a.AddBoundary(n.Value);
+
+                    while (lexer.NextSymbol(",", false) != null)
+                    {
+                        number = lexer.NextNumber();
+                        if (!(number is IntLiteral n2))
+                            throw new ParserException("Literal inteiro esperado.");
+
+                        if (n2.Value <= 0)
+                            throw new ParserException("Tamanho de array deve ser maior que zero.");
+
+                        a.AddBoundary(n2.Value);
+                    }
+
+                    lexer.NextSymbol("]");
+
+                    result = a;
+                }
+                else
+                {
+                    if (PrimitiveType.IsPrimitiveVoid(result))
+                        throw new ParserException("Uso inválido do tipo void.");
+
+                    return result;
+                }
+            }
         }
 
         public void ParseParamsDeclaration(Function function)
         {
             while (true)
             {
+                bool byRef = lexer.NextSymbol("&", false) != null;
+
                 Identifier id = lexer.NextIdentifier();
                 lexer.NextSymbol(":");
                 AbstractType type = ParseType();
 
-                Parameter p = function.DeclareParameter(id.Name, type);
+                Parameter p = function.DeclareParameter(id.Name, type, byRef);
                 if (p == null)
-                    throw new ParserException("Parameter '" + id.Name + "' already declared.");
+                    throw new ParserException("Parâmetro '" + id.Name + "' já declarado.");
 
                 if (lexer.NextSymbol(",", false) == null)
                     break;
@@ -860,7 +1013,7 @@ namespace compiler
 
                 Field field = st.DeclareField(id.Name, type);
                 if (field == null)
-                    throw new ParserException("Field '" + id.Name + "' already declared.");
+                    throw new ParserException("Campo '" + id.Name + "' já declarado.");
 
                 lexer.NextSymbol(";");
 
@@ -871,32 +1024,8 @@ namespace compiler
 
         private void CompilePop(Assembler assembler, AbstractType type)
         {
-            if (type != null)
-            {
-                if (type is PrimitiveType)
-                {
-                    PrimitiveType p = (PrimitiveType) type;
-                    switch (p.Primitive)
-                    {
-                        case Primitive.BOOL:
-                        case Primitive.BYTE:
-                        case Primitive.CHAR:
-                        case Primitive.SHORT:
-                        case Primitive.INT:
-                        case Primitive.FLOAT:
-                            assembler.EmitPop();
-                            break;
-
-                        case Primitive.LONG:
-                        case Primitive.DOUBLE:
-                            assembler.EmitPop2();
-                            break;
-                    }
-                }
-                else
-                    // TODO Implementar
-                    throw new ParserException("???");
-            }
+            if (!PrimitiveType.IsPrimitiveVoid(type))
+                assembler.EmitSubSP(type.Size());
         }
 
         private Statement ParseStatement()
@@ -1018,13 +1147,16 @@ namespace compiler
                     {
                         ReadStatement result = new ReadStatement();
 
-                        Identifier id = lexer.NextIdentifier();
-                        result.AddExpression(new IdentifierExpression(id.Name));
+                        if (lexer.NextSymbol(";", false) != null)
+                            throw new ParserException("Expressão esperada.");
+
+                        Expression expression = ParseExpression();
+                        result.AddExpression(expression);
 
                         while (lexer.NextSymbol(",", false) != null)
                         {
-                            id = lexer.NextIdentifier();
-                            result.AddExpression(new IdentifierExpression(id.Name));
+                            expression = ParseExpression();
+                            result.AddExpression(expression);
                         }
 
                         lexer.NextSymbol(";");
@@ -1033,8 +1165,9 @@ namespace compiler
                     }
 
                     case "escreva":
+                    case "escrevaln":
                     {
-                        PrintStatement result = new PrintStatement();
+                        PrintStatement result = new PrintStatement(kw.Value == "escrevaln");
 
                         if (lexer.NextSymbol(";", false) != null)
                             throw new ParserException("Expressão esperada.");
@@ -1100,18 +1233,19 @@ namespace compiler
             }
         }
 
-        private AbstractType CompileAssignableExpression(Function function, Context context, Assembler assembler, Expression expression)
+        private AbstractType CompileAssignableExpression(Function function, Context context, Assembler assembler, Expression expression, out Variable storeVar)
         {
             if (expression is UnaryExpression u)
             {
                 Expression operand = u.Operand;
                 AbstractType operandType = CompileExpression(function, context, assembler, operand);
-                if (u.Operation != UnaryOperation.POINTER_DEFERENCE)
+                if (u.Operation != UnaryOperation.POINTER_INDIRECTION)
                     throw new ParserException("A expressão do lado esquerdo não é atribuível.");
 
                 if (!(operandType is PointerType ptr))
-                    throw new ParserException("Deferência de ponteiros só pode ser feita com um tipo 'pointer'.");
+                    throw new ParserException("Indireção de ponteiros só pode ser feita com um tipo 'pointer'.");
 
+                storeVar = null;
                 return ptr.Type;
             }
 
@@ -1120,27 +1254,28 @@ namespace compiler
                 Expression operand = f.Operand;
                 string fieldName = f.Field;
 
-                AbstractType operandType = CompileAssignableExpression(function, context, assembler, operand);
+                AbstractType operandType = CompileAssignableExpression(function, context, assembler, operand, out Variable storeVar2);
 
                 if (operandType is StructType s)
                 {
                     Field field = s.FindField(fieldName);
                     if (field == null)
-                        throw new ParserException("Campo '" + fieldName + "' não encontrado na struct: '" + s.Name + "'.");
+                        throw new ParserException("Campo '" + fieldName + "' não encontrado na estrutura: '" + s.Name + "'.");
 
                     assembler.EmitLoadConst(field.Offset);
                     assembler.EmitAdd();
 
+                    storeVar = null;
                     return field.Type;
                 }
                 
-                throw new ParserException("Acesso de membros em um tipo que não é struct: '" + operandType + "'.");
+                throw new ParserException("Acesso de membros em um tipo que não é estrutura: '" + operandType + "'.");
             }
 
             if (expression is ArrayAccessorExpression a)
             {
                 Expression operand = a.Operand;               
-                AbstractType operandType = CompileAssignableExpression(function, context, assembler, operand);
+                AbstractType operandType = CompileAssignableExpression(function, context, assembler, operand, out Variable storeVar2);
 
                 if (operandType is ArrayType at)
                 {
@@ -1166,6 +1301,7 @@ namespace compiler
 
                     assembler.EmitAdd();
 
+                    storeVar = null;
                     return at.Type;
                 }
 
@@ -1195,10 +1331,16 @@ namespace compiler
                 {
                     // variável local ou parâmetro
                     int offset = var.Offset;
-                    assembler.EmitLoadBP();
-                    assembler.EmitLoadConst(offset);
-                    assembler.EmitAdd();
+                    assembler.EmitLoadLocalAddress(offset);
                 }
+
+                if (var is Parameter param && param.ByRef)
+                {
+                    storeVar = null;
+                    CompileLoad(assembler, var.Type);
+                }
+                else
+                    storeVar = var.Type is PrimitiveType || var.Type is PointerType ? var : null;
 
                 return var.Type;
             }
@@ -1214,20 +1356,24 @@ namespace compiler
                 {
                     case Primitive.BOOL:
                     case Primitive.BYTE:
+                        assembler.EmitLoadStack8();
+                        return;
+
                     case Primitive.CHAR:
                     case Primitive.SHORT:
+                        assembler.EmitLoadStack16();
+                        return;
+
                     case Primitive.INT:
                     case Primitive.FLOAT:
-                        assembler.EmitLoadStack();
-                        break;
+                        assembler.EmitLoadStack32();
+                        return;
 
                     case Primitive.LONG:
                     case Primitive.DOUBLE:
                         assembler.EmitLoadStack64();
-                        break;
+                        return;
                 }
-
-                return;
             }
 
             if (type is StructType s)
@@ -1242,9 +1388,88 @@ namespace compiler
                 return;
             }
 
-            if (type is PointerType ptr)
+            if (type is PointerType)
             {
-                assembler.EmitStoreStack();
+                assembler.EmitLoadStack32();
+                return;
+            }
+
+            throw new ParserException("Tipo desconhecido: '" + type + "'.");
+        }
+
+        private void CompileLoad(Assembler assembler, Variable loadVar)
+        {
+            AbstractType type = loadVar.Type;
+            if (type is PrimitiveType p)
+            {
+                switch (p.Primitive)
+                {
+                    case Primitive.BOOL:
+                    case Primitive.BYTE:
+                        if (loadVar is GlobalVariable)
+                            assembler.EmitLoadGlobal8(loadVar.Offset);
+                        else
+                        {
+                            assembler.EmitLoadLocal32(loadVar.Offset);
+                            if (loadVar is Parameter param && param.ByRef)
+                                assembler.EmitLoadStack8();
+                        }
+
+                        return;
+
+                    case Primitive.CHAR:
+                    case Primitive.SHORT:
+                        if (loadVar is GlobalVariable)
+                            assembler.EmitLoadGlobal16(loadVar.Offset);
+                        else
+                        {
+                            assembler.EmitLoadLocal32(loadVar.Offset);
+                            if (loadVar is Parameter param && param.ByRef)
+                                assembler.EmitLoadStack16();
+                        }
+
+                        return;
+
+                    case Primitive.INT:
+                    case Primitive.FLOAT:
+                        if (loadVar is GlobalVariable)
+                            assembler.EmitLoadGlobal32(loadVar.Offset);
+                        else
+                        {
+                            assembler.EmitLoadLocal32(loadVar.Offset);
+                            if (loadVar is Parameter param && param.ByRef)
+                                assembler.EmitLoadStack32();
+                        }
+
+                        return;
+
+                    case Primitive.LONG:
+                    case Primitive.DOUBLE:
+                        if (loadVar is GlobalVariable)
+                            assembler.EmitLoadGlobal64(loadVar.Offset);
+                        else if (loadVar is Parameter param && param.ByRef)
+                        {
+                            assembler.EmitLoadLocal32(loadVar.Offset);
+                            assembler.EmitLoadStack32();
+                        }
+                        else
+                            assembler.EmitLoadLocal64(loadVar.Offset);
+
+                        return;
+                }
+            }
+
+            if (type is PointerType)
+            {
+                if (loadVar is GlobalVariable)
+                    assembler.EmitLoadGlobal32(loadVar.Offset);
+                else
+                {
+                    assembler.EmitLoadLocal32(loadVar.Offset);
+                    if (loadVar is Parameter param && param.ByRef)
+                        assembler.EmitLoadStack32();
+                }
+
                 return;
             }
 
@@ -1259,20 +1484,24 @@ namespace compiler
                 {
                     case Primitive.BOOL:
                     case Primitive.BYTE:
+                        assembler.EmitStoreStack8();
+                        return;
+
                     case Primitive.CHAR:
                     case Primitive.SHORT:
+                        assembler.EmitStoreStack16();
+                        return;
+
                     case Primitive.INT:
                     case Primitive.FLOAT:
-                        assembler.EmitStoreStack();
-                        break;
+                        assembler.EmitStoreStack32();
+                        return;
 
                     case Primitive.LONG:
                     case Primitive.DOUBLE:
                         assembler.EmitStoreStack64();
-                        break;
+                        return;
                 }
-
-                return;
             }
 
             if (type is StructType s)
@@ -1287,13 +1516,95 @@ namespace compiler
                 return;
             }
 
-            if (type is PointerType ptr)
+            if (type is PointerType)
             {
-                assembler.EmitStoreStack();
+                assembler.EmitStoreStack32();
                 return;
             }
 
             throw new ParserException("Tipo desconhecido: '" + type + "'.");
+        }
+
+        private void CompileStoreGlobal(Assembler assembler, AbstractType type, int offset)
+        {
+            if (type is PrimitiveType p)
+            {
+                switch (p.Primitive)
+                {
+                    case Primitive.BOOL:
+                    case Primitive.BYTE:
+                        assembler.EmitStoreGlobal8(offset);
+                        return;
+
+                    case Primitive.CHAR:
+                    case Primitive.SHORT:
+                        assembler.EmitStoreGlobal16(offset);
+                        return;
+
+                    case Primitive.INT:
+                    case Primitive.FLOAT:
+                        assembler.EmitStoreGlobal32(offset);
+                        return;
+
+                    case Primitive.LONG:
+                    case Primitive.DOUBLE:
+                        assembler.EmitStoreGlobal64(offset);
+                        return;
+                }
+            }
+
+            if (type is PointerType)
+            {
+                assembler.EmitStoreGlobal32(offset);
+                return;
+            }
+
+            throw new ParserException("Tipo desconhecido: '" + type + "'.");
+        }
+
+        private void CompileStoreLocal(Assembler assembler, AbstractType type, int offset)
+        {
+            if (type is PrimitiveType p)
+            {
+                switch (p.Primitive)
+                {
+                    case Primitive.BOOL:
+                    case Primitive.BYTE:
+                        assembler.EmitStoreLocal8(offset);
+                        return;
+
+                    case Primitive.CHAR:
+                    case Primitive.SHORT:
+                        assembler.EmitStoreLocal16(offset);
+                        return;
+
+                    case Primitive.INT:
+                    case Primitive.FLOAT:
+                        assembler.EmitStoreLocal32(offset);
+                        return;
+
+                    case Primitive.LONG:
+                    case Primitive.DOUBLE:
+                        assembler.EmitStoreLocal64(offset);
+                        return;
+                }
+            }
+
+            if (type is PointerType)
+            {
+                assembler.EmitStoreLocal32(offset);
+                return;
+            }
+
+            throw new ParserException("Tipo desconhecido: '" + type + "'.");
+        }
+
+        private void CompileStore(Assembler assembler, Variable storeVar)
+        {
+            if (storeVar is GlobalVariable)
+                CompileStoreGlobal(assembler, storeVar.Type, storeVar.Offset);
+            else
+                CompileStoreLocal(assembler, storeVar.Type, storeVar.Offset);
         }
 
         private void CompileStoreAdd(Assembler assembler, AbstractType type)
@@ -1303,10 +1614,18 @@ namespace compiler
                 switch (p.Primitive)
                 {
                     case Primitive.BYTE:
+                        assembler.EmitAdd();
+                        assembler.EmitStoreStack8();
+                        break;
+
                     case Primitive.SHORT:
+                        assembler.EmitAdd();
+                        assembler.EmitStoreStack16();
+                        break;
+
                     case Primitive.INT:
                         assembler.EmitAdd();
-                        assembler.EmitStoreStack();
+                        assembler.EmitStoreStack32();
                         return;
 
                     case Primitive.LONG:
@@ -1316,7 +1635,7 @@ namespace compiler
 
                     case Primitive.FLOAT:
                         assembler.EmitFAdd();
-                        assembler.EmitStoreStack();
+                        assembler.EmitStoreStack32();
                         return;
 
                     case Primitive.DOUBLE:
@@ -1324,6 +1643,97 @@ namespace compiler
                         assembler.EmitStoreStack64();
                         return;
                 }
+            }
+
+            if (type is PointerType)
+            {
+                assembler.EmitAdd();
+                assembler.EmitStoreStack32();
+                return;
+            }
+
+            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+        }
+
+        private void CompileStoreAdd(Assembler assembler, Variable storeVar)
+        {
+            AbstractType type = storeVar.Type;
+            if (type is PrimitiveType p)
+            {
+                switch (p.Primitive)
+                {
+                    case Primitive.BYTE:
+                        assembler.EmitAdd();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal8(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal8(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.SHORT:
+                        assembler.EmitAdd();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal16(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal16(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.INT:
+                        assembler.EmitAdd();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal32(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.LONG:
+                        assembler.EmitAdd64();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal64(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.FLOAT:
+                        assembler.EmitFAdd();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal32(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.DOUBLE:
+                        assembler.EmitFAdd64();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal64(storeVar.Offset);
+
+                        return;
+                }
+            }
+
+            if (type is PointerType)
+            {
+                assembler.EmitAdd();
+
+                if (storeVar is GlobalVariable)
+                    assembler.EmitStoreGlobal32(storeVar.Offset);
+                else
+                    assembler.EmitStoreLocal32(storeVar.Offset);
+
+                return;
             }
 
             throw new ParserException("Operação inválida para o tipo '" + type + "'.");
@@ -1336,10 +1746,18 @@ namespace compiler
                 switch (p.Primitive)
                 {
                     case Primitive.BYTE:
+                        assembler.EmitSub();
+                        assembler.EmitStoreStack8();
+                        return;
+
                     case Primitive.SHORT:
+                        assembler.EmitSub();
+                        assembler.EmitStoreStack16();
+                        return;
+
                     case Primitive.INT:
                         assembler.EmitSub();
-                        assembler.EmitStoreStack();
+                        assembler.EmitStoreStack32();
                         return;
 
                     case Primitive.LONG:
@@ -1349,7 +1767,7 @@ namespace compiler
 
                     case Primitive.FLOAT:
                         assembler.EmitFSub();
-                        assembler.EmitStoreStack();
+                        assembler.EmitStoreStack32();
                         return;
 
                     case Primitive.DOUBLE:
@@ -1357,6 +1775,97 @@ namespace compiler
                         assembler.EmitStoreStack64();
                         return;
                 }
+            }
+
+            if (type is PointerType)
+            {
+                assembler.EmitSub();
+                assembler.EmitStoreStack32();
+                return;
+            }
+
+            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+        }
+
+        private void CompileStoreSub(Assembler assembler, Variable storeVar)
+        {
+            AbstractType type = storeVar.Type;
+            if (type is PrimitiveType p)
+            {
+                switch (p.Primitive)
+                {
+                    case Primitive.BYTE:
+                        assembler.EmitSub();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal8(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal8(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.SHORT:
+                        assembler.EmitSub();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal16(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal16(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.INT:
+                        assembler.EmitSub();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal32(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.LONG:
+                        assembler.EmitSub64();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal64(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.FLOAT:
+                        assembler.EmitFSub();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal32(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.DOUBLE:
+                        assembler.EmitFSub64();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal64(storeVar.Offset);
+
+                        return;
+                }
+            }
+
+            if (type is PointerType)
+            {
+                assembler.EmitSub();
+
+                if (storeVar is GlobalVariable)
+                    assembler.EmitStoreGlobal32(storeVar.Offset);
+                else
+                    assembler.EmitStoreLocal32(storeVar.Offset);
+
+                return;
             }
 
             throw new ParserException("Operação inválida para o tipo '" + type + "'.");
@@ -1369,10 +1878,18 @@ namespace compiler
                 switch (p.Primitive)
                 {
                     case Primitive.BYTE:
+                        assembler.EmitMul();
+                        assembler.EmitStoreStack8();
+                        return;
+
                     case Primitive.SHORT:
+                        assembler.EmitMul();
+                        assembler.EmitStoreStack16();
+                        return;
+
                     case Primitive.INT:
                         assembler.EmitMul();
-                        assembler.EmitStoreStack();
+                        assembler.EmitStoreStack32();
                         return;
 
                     case Primitive.LONG:
@@ -1382,12 +1899,84 @@ namespace compiler
 
                     case Primitive.FLOAT:
                         assembler.EmitFMul();
-                        assembler.EmitStoreStack();
+                        assembler.EmitStoreStack32();
                         return;
 
                     case Primitive.DOUBLE:
                         assembler.EmitFMul64();
                         assembler.EmitStoreStack64();
+                        return;
+                }
+            }
+
+            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+        }
+
+        private void CompileStoreMul(Assembler assembler, Variable storeVar)
+        {
+            AbstractType type = storeVar.Type;
+            if (type is PrimitiveType p)
+            {
+                switch (p.Primitive)
+                {
+                    case Primitive.BYTE:
+                        assembler.EmitMul();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal8(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal8(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.SHORT:
+                        assembler.EmitMul();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal16(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal16(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.INT:
+                        assembler.EmitMul();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal32(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.LONG:
+                        assembler.EmitMul64();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal64(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.FLOAT:
+                        assembler.EmitFMul();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal32(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.DOUBLE:
+                        assembler.EmitFMul64();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal64(storeVar.Offset);
+
                         return;
                 }
             }
@@ -1402,10 +1991,18 @@ namespace compiler
                 switch (p.Primitive)
                 {
                     case Primitive.BYTE:
+                        assembler.EmitDiv();
+                        assembler.EmitStoreStack8();
+                        return;
+
                     case Primitive.SHORT:
+                        assembler.EmitDiv();
+                        assembler.EmitStoreStack16();
+
+                        return;
                     case Primitive.INT:
                         assembler.EmitDiv();
-                        assembler.EmitStoreStack();
+                        assembler.EmitStoreStack32();
                         return;
 
                     case Primitive.LONG:
@@ -1415,12 +2012,84 @@ namespace compiler
 
                     case Primitive.FLOAT:
                         assembler.EmitFDiv();
-                        assembler.EmitStoreStack();
+                        assembler.EmitStoreStack32();
                         return;
 
                     case Primitive.DOUBLE:
                         assembler.EmitFDiv64();
                         assembler.EmitStoreStack64();
+                        return;
+                }
+            }
+
+            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+        }
+
+        private void CompileStoreDiv(Assembler assembler, Variable storeVar)
+        {
+            AbstractType type = storeVar.Type;
+            if (type is PrimitiveType p)
+            {
+                switch (p.Primitive)
+                {
+                    case Primitive.BYTE:
+                        assembler.EmitDiv();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal8(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal8(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.SHORT:
+                        assembler.EmitDiv();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal16(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal16(storeVar.Offset);
+
+
+                        return;
+                    case Primitive.INT:
+                        assembler.EmitDiv();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal32(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.LONG:
+                        assembler.EmitDiv64();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal64(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.FLOAT:
+                        assembler.EmitFDiv();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal32(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.DOUBLE:
+                        assembler.EmitFDiv64();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal64(storeVar.Offset);
+
                         return;
                 }
             }
@@ -1435,15 +2104,75 @@ namespace compiler
                 switch (p.Primitive)
                 {
                     case Primitive.BYTE:
+                        assembler.EmitMod();
+                        assembler.EmitStoreStack8();
+                        return;
+
                     case Primitive.SHORT:
+                        assembler.EmitMod();
+                        assembler.EmitStoreStack16();
+                        return;
+
                     case Primitive.INT:
                         assembler.EmitMod();
-                        assembler.EmitStoreStack();
+                        assembler.EmitStoreStack32();
                         return;
 
                     case Primitive.LONG:
                         assembler.EmitMod64();
                         assembler.EmitStoreStack64();
+                        return;
+                }
+            }
+
+            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+        }
+
+        private void CompileStoreMod(Assembler assembler, Variable storeVar)
+        {
+            AbstractType type = storeVar.Type;
+            if (type is PrimitiveType p)
+            {
+                switch (p.Primitive)
+                {
+                    case Primitive.BYTE:
+                        assembler.EmitMod();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal8(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal8(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.SHORT:
+                        assembler.EmitMod();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal16(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal16(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.INT:
+                        assembler.EmitMod();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal32(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.LONG:
+                        assembler.EmitMod64();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal64(storeVar.Offset);
+
                         return;
                 }
             }
@@ -1459,15 +2188,76 @@ namespace compiler
                 {
                     case Primitive.BOOL:
                     case Primitive.BYTE:
+                        assembler.EmitAnd();
+                        assembler.EmitStoreStack8();
+                        return;
+
                     case Primitive.SHORT:
+                        assembler.EmitAnd();
+                        assembler.EmitStoreStack16();
+                        return;
+
                     case Primitive.INT:
                         assembler.EmitAnd();
-                        assembler.EmitStoreStack();
+                        assembler.EmitStoreStack32();
                         return;
 
                     case Primitive.LONG:
                         assembler.EmitAnd64();
                         assembler.EmitStoreStack64();
+                        return;
+                }
+            }
+
+            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+        }
+
+        private void CompileStoreAnd(Assembler assembler, Variable storeVar)
+        {
+            AbstractType type = storeVar.Type;
+            if (type is PrimitiveType p)
+            {
+                switch (p.Primitive)
+                {
+                    case Primitive.BOOL:
+                    case Primitive.BYTE:
+                        assembler.EmitAnd();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal8(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal8(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.SHORT:
+                        assembler.EmitAnd();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal16(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal16(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.INT:
+                        assembler.EmitAnd();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal32(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.LONG:
+                        assembler.EmitAnd64();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal64(storeVar.Offset);
+
                         return;
                 }
             }
@@ -1483,15 +2273,76 @@ namespace compiler
                 {
                     case Primitive.BOOL:
                     case Primitive.BYTE:
+                        assembler.EmitOr();
+                        assembler.EmitStoreStack8();
+                        return;
+
                     case Primitive.SHORT:
+                        assembler.EmitOr();
+                        assembler.EmitStoreStack16();
+
+                        return;
                     case Primitive.INT:
                         assembler.EmitOr();
-                        assembler.EmitStoreStack();
+                        assembler.EmitStoreStack32();
                         return;
 
                     case Primitive.LONG:
                         assembler.EmitOr64();
                         assembler.EmitStoreStack64();
+                        return;
+                }
+            }
+
+            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+        }
+
+        private void CompileStoreOr(Assembler assembler, Variable storeVar)
+        {
+            AbstractType type = storeVar.Type;
+            if (type is PrimitiveType p)
+            {
+                switch (p.Primitive)
+                {
+                    case Primitive.BOOL:
+                    case Primitive.BYTE:
+                        assembler.EmitOr();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal8(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal8(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.SHORT:
+                        assembler.EmitOr();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal16(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal16(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.INT:
+                        assembler.EmitOr();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal32(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.LONG:
+                        assembler.EmitOr64();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal64(storeVar.Offset);
+
                         return;
                 }
             }
@@ -1507,15 +2358,76 @@ namespace compiler
                 {
                     case Primitive.BOOL:
                     case Primitive.BYTE:
+                        assembler.EmitXor();
+                        assembler.EmitStoreStack8();
+                        return;
+
                     case Primitive.SHORT:
+                        assembler.EmitXor();
+                        assembler.EmitStoreStack16();
+                        return;
+
                     case Primitive.INT:
                         assembler.EmitXor();
-                        assembler.EmitStoreStack();
+                        assembler.EmitStoreStack32();
                         return;
 
                     case Primitive.LONG:
                         assembler.EmitXor64();
                         assembler.EmitStoreStack64();
+                        return;
+                }
+            }
+
+            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+        }
+
+        private void CompileStoreXor(Assembler assembler, Variable storeVar)
+        {
+            AbstractType type = storeVar.Type;
+            if (type is PrimitiveType p)
+            {
+                switch (p.Primitive)
+                {
+                    case Primitive.BOOL:
+                    case Primitive.BYTE:
+                        assembler.EmitXor();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal8(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal8(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.SHORT:
+                        assembler.EmitXor();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal16(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal16(storeVar.Offset);
+
+
+                        return;
+                    case Primitive.INT:
+                        assembler.EmitXor();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal32(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.LONG:
+                        assembler.EmitXor64();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal64(storeVar.Offset);
+
                         return;
                 }
             }
@@ -1530,15 +2442,75 @@ namespace compiler
                 switch (p.Primitive)
                 {
                     case Primitive.BYTE:
+                        assembler.EmitShl();
+                        assembler.EmitStoreStack8();
+
+                        return;
                     case Primitive.SHORT:
+                        assembler.EmitShl();
+                        assembler.EmitStoreStack16();
+                        return;
+
                     case Primitive.INT:
                         assembler.EmitShl();
-                        assembler.EmitStoreStack();
+                        assembler.EmitStoreStack32();
                         return;
 
                     case Primitive.LONG:
                         assembler.EmitShl64();
                         assembler.EmitStoreStack64();
+                        return;
+                }
+            }
+
+            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+        }
+
+        private void CompileStoreShiftLeft(Assembler assembler, Variable storeVar)
+        {
+            AbstractType type = storeVar.Type;
+            if (type is PrimitiveType p)
+            {
+                switch (p.Primitive)
+                {
+                    case Primitive.BYTE:
+                        assembler.EmitShl();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal8(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal8(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.SHORT:
+                        assembler.EmitShl();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal16(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal16(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.INT:
+                        assembler.EmitShl();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal32(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.LONG:
+                        assembler.EmitShl64();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal64(storeVar.Offset);
+
                         return;
                 }
             }
@@ -1553,15 +2525,75 @@ namespace compiler
                 switch (p.Primitive)
                 {
                     case Primitive.BYTE:
+                        assembler.EmitShr();
+                        assembler.EmitStoreStack8();
+                        return;
+
                     case Primitive.SHORT:
+                        assembler.EmitShr();
+                        assembler.EmitStoreStack16();
+                        return;
+
                     case Primitive.INT:
                         assembler.EmitShr();
-                        assembler.EmitStoreStack();
+                        assembler.EmitStoreStack32();
                         return;
 
                     case Primitive.LONG:
                         assembler.EmitShr64();
                         assembler.EmitStoreStack64();
+                        return;
+                }
+            }
+
+            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+        }
+
+        private void CompileStoreShiftRight(Assembler assembler, Variable storeVar)
+        {
+            AbstractType type = storeVar.Type;
+            if (type is PrimitiveType p)
+            {
+                switch (p.Primitive)
+                {
+                    case Primitive.BYTE:
+                        assembler.EmitShr();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal8(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal8(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.SHORT:
+                        assembler.EmitShr();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal16(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal16(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.INT:
+                        assembler.EmitShr();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal32(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.LONG:
+                        assembler.EmitShr64();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal64(storeVar.Offset);
+
                         return;
                 }
             }
@@ -1576,15 +2608,75 @@ namespace compiler
                 switch (p.Primitive)
                 {
                     case Primitive.BYTE:
+                        assembler.EmitUShr();
+                        assembler.EmitStoreStack8();
+                        return;
+
                     case Primitive.SHORT:
+                        assembler.EmitUShr();
+                        assembler.EmitStoreStack16();
+
+                        return;
                     case Primitive.INT:
                         assembler.EmitUShr();
-                        assembler.EmitStoreStack();
+                        assembler.EmitStoreStack32();
                         return;
 
                     case Primitive.LONG:
                         assembler.EmitUShr64();
                         assembler.EmitStoreStack64();
+                        return;
+                }
+            }
+
+            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+        }
+
+        private void CompileStoreUnsignedShiftRight(Assembler assembler, Variable storeVar)
+        {
+            AbstractType type = storeVar.Type;
+            if (type is PrimitiveType p)
+            {
+                switch (p.Primitive)
+                {
+                    case Primitive.BYTE:
+                        assembler.EmitUShr();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal8(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal8(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.SHORT:
+                        assembler.EmitUShr();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal16(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal16(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.INT:
+                        assembler.EmitUShr();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal32(storeVar.Offset);
+
+                        return;
+
+                    case Primitive.LONG:
+                        assembler.EmitUShr64();
+
+                        if (storeVar is GlobalVariable)
+                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                        else
+                            assembler.EmitStoreLocal64(storeVar.Offset);
+
                         return;
                 }
             }
@@ -1599,20 +2691,35 @@ namespace compiler
 
             if (operation == BinaryOperation.STORE)
             {
-                leftType = CompileAssignableExpression(function, context, assembler, leftOperand);
+                Assembler leftAssembler = new Assembler();
+                leftType = CompileAssignableExpression(function, context, leftAssembler, leftOperand, out Variable storeVar);
+                if (storeVar == null)
+                    assembler.Emit(leftAssembler);
+
                 rightType = CompileExpression(function, context, assembler, rightOperand);
                 CompileCast(assembler, rightType, leftType, false);
-                CompileStore(assembler, leftType);
+
+                if (storeVar != null)
+                    CompileStore(assembler, storeVar);
+                else
+                    CompileStore(assembler, leftType);
+
                 return;
             }
 
             Assembler tempAssembler = new Assembler();
-            leftType = CompileAssignableExpression(function, context, tempAssembler, leftOperand);
-            Assembler tempAssembler2 = new Assembler();
-            tempAssembler2.Emit(tempAssembler);
-            CompileLoad(tempAssembler2, leftType);
-            assembler.Emit(tempAssembler);
-            assembler.Emit(tempAssembler2);
+            leftType = CompileAssignableExpression(function, context, tempAssembler, leftOperand, out Variable storeVar2);
+
+            if (storeVar2 == null)
+            {
+                Assembler tempAssembler2 = new Assembler();
+                tempAssembler2.Emit(tempAssembler);
+                CompileLoad(tempAssembler2, leftType);
+                assembler.Emit(tempAssembler);
+                assembler.Emit(tempAssembler2);
+            }
+            else
+                CompileLoad(assembler, storeVar2);
 
             rightType = CompileExpression(function, context, assembler, rightOperand);
             CompileCast(assembler, rightType, leftType, false);
@@ -1621,67 +2728,111 @@ namespace compiler
             {
                 case BinaryOperation.STORE_OR:
                 {
-                    CompileStoreOr(assembler, leftType);
+                    if (storeVar2 == null)
+                        CompileStoreOr(assembler, leftType);
+                    else
+                        CompileStoreOr(assembler, storeVar2);
+
                     break;
                 }
 
                 case BinaryOperation.STORE_XOR:
                 {
-                    CompileStoreXor(assembler, leftType);
+                    if (storeVar2 == null)
+                        CompileStoreXor(assembler, leftType);
+                    else
+                        CompileStoreXor(assembler, storeVar2);
+
                     break;
                 }
 
                 case BinaryOperation.STORE_AND:
                 {
-                    CompileStoreAnd(assembler, leftType);
+                    if (storeVar2 == null)
+                        CompileStoreAnd(assembler, leftType);
+                    else
+                        CompileStoreAnd(assembler, storeVar2);
+
                     break;
                 }
 
                 case BinaryOperation.STORE_SHIFT_LEFT:
                 {
-                    CompileStoreShiftLeft(assembler, leftType);
+                    if (storeVar2 == null)
+                        CompileStoreShiftLeft(assembler, leftType);
+                    else
+                        CompileStoreShiftLeft(assembler, storeVar2);
+
                     break;
                 }
 
                 case BinaryOperation.STORE_SHIFT_RIGHT:
                 {
-                    CompileStoreShiftRight(assembler, leftType);
+                    if (storeVar2 == null)
+                        CompileStoreShiftRight(assembler, leftType);
+                    else
+                        CompileStoreShiftRight(assembler, storeVar2);
+
                     break;
                 }
 
                 case BinaryOperation.STORE_UNSIGNED_SHIFT_RIGHT:
                 {
-                    CompileStoreUnsignedShiftRight(assembler, leftType);
+                    if (storeVar2 == null)
+                        CompileStoreUnsignedShiftRight(assembler, leftType);
+                    else
+                        CompileStoreUnsignedShiftRight(assembler, storeVar2);
+
                     break;
                 }
 
                 case BinaryOperation.STORE_ADD:
                 {
-                    CompileStoreAdd(assembler, leftType);
+                    if (storeVar2 == null)
+                        CompileStoreAdd(assembler, leftType);
+                    else
+                        CompileStoreAdd(assembler, storeVar2);
+
                     break;
                 }
 
                 case BinaryOperation.STORE_SUB:
                 {
-                    CompileStoreSub(assembler, leftType);
+                    if (storeVar2 == null)
+                        CompileStoreSub(assembler, leftType);
+                    else
+                        CompileStoreSub(assembler, storeVar2);
+
                     break;
                 }
 
                 case BinaryOperation.STORE_MUL:
                 {
-                    CompileStoreMul(assembler, leftType);
+                    if (storeVar2 == null)
+                        CompileStoreMul(assembler, leftType);
+                    else
+                        CompileStoreMul(assembler, storeVar2);
+
                     break;
                 }
 
                 case BinaryOperation.STORE_DIV:
                 {
-                    CompileStoreDiv(assembler, leftType);
+                    if (storeVar2 == null)
+                        CompileStoreDiv(assembler, leftType);
+                    else
+                        CompileStoreDiv(assembler, storeVar2);
+
                     break;
                 }
 
                 case BinaryOperation.STORE_MOD:
                 {
-                    CompileStoreMod(assembler, leftType);
+                    if (storeVar2 == null)
+                        CompileStoreMod(assembler, leftType);
+                    else
+                        CompileStoreMod(assembler, storeVar2);
+
                     break;
                 }
 
@@ -1784,25 +2935,28 @@ namespace compiler
                         throw new ParserException("Operação não definida para o tipo '" + operandType + "'.");
                     }
 
-                    case UnaryOperation.POINTER_DEFERENCE:
+                    case UnaryOperation.POINTER_INDIRECTION:
                     {
                         AbstractType operandType = CompileExpression(function, context, assembler, operand);
                         if (operandType is PointerType ptr)
                         {
                             AbstractType ptrType = ptr.Type;
                             if (ptrType == null)
-                                assembler.EmitLoadStack();
+                                assembler.EmitLoadStack32();
                             else if (ptrType is PrimitiveType pt)
                             {
                                 switch (pt.Primitive)
                                 {
+                                    case Primitive.VOID:
+                                        throw new ParserException("Indireção em ponteiros do tipo void não pode ser feita.");
+
                                     case Primitive.BOOL:
                                     case Primitive.BYTE:
                                     case Primitive.CHAR:
                                     case Primitive.SHORT:
                                     case Primitive.INT:
                                     case Primitive.FLOAT:
-                                        assembler.EmitLoadStack();
+                                        assembler.EmitLoadStack32();
                                         break;
 
                                     case Primitive.LONG:
@@ -1819,8 +2973,8 @@ namespace compiler
                             {
                                 // TODO Implementar
                             }
-                            else if (ptrType is PointerType ptrT)
-                                assembler.EmitLoadStack();
+                            else if (ptrType is PointerType)
+                                assembler.EmitLoadStack32();
 
                             return ptrType;
                         }
@@ -1831,11 +2985,17 @@ namespace compiler
                     case UnaryOperation.PRE_INCREMENT: // ++x <=> x = x + 1
                     {
                         Assembler tempAssembler = new Assembler();
-                        AbstractType operandType = CompileAssignableExpression(function, context, tempAssembler, operand);
-                        assembler.Emit(tempAssembler);
+                        AbstractType operandType = CompileAssignableExpression(function, context, tempAssembler, operand, out Variable storeVar);
 
-                        assembler.Emit(tempAssembler);
-                        CompileLoad(assembler, operandType);
+                        if (storeVar == null)
+                        {
+                            assembler.Emit(tempAssembler);
+
+                            assembler.Emit(tempAssembler);
+                            CompileLoad(assembler, operandType);
+                        }
+                        else
+                            CompileLoad(assembler, storeVar);
 
                         if (operandType is PrimitiveType pt)
                         {
@@ -1846,34 +3006,92 @@ namespace compiler
                                     throw new ParserException("Operação não definida para o tipo '" + pt + "'.");
 
                                 case Primitive.BYTE:
+                                    assembler.EmitLoadConst((byte) 1);
+                                    assembler.EmitAdd();
+
+                                    if (storeVar == null)
+                                        assembler.EmitStoreStack8();
+                                    else if (storeVar is GlobalVariable)
+                                        assembler.EmitStoreGlobal8(storeVar.Offset);
+                                    else        
+                                        assembler.EmitStoreLocal8(storeVar.Offset);
+
+                                    break;
+
                                 case Primitive.SHORT:
+                                    assembler.EmitLoadConst((short) 1);
+                                    assembler.EmitAdd();
+
+                                    if (storeVar == null)
+                                        assembler.EmitStoreStack16();
+                                    else if (storeVar is GlobalVariable)
+                                        assembler.EmitStoreGlobal16(storeVar.Offset);
+                                    else
+                                        assembler.EmitStoreLocal16(storeVar.Offset);
+
+                                    break;
+
                                 case Primitive.INT:
                                     assembler.EmitLoadConst(1);
                                     assembler.EmitAdd();
-                                    assembler.EmitStoreStack();
+
+                                    if (storeVar == null)
+                                        assembler.EmitStoreStack32();
+                                    else if (storeVar is GlobalVariable)
+                                        assembler.EmitStoreGlobal32(storeVar.Offset);
+                                    else
+                                        assembler.EmitStoreLocal32(storeVar.Offset);
+
                                     break;
 
                                 case Primitive.LONG:
                                     assembler.EmitLoadConst(1L);
                                     assembler.EmitAdd64();
-                                    assembler.EmitStoreStack64();
+
+                                    if (storeVar == null)
+                                        assembler.EmitStoreStack64();
+                                    else if (storeVar is GlobalVariable)
+                                        assembler.EmitStoreGlobal64(storeVar.Offset);
+                                    else
+                                        assembler.EmitStoreLocal64(storeVar.Offset);
+
                                     break;
 
                                 case Primitive.FLOAT:
                                     assembler.EmitLoadConst(1F);
                                     assembler.EmitFAdd();
-                                    assembler.EmitStoreStack();
+
+                                    if (storeVar == null)
+                                        assembler.EmitStoreStack32();
+                                    else if (storeVar is GlobalVariable)
+                                        assembler.EmitStoreGlobal32(storeVar.Offset);
+                                    else
+                                        assembler.EmitStoreLocal32(storeVar.Offset);
+
                                     break;
 
                                 case Primitive.DOUBLE:
                                     assembler.EmitLoadConst(1.0);
                                     assembler.EmitFAdd64();
-                                    assembler.EmitStoreStack64();
+
+                                    if (storeVar == null)
+                                        assembler.EmitStoreStack64();
+                                    else if (storeVar is GlobalVariable)
+                                        assembler.EmitStoreGlobal64(storeVar.Offset);
+                                    else
+                                        assembler.EmitStoreLocal64(storeVar.Offset);
+
                                     break;
                             }
 
-                            assembler.Emit(tempAssembler);
-                            CompileLoad(assembler, operandType);
+                            if (storeVar == null)
+                            {
+                                assembler.Emit(tempAssembler);
+                                CompileLoad(assembler, operandType);
+                            }
+                            else
+                                CompileLoad(assembler, storeVar);
+
                             return operandType;
                         }
                         
@@ -1883,11 +3101,17 @@ namespace compiler
                     case UnaryOperation.PRE_DECREMENT:
                     {
                         Assembler tempAssembler = new Assembler();
-                        AbstractType operandType = CompileAssignableExpression(function, context, tempAssembler, operand);
-                        assembler.Emit(tempAssembler);
+                        AbstractType operandType = CompileAssignableExpression(function, context, tempAssembler, operand, out Variable storeVar);
+                        
+                        if (storeVar == null)
+                        {
+                            assembler.Emit(tempAssembler);
 
-                        assembler.Emit(tempAssembler);
-                        CompileLoad(assembler, operandType);
+                            assembler.Emit(tempAssembler);
+                            CompileLoad(assembler, operandType);
+                        }
+                        else
+                            CompileLoad(assembler, storeVar);
 
                         if (operandType is PrimitiveType pt)
                         {
@@ -1898,34 +3122,92 @@ namespace compiler
                                     throw new ParserException("Operação não definida para o tipo '" + pt + "'.");
 
                                 case Primitive.BYTE:
+                                    assembler.EmitLoadConst((byte) 1);
+                                    assembler.EmitSub();
+
+                                    if (storeVar == null)
+                                        assembler.EmitStoreStack8();
+                                    else if (storeVar is GlobalVariable)
+                                        assembler.EmitStoreGlobal8(storeVar.Offset);
+                                    else
+                                        assembler.EmitStoreLocal8(storeVar.Offset);
+
+                                    break;
+
                                 case Primitive.SHORT:
+                                    assembler.EmitLoadConst((short) 1);
+                                    assembler.EmitSub();
+
+                                    if (storeVar == null)
+                                        assembler.EmitStoreStack16();
+                                    else if (storeVar is GlobalVariable)
+                                        assembler.EmitStoreGlobal16(storeVar.Offset);
+                                    else
+                                        assembler.EmitStoreLocal16(storeVar.Offset);
+
+                                    break;
+
                                 case Primitive.INT:
                                     assembler.EmitLoadConst(1);
                                     assembler.EmitSub();
-                                    assembler.EmitStoreStack();
+
+                                    if (storeVar == null)
+                                        assembler.EmitStoreStack32();
+                                    else if (storeVar is GlobalVariable)
+                                        assembler.EmitStoreGlobal32(storeVar.Offset);
+                                    else
+                                        assembler.EmitStoreLocal32(storeVar.Offset);
+
                                     break;
 
                                 case Primitive.LONG:
                                     assembler.EmitLoadConst(1L);
                                     assembler.EmitSub64();
-                                    assembler.EmitStoreStack64();
+
+                                    if (storeVar == null)
+                                        assembler.EmitStoreStack64();
+                                    else if (storeVar is GlobalVariable)
+                                        assembler.EmitStoreGlobal64(storeVar.Offset);
+                                    else
+                                        assembler.EmitStoreLocal64(storeVar.Offset);
+
                                     break;
 
                                 case Primitive.FLOAT:
                                     assembler.EmitLoadConst(1F);
                                     assembler.EmitFSub();
-                                    assembler.EmitStoreStack();
+
+                                    if (storeVar == null)
+                                        assembler.EmitStoreStack32();
+                                    else if (storeVar is GlobalVariable)
+                                        assembler.EmitStoreGlobal32(storeVar.Offset);
+                                    else
+                                        assembler.EmitStoreLocal32(storeVar.Offset);
+
                                     break;
 
                                 case Primitive.DOUBLE:
                                     assembler.EmitLoadConst(1.0);
                                     assembler.EmitFSub64();
-                                    assembler.EmitStoreStack64();
+
+                                    if (storeVar == null)
+                                        assembler.EmitStoreStack64();
+                                    else if (storeVar is GlobalVariable)
+                                        assembler.EmitStoreGlobal64(storeVar.Offset);
+                                    else
+                                        assembler.EmitStoreLocal64(storeVar.Offset);
+
                                     break;
                             }
 
-                            assembler.Emit(tempAssembler);
-                            CompileLoad(assembler, operandType);
+                            if (storeVar == null)
+                            {
+                                assembler.Emit(tempAssembler);
+                                CompileLoad(assembler, operandType);
+                            }
+                            else
+                                CompileLoad(assembler, storeVar);
+
                             return operandType;
                         }
                         
@@ -1935,14 +3217,26 @@ namespace compiler
                     case UnaryOperation.POST_INCREMENT:
                     {
                         Assembler tempAssembler = new Assembler();
-                        AbstractType operandType = CompileAssignableExpression(function, context, tempAssembler, operand);
-                        Assembler tempAssembler2 = new Assembler();
-                        tempAssembler2.Emit(tempAssembler);
-                        CompileLoad(tempAssembler2, operandType);
-                        assembler.Emit(tempAssembler2);
+                        AbstractType operandType = CompileAssignableExpression(function, context, tempAssembler, operand, out Variable storeVar);
 
-                        assembler.Emit(tempAssembler);
-                        assembler.Emit(tempAssembler2);
+                        if (storeVar == null)
+                        {
+                            Assembler tempAssembler2 = new Assembler();
+                            tempAssembler2.Emit(tempAssembler);
+                            CompileLoad(tempAssembler2, operandType);
+                            assembler.Emit(tempAssembler2);
+
+                            assembler.Emit(tempAssembler);
+                            assembler.Emit(tempAssembler2);
+                        }
+                        else
+                        {
+                            Assembler tempAssembler2 = new Assembler();
+                            CompileLoad(tempAssembler2, storeVar);
+
+                            assembler.Emit(tempAssembler2);
+                            assembler.Emit(tempAssembler2);
+                        }
 
                         if (operandType is PrimitiveType pt)
                         {
@@ -1953,29 +3247,81 @@ namespace compiler
                                     throw new ParserException("Operação não definida para o tipo '" + pt + "'.");
 
                                 case Primitive.BYTE:
+                                    assembler.EmitLoadConst((byte) 1);
+                                    assembler.EmitAdd();
+
+                                    if (storeVar == null)
+                                        assembler.EmitStoreStack8();
+                                    else if (storeVar is GlobalVariable)
+                                        assembler.EmitStoreGlobal8(storeVar.Offset);
+                                    else
+                                        assembler.EmitStoreLocal8(storeVar.Offset);
+
+                                    break;
+
                                 case Primitive.SHORT:
+                                    assembler.EmitLoadConst((short) 1);
+                                    assembler.EmitAdd();
+
+                                    if (storeVar == null)
+                                        assembler.EmitStoreStack16();
+                                    else if (storeVar is GlobalVariable)
+                                        assembler.EmitStoreGlobal16(storeVar.Offset);
+                                    else
+                                        assembler.EmitStoreLocal16(storeVar.Offset);
+
+                                    break;
+
                                 case Primitive.INT:
                                     assembler.EmitLoadConst(1);
                                     assembler.EmitAdd();
-                                    assembler.EmitStoreStack();
+
+                                    if (storeVar == null)
+                                        assembler.EmitStoreStack32();
+                                    else if (storeVar is GlobalVariable)
+                                        assembler.EmitStoreGlobal32(storeVar.Offset);
+                                    else
+                                        assembler.EmitStoreLocal32(storeVar.Offset);
+
                                     break;
 
                                 case Primitive.LONG:
                                     assembler.EmitLoadConst(1L);
                                     assembler.EmitAdd64();
-                                    assembler.EmitStoreStack64();
+
+                                    if (storeVar == null)
+                                        assembler.EmitStoreStack64();
+                                    else if (storeVar is GlobalVariable)
+                                        assembler.EmitStoreGlobal64(storeVar.Offset);
+                                    else
+                                        assembler.EmitStoreLocal64(storeVar.Offset);
+
                                     break;
 
                                 case Primitive.FLOAT:
                                     assembler.EmitLoadConst(1F);
                                     assembler.EmitFAdd();
-                                    assembler.EmitStoreStack();
+
+                                    if (storeVar == null)
+                                        assembler.EmitStoreStack32();
+                                    else if (storeVar is GlobalVariable)
+                                        assembler.EmitStoreGlobal32(storeVar.Offset);
+                                    else
+                                        assembler.EmitStoreLocal32(storeVar.Offset);
+
                                     break;
 
                                 case Primitive.DOUBLE:
                                     assembler.EmitLoadConst(1.0);
                                     assembler.EmitFAdd64();
-                                    assembler.EmitStoreStack64();
+
+                                    if (storeVar == null)
+                                        assembler.EmitStoreStack64();
+                                    else if (storeVar is GlobalVariable)
+                                        assembler.EmitStoreGlobal64(storeVar.Offset);
+                                    else
+                                        assembler.EmitStoreLocal64(storeVar.Offset);
+
                                     break;
                             }
 
@@ -1988,14 +3334,26 @@ namespace compiler
                     case UnaryOperation.POST_DECREMENT:
                     {
                         Assembler tempAssembler = new Assembler();
-                        AbstractType operandType = CompileAssignableExpression(function, context, tempAssembler, operand);
-                        Assembler tempAssembler2 = new Assembler();
-                        tempAssembler2.Emit(tempAssembler);
-                        CompileLoad(tempAssembler2, operandType);
-                        assembler.Emit(tempAssembler2);
+                        AbstractType operandType = CompileAssignableExpression(function, context, tempAssembler, operand, out Variable storeVar);
 
-                        assembler.Emit(tempAssembler);
-                        assembler.Emit(tempAssembler2);
+                        if (storeVar == null)
+                        {
+                            Assembler tempAssembler2 = new Assembler();
+                            tempAssembler2.Emit(tempAssembler);
+                            CompileLoad(tempAssembler2, operandType);
+                            assembler.Emit(tempAssembler2);
+
+                            assembler.Emit(tempAssembler);
+                            assembler.Emit(tempAssembler2);
+                        }
+                        else
+                        {
+                            Assembler tempAssembler2 = new Assembler();
+                            CompileLoad(tempAssembler2, storeVar);
+
+                            assembler.Emit(tempAssembler2);
+                            assembler.Emit(tempAssembler2);
+                        }
 
                         if (operandType is PrimitiveType pt)
                         {
@@ -2006,29 +3364,81 @@ namespace compiler
                                     throw new ParserException("Operação não definida para o tipo '" + pt + "'.");
 
                                 case Primitive.BYTE:
+                                    assembler.EmitLoadConst((byte) 1);
+                                    assembler.EmitSub();
+
+                                    if (storeVar == null)
+                                        assembler.EmitStoreStack8();
+                                    else if (storeVar is GlobalVariable)
+                                        assembler.EmitStoreGlobal8(storeVar.Offset);
+                                    else
+                                        assembler.EmitStoreLocal8(storeVar.Offset);
+
+
+                                    break;
                                 case Primitive.SHORT:
+                                    assembler.EmitLoadConst((short) 1);
+                                    assembler.EmitSub();
+
+                                    if (storeVar == null)
+                                        assembler.EmitStoreStack16();
+                                    else if (storeVar is GlobalVariable)
+                                        assembler.EmitStoreGlobal16(storeVar.Offset);
+                                    else
+                                        assembler.EmitStoreLocal16(storeVar.Offset);
+
+                                    break;
+
                                 case Primitive.INT:
                                     assembler.EmitLoadConst(1);
                                     assembler.EmitSub();
-                                    assembler.EmitStoreStack();
+
+                                    if (storeVar == null)
+                                        assembler.EmitStoreStack32();
+                                    else if (storeVar is GlobalVariable)
+                                        assembler.EmitStoreGlobal32(storeVar.Offset);
+                                    else
+                                        assembler.EmitStoreLocal32(storeVar.Offset);
+
                                     break;
 
                                 case Primitive.LONG:
                                     assembler.EmitLoadConst(1L);
                                     assembler.EmitSub64();
-                                    assembler.EmitStoreStack64();
+
+                                    if (storeVar == null)
+                                        assembler.EmitStoreStack64();
+                                    else if (storeVar is GlobalVariable)
+                                        assembler.EmitStoreGlobal64(storeVar.Offset);
+                                    else
+                                        assembler.EmitStoreLocal64(storeVar.Offset);
+
                                     break;
 
                                 case Primitive.FLOAT:
                                     assembler.EmitLoadConst(1F);
                                     assembler.EmitFSub();
-                                    assembler.EmitStoreStack();
+
+                                    if (storeVar == null)
+                                        assembler.EmitStoreStack32();
+                                    else if (storeVar is GlobalVariable)
+                                        assembler.EmitStoreGlobal32(storeVar.Offset);
+                                    else
+                                        assembler.EmitStoreLocal32(storeVar.Offset);
+
                                     break;
 
                                 case Primitive.DOUBLE:
                                     assembler.EmitLoadConst(1.0);
                                     assembler.EmitFSub64();
-                                    assembler.EmitStoreStack64();
+
+                                    if (storeVar == null)
+                                        assembler.EmitStoreStack64();
+                                    else if (storeVar is GlobalVariable)
+                                        assembler.EmitStoreGlobal64(storeVar.Offset);
+                                    else
+                                        assembler.EmitStoreLocal64(storeVar.Offset);
+
                                     break;
                             }
 
@@ -2036,6 +3446,13 @@ namespace compiler
                         }
                         
                         throw new ParserException("Operação não definida para o tipo '" + operandType + "'.");
+                    }
+
+                    case UnaryOperation.POINTER_TO:
+                    {
+                        Assembler tempAssembler = new Assembler();
+                        AbstractType operandType = CompileAssignableExpression(function, context, tempAssembler, operand, out Variable storeVar);
+                        return new PointerType(operandType);
                     }
 
                     default:
@@ -2051,7 +3468,7 @@ namespace compiler
                 if (b.Operation <= BinaryOperation.STORE_MOD)
                 {
                     CompileStoreExpression(function, context, assembler, b.Operation, leftOperand, rightOperand);
-                    return null;
+                    return PrimitiveType.VOID;
                 }
 
                 Assembler leftAssembler = new Assembler();
@@ -2589,7 +4006,7 @@ namespace compiler
                                     break;
                             }
 
-                            return resultType;
+                            return resultType.Size() < 4 ? PrimitiveType.INT : resultType;
                         }
 
                         throw new ParserException("Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
@@ -2627,7 +4044,7 @@ namespace compiler
                                     break;
                             }
 
-                            return resultType;
+                            return resultType.Size() < 4 ? PrimitiveType.INT : resultType;
                         }
 
                         throw new ParserException("Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
@@ -2665,7 +4082,7 @@ namespace compiler
                                     break;
                             }
 
-                            return resultType;
+                            return resultType.Size() < 4 ? PrimitiveType.INT : resultType;
                         }
 
                         throw new ParserException("Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
@@ -2711,20 +4128,34 @@ namespace compiler
                                     break;
                             }
 
-                            return resultType;
+                            return resultType.Size() < 4 ? PrimitiveType.INT : resultType;
                         }
 
-                        if (leftType is PointerType && PrimitiveType.IsPrimitiveInteger(rightType))
+                        if (leftType is PointerType ptr && PrimitiveType.IsPrimitiveInteger(rightType))
                         {
+                            if (PrimitiveType.IsPrimitiveVoid(ptr.Type))
+                                throw new ParserException("Operação aritimética com ponteiros não permitida para ponteiros do tipo void.");
+
+                            int size = ptr.Type.Size();
+
                             assembler.Emit(leftAssembler);
                             assembler.Emit(rightAssembler);
+                            assembler.EmitLoadConst(size);
+                            assembler.EmitMul();
                             assembler.EmitAdd();
                             return leftType;
                         }
 
-                        if (PrimitiveType.IsPrimitiveInteger(leftType) && rightType is PointerType)
+                        if (PrimitiveType.IsPrimitiveInteger(leftType) && rightType is PointerType ptr2)
                         {
+                            if (PrimitiveType.IsPrimitiveVoid(ptr2.Type))
+                                throw new ParserException("Operação aritimética com ponteiros não permitida para ponteiros do tipo void.");
+
+                            int size = ptr2.Type.Size();
+
                             assembler.Emit(leftAssembler);
+                            assembler.EmitLoadConst(size);
+                            assembler.EmitMul();
                             assembler.Emit(rightAssembler);
                             assembler.EmitAdd();
                             return rightType;
@@ -2773,15 +4204,33 @@ namespace compiler
                                     break;
                             }
 
-                            return resultType;
+                            return resultType.Size() < 4 ? PrimitiveType.INT : resultType;
                         }
 
-                        if (leftType is PointerType && PrimitiveType.IsPrimitiveInteger(rightType))
+                        if (leftType is PointerType ptr)
                         {
-                            assembler.Emit(leftAssembler);
-                            assembler.Emit(rightAssembler);
-                            assembler.EmitSub();
-                            return leftType;
+                            if (PrimitiveType.IsPrimitiveInteger(rightType))
+                            {
+                                if (PrimitiveType.IsPrimitiveVoid(ptr.Type))
+                                    throw new ParserException("Operação aritimética com ponteiros não permitida para ponteiros do tipo void.");
+
+                                int size = ptr.Type.Size();
+
+                                assembler.Emit(leftAssembler);
+                                assembler.Emit(rightAssembler);
+                                assembler.EmitLoadConst(size);
+                                assembler.EmitMul();
+                                assembler.EmitSub();
+                                return leftType;
+                            }
+
+                            if (rightType is PointerType)
+                            {
+                                assembler.Emit(leftAssembler);
+                                assembler.Emit(rightAssembler);
+                                assembler.EmitSub();
+                                return PrimitiveType.INT;
+                            }
                         }
 
                         throw new ParserException("Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
@@ -2827,7 +4276,7 @@ namespace compiler
                                     break;
                             }
 
-                            return resultType;
+                            return resultType.Size() < 4 ? PrimitiveType.INT : resultType;
                         }
 
                         throw new ParserException("Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
@@ -2873,7 +4322,7 @@ namespace compiler
                                     break;
                             }
 
-                            return resultType;
+                            return resultType.Size() < 4 ? PrimitiveType.INT : resultType;
                         }
 
                         throw new ParserException("Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
@@ -2911,7 +4360,7 @@ namespace compiler
                                     break;
                             }
 
-                            return resultType;
+                            return resultType.Size() < 4 ? PrimitiveType.INT : resultType;
                         }
 
                         throw new ParserException("Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
@@ -2927,13 +4376,13 @@ namespace compiler
                 Expression operand = f.Operand;
                 string fieldName = f.Field;
 
-                AbstractType operandType = CompileAssignableExpression(function, context, assembler, operand);
+                AbstractType operandType = CompileAssignableExpression(function, context, assembler, operand, out Variable storeVar);
 
                 if (operandType is StructType s)
                 {
                     Field field = s.FindField(fieldName);
                     if (field == null)
-                        throw new ParserException("Campo '" + fieldName + "' não encontrado na struct: '" + s.Name + "'.");
+                        throw new ParserException("Campo '" + fieldName + "' não encontrado na estrutura: '" + s.Name + "'.");
 
                     assembler.EmitLoadConst(field.Offset);
                     assembler.EmitAdd();
@@ -2942,13 +4391,13 @@ namespace compiler
                     return field.Type;
                 }
 
-                throw new ParserException("Acesso de membros em um tipo que não é struct: '" + operandType + "'.");
+                throw new ParserException("Acesso de membros em um tipo que não é estrutura: '" + operandType + "'.");
             }
 
             if (expression is ArrayAccessorExpression a)
             {
                 Expression operand = a.Operand;
-                AbstractType operandType = CompileAssignableExpression(function, context, assembler, operand);
+                AbstractType operandType = CompileAssignableExpression(function, context, assembler, operand, out Variable storeVar);
 
                 if (operandType is ArrayType at)
                 {
@@ -3019,9 +4468,11 @@ namespace compiler
                         return PrimitiveType.DOUBLE;
 
                     case StringLiteralExpression l:
-                        // TODO Implementar
-                        assembler.EmitLoadConst(0);
+                    {
+                        int offset = GetStringOffset(l.Value);
+                        assembler.EmitLoadConst(offset);
                         return PointerType.STRING;
+                    }
 
                     case NullLiteralExpression l:
                         assembler.EmitLoadConst(0);
@@ -3031,33 +4482,20 @@ namespace compiler
                     {
                         string name = id.Name;
 
-                        Variable var = context.FindVariable(id.Name);
+                        Variable var = context.FindVariable(name);
                         if (var == null)
                         {
-                            var = FindGlobalVariable(id.Name);
+                            var = FindGlobalVariable(name);
                             if (var == null)
-                                throw new ParserException("Identificador'" + id.Name + "' não declarado.");
-
-                            // variável local ou parâmetro
-                            int offset = var.Offset;
-                            assembler.EmitLoadConst(offset);
-                        }
-                        else
-                        {
-                            // variável local ou parâmetro
-                            int offset = var.Offset;
-                            assembler.EmitLoadBP();
-                            assembler.EmitLoadConst(offset);
-                            assembler.EmitAdd();
+                                throw new ParserException("Identificador'" + name + "' não declarado.");
                         }
 
-                        CompileLoad(assembler, var.Type);
-
+                        CompileLoad(assembler, var);
                         return var.Type;
                     }
                 }
 
-                throw new ParserException("Unknow primary type '" + p + "'");
+                throw new ParserException("Tipo de expressão primária desconhecido: '" + p + "'");
             }
 
             if (expression is CallExpression c)
@@ -3071,37 +4509,8 @@ namespace compiler
                         throw new ParserException("Função '" + id.Name + "' não declarada.");
 
                     AbstractType returnType = func.ReturnType;
-                    if (returnType != null)
-                    {
-                        if (returnType is PrimitiveType pt)
-                        {
-                            switch (pt.Primitive)
-                            {
-                                case Primitive.BOOL:
-                                case Primitive.BYTE:
-                                case Primitive.CHAR:
-                                case Primitive.SHORT:
-                                case Primitive.INT:
-                                    assembler.EmitLoadConst(0);
-                                    break;
-
-                                case Primitive.LONG:
-                                    assembler.EmitLoadConst(0L);
-                                    break;
-
-                                case Primitive.FLOAT:
-                                    assembler.EmitLoadConst(0F);
-                                    break;
-
-                                case Primitive.DOUBLE:
-                                    assembler.EmitLoadConst(0.0);
-                                    break;
-                            }
-                        }
-                        else
-                            // TODO Implementar
-                            throw new ParserException("???");
-                    }
+                    if (!PrimitiveType.IsPrimitiveVoid(returnType))
+                        assembler.EmitAddSP(returnType.Size());
 
                     if (func.ParamCount != c.ParameterCount)
                         throw new ParserException("A quantidade de parâmetros fornecido é diferente da quantidade total de parâmetros esperada.");
@@ -3110,21 +4519,21 @@ namespace compiler
                     {
                         Parameter parameter = func[j];
                         Expression expressionParameter = c[j];
-                        AbstractType paramType = CompileExpression(function, context, assembler, expressionParameter);
-                        CompileCast(assembler, paramType, parameter.Type, false);
+
+                        if (parameter.ByRef)
+                        {
+                            AbstractType paramType = CompileAssignableExpression(function, context, assembler, expressionParameter, out Variable storeVar);
+                            if (paramType != parameter.Type)
+                                throw new ParserException("Parâmetro passado por referência deve ser do mesmo tipo que o parâmetro correspondente da função a ser chamada.");
+                        }
+                        else
+                        {
+                            AbstractType paramType = CompileExpression(function, context, assembler, expressionParameter);
+                            CompileCast(assembler, paramType, parameter.Type, false);
+                        }
                     }
 
-                    assembler.EmitLabel(func.EntryLabel);
-                    assembler.EmitCall();
-
-                    int paramOffset = -func.ParameterOffset - 2;
-                    if (paramOffset > 0)
-                    {
-                        assembler.EmitLoadSP();
-                        assembler.EmitLoadConst(paramOffset);
-                        assembler.EmitSub();
-                        assembler.EmitStoreSP();
-                    }
+                    assembler.EmitCall(func.EntryLabel);
 
                     return func.ReturnType;
                 }
@@ -3172,24 +4581,30 @@ namespace compiler
             {
                 Expression expr = r.Expression;
 
-                if (expr != null && function.ReturnType == null)
+                if (expr != null && PrimitiveType.IsPrimitiveVoid(function.ReturnType))
                     throw new ParserException("A função não possui tipo de retorno.");
 
-                if (expr == null && function.ReturnType != null)
+                if (expr == null && PrimitiveType.IsPrimitiveVoid(function.ReturnType))
                     throw new ParserException("Expressão de retorno esperada.");
 
                 if (expr != null)
                 {
-                    assembler.EmitLoadBP();
-                    assembler.EmitLoadConst(function.ReturnOffset);
-                    assembler.EmitAdd();
-                    AbstractType returnType = CompileExpression(function, context, assembler, expr);
-                    CompileCast(assembler, returnType, function.ReturnType, false);
-                    CompileStore(assembler, function.ReturnType);
+                    if (function.ReturnType is PrimitiveType || function.ReturnType is PointerType)
+                    {
+                        AbstractType returnType = CompileExpression(function, context, assembler, expr);
+                        CompileCast(assembler, returnType, function.ReturnType, false);
+                        CompileStoreLocal(assembler, function.ReturnType, function.ReturnOffset);
+                    }
+                    else
+                    {
+                        assembler.EmitLoadLocalAddress(function.ReturnOffset);
+                        AbstractType returnType = CompileExpression(function, context, assembler, expr);
+                        CompileCast(assembler, returnType, function.ReturnType, false);
+                        CompileStore(assembler, function.ReturnType);
+                    }
                 }
 
-                assembler.EmitLabel(function.ReturnLabel);
-                assembler.EmitJump();
+                assembler.EmitJump(function.ReturnLabel);
             }
             else if (statement is BreakStatement b)
             {
@@ -3199,41 +4614,59 @@ namespace compiler
 
                 lexer.NextSymbol(";");
 
-                assembler.EmitLabel(breakLabel);
-                assembler.EmitJump();
+                assembler.EmitJump(breakLabel);
             }
             else if (statement is ReadStatement rd)
             {
                 for (int j = 0; j < rd.ExpressionCount; j++)
                 {
                     Expression expr = rd[j];
-                    AbstractType exprType = CompileAssignableExpression(function, context, assembler, expr);
+                    AbstractType exprType = CompileAssignableExpression(function, context, assembler, expr, out Variable storeVar);
 
-                    if (!(exprType is PrimitiveType p))
-                        throw new ParserException("Expected an expression of primitive type.");
-
-                    switch (p.Primitive)
+                    if (exprType is PrimitiveType p)
                     {
-                        case Primitive.BOOL:
-                        case Primitive.BYTE:
-                        case Primitive.CHAR:
-                        case Primitive.SHORT:
-                        case Primitive.INT:
-                            assembler.EmitScan();
-                            break;
+                        switch (p.Primitive)
+                        {
+                            case Primitive.BOOL:
+                                assembler.EmitScanB();
+                                break;
 
-                        case Primitive.LONG:
-                            assembler.EmitScan64();
-                            break;
+                            case Primitive.BYTE:
+                                assembler.EmitScan8();
+                                break;
 
-                        case Primitive.FLOAT:
-                            assembler.EmitFScan();
-                            break;
+                            case Primitive.CHAR:
+                                assembler.EmitScanC();
+                                break;
 
-                        case Primitive.DOUBLE:
-                            assembler.EmitFScan64();
-                            break;
+                            case Primitive.SHORT:
+                                assembler.EmitScan16();
+                                break;
+
+                            case Primitive.INT:
+                                assembler.EmitScan32();
+                                break;
+
+                            case Primitive.LONG:
+                                assembler.EmitScan64();
+                                break;
+
+                            case Primitive.FLOAT:
+                                assembler.EmitFScan();
+                                break;
+
+                            case Primitive.DOUBLE:
+                                assembler.EmitFScan64();
+                                break;
+
+                            default:
+                                throw new ParserException("Expressão de tipo primitivo ou string esperada.");
+                        }
                     }
+                    else if (exprType is PointerType ptr && ptr.IsString)
+                        assembler.EmitPScan();
+                    else
+                        throw new ParserException("Expressão de tipo primitivo ou string esperada.");
                 }
             }
             else if (statement is PrintStatement p)
@@ -3244,31 +4677,72 @@ namespace compiler
 
                     AbstractType exprType = CompileExpression(function, context, assembler, expr);
 
-                    if (!(exprType is PrimitiveType pt))
-                        throw new ParserException("Expected an expression of primitive type.");
-
-                    switch (pt.Primitive)
+                    if (exprType is PrimitiveType pt)
                     {
-                        case Primitive.BOOL:
-                        case Primitive.BYTE:
-                        case Primitive.CHAR:
-                        case Primitive.SHORT:
-                        case Primitive.INT:
-                            assembler.EmitPrint();
-                            break;
+                        switch (pt.Primitive)
+                        {
+                            case Primitive.BOOL:
+                            {
+                                int falseOffset = GetStringOffset("falso");
+                                int trueOffset = GetStringOffset("verdadeiro");
 
-                        case Primitive.LONG:
-                            assembler.EmitPrint64();
-                            break;
+                                Label lblFalse = CreateLabel();
+                                Label lblEnd = CreateLabel();
+                                assembler.EmitJumpIfFalse(lblFalse);
+                                assembler.EmitLoadConst(trueOffset);
+                                assembler.EmitJump(lblEnd);
+                                assembler.BindLabel(lblFalse);
+                                assembler.EmitLoadConst(falseOffset);
+                                assembler.BindLabel(lblEnd);
+                                assembler.EmitPPrint();
+                                break;
+                            }    
 
-                        case Primitive.FLOAT:
-                            assembler.EmitFPrint();
-                            break;
+                            case Primitive.BYTE:
+                                assembler.EmitPrint32();
+                                break;
 
-                        case Primitive.DOUBLE:
-                            assembler.EmitFPrint64();
-                            break;
+                            case Primitive.CHAR:
+                                assembler.EmitLoadConst((short) 0);
+                                assembler.EmitLoadSP();
+                                assembler.EmitLoadConst(8);
+                                assembler.EmitSub();
+                                assembler.EmitPPrint();
+                                assembler.EmitSubSP(4);
+                                break;
+
+                            case Primitive.SHORT:
+                            case Primitive.INT:
+                                assembler.EmitPrint32();
+                                break;
+
+                            case Primitive.LONG:
+                                assembler.EmitPrint64();
+                                break;
+
+                            case Primitive.FLOAT:
+                                assembler.EmitFPrint();
+                                break;
+
+                            case Primitive.DOUBLE:
+                                assembler.EmitFPrint64();
+                                break;
+
+                            default:
+                                throw new ParserException("Expressão de tipo primitivo ou string esperada.");
+                        }
                     }
+                    else if (exprType is PointerType ptr && ptr.IsString)
+                        assembler.EmitPPrint();
+                    else
+                        throw new ParserException("Expressão de tipo primitivo ou string esperada.");
+                }
+
+                if (p.LineBreak)
+                {
+                    int lineBreakOffset = GetStringOffset("\n");
+                    assembler.EmitLoadConst(lineBreakOffset);
+                    assembler.EmitPPrint();
                 }
             }
             else if (statement is IfStatement i)
@@ -3283,14 +4757,12 @@ namespace compiler
                     throw new ParserException("Expressão do tipo bool experada.");
 
                 Label lblElse = CreateLabel();
-                assembler.EmitLabel(lblElse);
-                assembler.EmitJumpIfFalse();
+                assembler.EmitJumpIfFalse(lblElse);
 
                 CompileStatement(function, context, assembler, thenStatement);
 
                 Label lblEnd = CreateLabel();
-                assembler.EmitLabel(lblEnd);
-                assembler.EmitJump();
+                assembler.EmitJump(lblEnd);
 
                 assembler.BindLabel(lblElse);
                 if (elseStatement != null)
@@ -3311,16 +4783,14 @@ namespace compiler
                 Label lblEnd = CreateLabel();
                 context.PushBreakLabel(lblEnd);
 
-                assembler.EmitLabel(lblEnd);
-                assembler.EmitJumpIfFalse();
+                assembler.EmitJumpIfFalse(lblEnd);
 
                 if (!PrimitiveType.IsPrimitiveBool(exprType))
                     throw new ParserException("Expressão do tipo bool experada.");
 
                 CompileStatement(function, context, assembler, stm);
 
-                assembler.EmitLabel(lblLoop);
-                assembler.EmitJump();
+                assembler.EmitJump(lblLoop);
                 assembler.BindLabel(lblEnd);
 
                 context.DropBreakLabel();
@@ -3342,8 +4812,7 @@ namespace compiler
                 if (!PrimitiveType.IsPrimitiveBool(exprType))
                     throw new ParserException("Expressão do tipo bool experada.");
 
-                assembler.EmitLabel(lblLoop);
-                assembler.EmitJumpIfFalse();
+                assembler.EmitJumpIfFalse(lblLoop);
 
                 assembler.BindLabel(lblEnd);
                 context.DropBreakLabel();
@@ -3375,8 +4844,7 @@ namespace compiler
                 Label lblEnd = CreateLabel();
                 context.PushBreakLabel(lblEnd);
 
-                assembler.EmitLabel(lblEnd);
-                assembler.EmitJumpIfFalse();
+                assembler.EmitJumpIfFalse(lblEnd);
 
                 Statement stm = f.Statement;
                 CompileStatement(function, context, assembler, stm);
@@ -3389,8 +4857,7 @@ namespace compiler
                     CompilePop(assembler, updaterType);
                 }
 
-                assembler.EmitLabel(lblLoop);
-                assembler.EmitJump();
+                assembler.EmitJump(lblLoop);
                 assembler.BindLabel(lblEnd);
 
                 context.DropBreakLabel();
@@ -3456,11 +4923,7 @@ namespace compiler
                     if (var is GlobalVariable)
                         assembler.EmitLoadConst(var.Offset);
                     else
-                    {
-                        assembler.EmitLoadBP();
-                        assembler.EmitLoadConst(var.Offset);
-                        assembler.EmitAdd();
-                    }
+                        assembler.EmitLoadLocalAddress(var.Offset);
 
                     AbstractType initializerType = CompileExpression(function, context, assembler, initializer);
                     CompileCast(assembler, initializerType, type, false);
@@ -3474,7 +4937,7 @@ namespace compiler
             Identifier id = lexer.NextIdentifier();
             Function f = DeclareFunction(id.Name);
             if (f == null)
-                throw new ParserException("Function '" + id.Name + "' already declared.");
+                throw new ParserException("Função '" + id.Name + "' já declarada.");
 
             lexer.NextSymbol("(");
             if (lexer.NextSymbol(")", false) == null)
@@ -3511,7 +4974,7 @@ namespace compiler
             Identifier id = lexer.NextIdentifier();
             StructType st = DeclareStruct(id.Name);
             if (st == null)
-                throw new ParserException("Struct '" + id.Name + "' already declared.");
+                throw new ParserException("Estrutura '" + id.Name + "' já declarada.");
 
             lexer.NextSymbol("{");
             if (lexer.NextSymbol("}", false) == null)
@@ -3549,7 +5012,7 @@ namespace compiler
 
             Function f = DeclareFunction("@main");
             if (f == null)
-                throw new ParserException("Entry point already declared.");
+                throw new ParserException("Ponto de entrada já declarado.");
 
             entryPoint = f;
 
@@ -3584,22 +5047,16 @@ namespace compiler
 
             lexer.NextSymbol("}");
 
-            if (globalVariableOffset > 0)
-            {
-                assembler.EmitLoadSP();
-                assembler.EmitLoadConst(globalVariableOffset);
-                assembler.EmitAdd();
-                assembler.EmitStoreSP();
-            }
-
             if (entryPoint != null)
-            {
-                assembler.EmitLabel(entryPoint.EntryLabel);
-                assembler.EmitCall();
-                assembler.EmitHalt();
-            }
+                assembler.EmitCall(entryPoint.EntryLabel);
+
+            assembler.EmitHalt();
 
             assembler.Emit(tempAssembler);
+
+            assembler.ReserveConstantBuffer(globalVariableOffset);
+            foreach (var kv in stringTable)
+                assembler.WriteConstant(kv.Value, kv.Key);
         }
 
         public AbstractType CompileAdditiveExpression(string expression, Assembler assembler)

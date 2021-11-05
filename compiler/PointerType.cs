@@ -13,13 +13,9 @@ namespace compiler
 
         private AbstractType type;
 
-        public AbstractType Type
-        {
-            get
-            {
-                return type;
-            }
-        }
+        public AbstractType Type => type;
+
+        public bool IsString => type == null || PrimitiveType.IsPrimitiveChar(type);
 
         public PointerType(AbstractType type = null)
         {
@@ -42,7 +38,7 @@ namespace compiler
 
         public override string ToString()
         {
-            return "*" + (type != null ? type.ToString() : "void");
+            return (type != null ? "*" + type.ToString() : "null");
         }
 
         public override int Size()
@@ -56,6 +52,7 @@ namespace compiler
             {
                 switch (p.Primitive)
                 {
+                    case Primitive.VOID:
                     case Primitive.BOOL:
                         return false;
 
@@ -84,8 +81,11 @@ namespace compiler
 
             if (other is PointerType ptr)
             {
+                if (type == null)
+                    return true;
+
                 AbstractType otherType = ptr.Type;
-                return isExplicit ? true : type == otherType;
+                return isExplicit ? true : PrimitiveType.IsPrimitiveVoid(otherType) || type == otherType;
             }
 
             return false;
@@ -94,6 +94,22 @@ namespace compiler
         public override int GetHashCode()
         {
             return 34944597 + EqualityComparer<AbstractType>.Default.GetHashCode(type);
+        }
+
+        public static bool operator ==(PointerType t1, PointerType t2)
+        {
+            if (ReferenceEquals(t1, t2))
+                return true;
+
+            if (((object) t1) == null || ((object) t2) == null)
+                return false;
+
+            return t1.Equals(t2);
+        }
+
+        public static bool operator !=(PointerType t1, PointerType t2)
+        {
+            return !(t1 == t2);
         }
     }
 }

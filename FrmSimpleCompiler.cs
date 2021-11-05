@@ -73,7 +73,18 @@ namespace SimpleCompiler
                 Invoke(new Action(() => ConsolePrint(message)));
             else
             {
-                lbConsole.Items.Add(message);
+                string[] lines = message.Split('\n');
+                if (lines.Length == 0)
+                    return;
+
+                if (lbConsole.Items.Count == 0)
+                    lbConsole.Items.Add("");
+
+                lbConsole.Items[lbConsole.Items.Count - 1] += lines[0];
+
+                for (int i = 1; i < lines.Length; i++)
+                    lbConsole.Items.Add(lines[i]);
+
                 int visibleItems = lbConsole.ClientSize.Height / lbConsole.ItemHeight;
                 lbConsole.TopIndex = Math.Max(lbConsole.Items.Count - visibleItems + 1, 0);
             }
@@ -179,7 +190,7 @@ namespace SimpleCompiler
             vmThread.Start();
         }
 
-        private void button1_Click(object sender, EventArgs e)
+        private void btnCompileProgram_Click(object sender, EventArgs e)
         {
             assembler.Reset();
 

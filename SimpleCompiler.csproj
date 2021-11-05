@@ -79,6 +79,7 @@
     <Compile Include="compiler\Token.cs" />
     <Compile Include="compiler\Identifier.cs" />
     <Compile Include="compiler\AbstractType.cs" />
+    <Compile Include="compiler\UnitySystem.cs" />
     <Compile Include="compiler\Variable.cs" />
     <Compile Include="compiler\VM.cs" />
     <Compile Include="FrmSimpleCompiler.cs">

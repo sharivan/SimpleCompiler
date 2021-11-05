@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -9,18 +10,23 @@ namespace compiler
 {
     public class VM
     {
-        public const int DEFAULT_STACK_SIZE = 4096; // tamanho da pilha em dwords (bytes * 4)
+        public delegate void ExternalFunctionHandler(VM vm);
+
+        public const int DEFAULT_STACK_SIZE = 32798; // tamanho da pilha bytes
 
         public delegate string ConsoleRead();
         public delegate void ConsolePrint(string message);
 
         private byte[] code;
-        private int[] stack;
+        private byte[] stack;
 
         // registradores
         private int ip; // ponteiro de instrução
         private int sp; // ponteiro de pilha
         private int bp; // ponteiro de base
+
+        private List<ExternalFunctionHandler> externalFunctions;
+        private Dictionary<string, int> externalFunctionMap;
 
         public event ConsoleRead OnConsoleRead;
         public event ConsolePrint OnConsolePrint;
@@ -82,15 +88,63 @@ namespace compiler
 
         public VM()
         {
+            code = null;
+            stack = new byte[DEFAULT_STACK_SIZE];
+
+            externalFunctions = new List<ExternalFunctionHandler>();
+            externalFunctionMap = new Dictionary<string, int>();
         }
 
         public void Initialize(Assembler assembler, int stackSize = DEFAULT_STACK_SIZE)
         {
             code = assembler.GetCode();
-            stack = new int[stackSize];
+            sp = 0;
+
+            Array.Resize(ref stack, stackSize + (int) assembler.ConstantSize);
+
+            if (assembler.ConstantSize > 0)
+            {
+                byte[] constantBuffer = assembler.GetConstantBuffer();
+                Push(constantBuffer);
+            }
+
+            externalFunctions.Clear();
+            externalFunctionMap.Clear();
+
+            for (int i = 0; i < assembler.ExternalFunctionCount; i++)
+            {
+                string functionName = assembler.GetExternalFunctionName(i);
+                AddExternalFunction(functionName);
+            }
+
+            foreach (var kv in UnitySystem.FUNCTIONS)
+                BindExternalFunction(kv.Key, kv.Value);
         }
 
-        private byte ReadCodeByte(ref int ip)
+        public void AddExternalFunction(string functionName)
+        {
+            if (externalFunctionMap.ContainsKey(functionName))
+                throw new Exception("External function " + functionName + " already added.");
+
+            externalFunctions.Add(null);
+            externalFunctionMap.Add(functionName, externalFunctions.Count - 1);
+        }
+
+        public void BindExternalFunction(string functionName, ExternalFunctionHandler function)
+        {
+            if (externalFunctionMap.ContainsKey(functionName))
+            {              
+                int index = externalFunctionMap[functionName];
+                externalFunctions[index] = function;
+            }
+            else
+            {
+                externalFunctions.Add(function);
+                externalFunctionMap.Add(functionName, externalFunctions.Count - 1);
+            }
+        }
+
+        public byte ReadCodeByte(ref int ip)
         {
             return code[ip++];
         }
@@ -104,23 +158,23 @@ namespace compiler
         private const long MASK6 = (long) MASK0 << 48;
         private const long MASK7 = (long) MASK0 << 56;
 
-        private short ReadCodeShort(ref int ip)
+        public short ReadCodeShort(ref int ip)
         {
             int result = code[ip++] & MASK0;
             result |= (code[ip++] << 8) & MASK1;
             return (short) result;
         }
 
-        private int ReadCodeInt(ref int ip)
+        public int ReadCodeInt(ref int ip)
         {
             int result = code[ip++] & MASK0;
             result |= (code[ip++] << 8) & MASK1;
             result |= (code[ip++] << 16) & MASK2;
-            result |= (int) ((code[ip++] << 24) & MASK3);
+            result |= (code[ip++] << 24) & MASK3;
             return result;
         }
 
-        private long ReadCodeLong(ref int ip)
+        public long ReadCodeLong(ref int ip)
         {
             long result = code[ip++] & MASK0;
             result |= ((long) code[ip++] << 8) & MASK1;
@@ -133,54 +187,110 @@ namespace compiler
             return result;
         }
 
-        private float ReadCodeFloat(ref int ip)
+        public float ReadCodeFloat(ref int ip)
         {
             int value = ReadCodeInt(ref ip);
             return BitConverter.ToSingle(BitConverter.GetBytes(value), 0);
         }
 
-        private double ReadCodeDouble(ref int ip)
+        public double ReadCodeDouble(ref int ip)
         {
             long value = ReadCodeLong(ref ip);
             return BitConverter.ToDouble(BitConverter.GetBytes(value), 0);
         }
 
-        public int ReadStack(int addr)
+        public byte ReadStackByte(int addr)
         {
-            return stack[addr];
+            int result = stack[addr] & MASK0;
+            return (byte) result;
         }
 
-        const int MASKA = ~0;
-        const long MASKB = (long) MASKA << 32;
-
-        public long ReadStack64(int addr)
+        public short ReadStackShort(int addr)
         {
-            long result = stack[addr] & MASKA;
-            result |= ((long) stack[addr + 1] << 32) & MASKB;
+            int result = stack[addr++] & MASK0;
+            result |= (stack[addr] << 8) & MASK1;
+            return (short) result;
+        }
+
+        public int ReadStackInt(int addr)
+        {
+            int result = stack[addr++] & MASK0;
+            result |= (stack[addr++] << 8) & MASK1;
+            result |= (stack[addr++] << 16) & MASK2;
+            result |= (stack[addr] << 24) & MASK3;
+            return result;
+        }
+
+        public long ReadStackLong(int addr)
+        {
+            long result = stack[addr++] & MASK0;
+            result |= ((long) stack[addr++] << 8) & MASK1;
+            result |= ((long) stack[addr++] << 16) & MASK2;
+            result |= ((long) stack[addr++] << 24) & MASK3;
+            result |= ((long) stack[addr++] << 32) & MASK4;
+            result |= ((long) stack[addr++] << 40) & MASK5;
+            result |= ((long) stack[addr++] << 48) & MASK6;
+            result |= ((long) stack[addr] << 56) & MASK7;
             return result;
         }
 
         public float ReadStackFloat(int addr)
         {
-            int value = ReadStack(addr);
+            int value = ReadStackInt(addr);
             return BitConverter.ToSingle(BitConverter.GetBytes(value), 0);
         }
 
         public double ReadStackDouble(int addr)
         {
-            long value = ReadStack64(addr);
+            long value = ReadStackLong(addr);
             return BitConverter.ToDouble(BitConverter.GetBytes(value), 0);
         }
 
-        public void WriteStack(int addr, int value)
+        public string ReadStackString(int addr)
+        {
+            string result = "";
+            while (true)
+            {
+                char c = (char) ReadStackShort(addr);
+                addr += 2;
+                if (c == '\0')
+                    break;
+
+                result += c;
+            }
+
+            return result;
+        }
+
+        public void WriteStack(int addr, byte value)
         {
             stack[addr] = value;
         }
 
+        public void WriteStack(int addr, short value)
+        {
+            stack[addr++] = (byte) value;
+            stack[addr] = (byte) (value >> 8);
+        }
+
+        public void WriteStack(int addr, int value)
+        {
+            stack[addr++] = (byte) value;
+            stack[addr++] = (byte) (value >> 8);
+            stack[addr++] = (byte) (value >> 16);
+            stack[addr] = (byte) (value >> 24);
+        }
+
         public void WriteStack(int addr, long value)
         {
-            stack[addr] = (int) (value & 0xffffffff);
-            stack[addr + 1] = (int) ((value >> 32) & 0xffffffff);
+            stack[addr++] = (byte) value;
+            stack[addr++] = (byte) (value >> 8);
+            stack[addr++] = (byte) (value >> 16);
+            stack[addr++] = (byte) (value >> 24);
+            stack[addr++] = (byte) (value >> 32);
+            stack[addr++] = (byte) (value >> 40);
+            stack[addr++] = (byte) (value >> 48);
+            stack[addr] = (byte) (value >> 56);
         }
 
         public void WriteStack(int addr, float value)
@@ -193,35 +303,70 @@ namespace compiler
             WriteStack(addr, BitConverter.ToInt64(BitConverter.GetBytes(value), 0));
         }
 
+        public void WriteStack(int addr, string value)
+        {
+            byte[] bytes = new byte[value.Length * sizeof(char)];
+            WriteStack(addr, value);
+            WriteStack(addr + bytes.Length, (short) 0);
+        }
+
+        public void WriteStack(int addr, byte[] buf)
+        {
+            WriteStack(addr, buf, 0, buf.Length);
+        }
+
+        public void WriteStack(int addr, byte[] buf, int off, int len)
+        {
+            Array.Copy(buf, off, stack, addr, len);
+        }
+
+        public void MoveBlock(int srcAddr, int dstAddr, int len)
+        {
+            Array.Copy(stack, srcAddr, stack, dstAddr, len);
+        }
+
+        public void LoadBlock(int srcAddr, int len)
+        {
+            MoveBlock(srcAddr, sp, len);
+            sp += len;
+        }
+
+        public void StoreBlock(int dstAddr, int len)
+        {
+            sp -= len;
+            MoveBlock(sp, dstAddr, len);            
+        }
+
         public int ReadStackTop()
         {
-            return ReadStack(SP - 1);
+            return ReadStackInt(SP - 4);
         }
 
         public long ReadStackTop64()
         {
-            return ReadStack64(SP - 2);
+            return ReadStackLong(SP - 8);
         }
 
         public float ReadStackTopFloat()
         {
-            return ReadStackFloat(SP - 1);
+            return ReadStackFloat(SP - 4);
         }
 
         public double ReadStackTopDouble()
         {
-            return ReadStackDouble(SP - 2);
+            return ReadStackDouble(SP - 8);
         }
 
         public void Push(int value)
         {
-            stack[sp++] = value;
+            WriteStack(sp, value);
+            sp += 4;
         }
 
         public void Push(long value)
         {
-            stack[sp++] = (int) (value & 0xffffffff);
-            stack[sp++] = (int) ((value >> 32) & 0xffffffff);
+            WriteStack(sp, value);
+            sp += 8;
         }
 
         public void Push(float value)
@@ -234,16 +379,28 @@ namespace compiler
             Push(BitConverter.ToInt64(BitConverter.GetBytes(value), 0));
         }
 
+        public void Push(byte[] buf)
+        {
+            Push(buf, 0, buf.Length);
+        }
+
+        public void Push(byte[] buf, int off, int len)
+        {
+            WriteStack(sp, buf, off, len);
+            sp += len;
+        }
+
         public int Pop()
         {
-            return stack[--sp];
+            sp -= 4;
+            int result = ReadStackInt(sp);
+            return result;
         }
 
         public long PopLong()
         {
-            sp -= 2;
-            long result = stack[sp] & MASKA;
-            result |= ((long) stack[sp + 1] << 32) & MASKB;
+            sp -= 8;
+            long result = ReadStackLong(sp);
             return result;
         }
 
@@ -259,11 +416,55 @@ namespace compiler
             return BitConverter.ToDouble(BitConverter.GetBytes(value), 0);
         }
 
+        public IntPtr LoadParamAddr(int offset)
+        {
+            return Marshal.UnsafeAddrOfPinnedArrayElement(stack, bp - (offset - 3) * 4);
+        }
+
+        public int LoadParam(int offset)
+        {
+            return ReadStackInt(bp - (offset - 3) * 4);
+        }
+
+        public long LoadParamLong(int offset)
+        {
+            return ReadStackLong(bp - (offset - 3) * 4);
+        }
+
+        public float LoadParamFloat(int offset)
+        {
+            return ReadStackFloat(bp - (offset - 3) * 4);
+        }
+
+        public double LoadParamDouble(int offset)
+        {
+            return ReadStackDouble(bp - (offset - 3) * 4);
+        }
+
+        public void SetParam(int offset, int value)
+        {
+            WriteStack(bp - (offset - 3) * 4, value);
+        }
+
+        public void SetParam(int offset, long value)
+        {
+            WriteStack(bp - (offset - 3) * 4, value);
+        }
+
+        public void SetParam(int offset, float value)
+        {
+            WriteStack(bp - (offset - 3) * 4, value);
+        }
+
+        public void SetParam(int offset, double value)
+        {
+            WriteStack(bp - (offset - 3) * 4, value);
+        }
+
         public void Run()
         {
             ip = 0;
-            sp = 0;
-            bp = 0;
+            bp = sp;
 
             while (ip < code.Length)
             {
@@ -340,10 +541,47 @@ namespace compiler
                         break;
                     }
 
-                    case Opcode.LS:
+                    case Opcode.ADDSP:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        sp += offset;
+                        break;
+                    }
+
+                    case Opcode.SUBSP:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        sp -= offset;
+                        break;
+                    }
+
+                    case Opcode.LLA:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        Push(bp + offset);
+                        break;
+                    }
+
+                    case Opcode.LS8:
                     {
                         int addr = Pop();
-                        int value = ReadStack(addr);
+                        byte value = ReadStackByte(addr);
+                        Push(value);
+                        break;
+                    }
+
+                    case Opcode.LS16:
+                    {
+                        int addr = Pop();
+                        short value = ReadStackShort(addr);
+                        Push(value);
+                        break;
+                    }
+
+                    case Opcode.LS32:
+                    {
+                        int addr = Pop();
+                        int value = ReadStackInt(addr);
                         Push(value);
                         break;
                     }
@@ -351,12 +589,28 @@ namespace compiler
                     case Opcode.LS64:
                     {
                         int addr = Pop();
-                        long value = ReadStack64(addr);
+                        long value = ReadStackLong(addr);
                         Push(value);
                         break;
                     }
 
-                    case Opcode.SS:
+                    case Opcode.SS8:
+                    {
+                        int value = Pop();
+                        int addr = Pop();
+                        WriteStack(addr, (byte) value);
+                        break;
+                    }
+
+                    case Opcode.SS16:
+                    {
+                        int value = Pop();
+                        int addr = Pop();
+                        WriteStack(addr, (short) value);
+                        break;
+                    }
+
+                    case Opcode.SS32:
                     {
                         int value = Pop();
                         int addr = Pop();
@@ -369,6 +623,134 @@ namespace compiler
                         long value = PopLong();
                         int addr = Pop();
                         WriteStack(addr, value);
+                        break;
+                    }
+
+                    case Opcode.LG8:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        byte value = ReadStackByte(offset);
+                        Push(value);
+                        break;
+                    }
+
+                    case Opcode.LG16:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        short value = ReadStackShort(offset);
+                        Push(value);
+                        break;
+                    }
+
+                    case Opcode.LG32:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        int value = ReadStackInt(offset);
+                        Push(value);
+                        break;
+                    }
+
+                    case Opcode.LG64:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        long value = ReadStackLong(offset);
+                        Push(value);
+                        break;
+                    }
+
+                    case Opcode.LL8:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        byte value = ReadStackByte(bp + offset);
+                        Push(value);
+                        break;
+                    }
+
+                    case Opcode.LL16:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        short value = ReadStackShort(bp + offset);
+                        Push(value);
+                        break;
+                    }
+
+                    case Opcode.LL32:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        int value = ReadStackInt(bp + offset);
+                        Push(value);
+                        break;
+                    }
+
+                    case Opcode.LL64:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        long value = ReadStackLong(bp + offset);
+                        Push(value);
+                        break;
+                    }
+
+                    case Opcode.SG8:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        int value = Pop();
+                        WriteStack(offset, (byte) value);
+                        break;
+                    }
+
+                    case Opcode.SG16:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        int value = Pop();
+                        WriteStack(offset, (short) value);
+                        break;
+                    }
+
+                    case Opcode.SG32:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        int value = Pop();
+                        WriteStack(offset, value);
+                        break;
+                    }
+
+                    case Opcode.SG64:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        long value = PopLong();
+                        WriteStack(offset, value);
+                        break;
+                    }
+
+                    case Opcode.SL8:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        int value = Pop();
+                        WriteStack(bp + offset, (byte) value);
+                        break;
+                    }
+
+                    case Opcode.SL16:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        int value = Pop();
+                        WriteStack(bp + offset, (short) value);
+                        break;
+                    }
+
+                    case Opcode.SL32:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        int value = Pop();
+                        WriteStack(bp + offset, value);
+                        break;
+                    }
+
+                    case Opcode.SL64:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        long value = PopLong();
+                        WriteStack(bp + offset, value);
                         break;
                     }
 
@@ -988,29 +1370,29 @@ namespace compiler
 
                     case Opcode.JMP:
                     {
-                        int delta = Pop();
-                        ip = lastIP + delta;
+                        int offset = ReadCodeInt(ref ip);
+                        ip = lastIP + offset;
                         break;
                     }
 
                     case Opcode.JT:
                     {
-                        int delta = Pop();
+                        int offset = ReadCodeInt(ref ip);
                         int value = Pop() & 1;
 
                         if (value == 1)
-                            ip = lastIP + delta;
+                            ip = lastIP + offset;
 
                         break;
                     }
 
                     case Opcode.JF:
                     {
-                        int delta = Pop();
+                        int offset = ReadCodeInt(ref ip);
                         int value = Pop() & 1;
 
                         if (value == 0)
-                            ip = lastIP + delta;
+                            ip = lastIP + offset;
 
                         break;
                     }
@@ -1075,11 +1457,31 @@ namespace compiler
 
                     case Opcode.CALL:
                     {
-                        int delta = Pop();
+                        int offset = ReadCodeInt(ref ip);
                         Push(ip);
                         Push(bp);
                         bp = sp;
-                        ip = lastIP + delta;
+                        ip = lastIP + offset;
+                        break;
+                    }
+
+                    case Opcode.ICALL:
+                    {
+                        int offset = Pop();
+                        Push(ip);
+                        Push(bp);
+                        bp = sp;
+                        ip = lastIP + offset;
+                        break;
+                    }
+
+                    case Opcode.ECALL:
+                    {
+                        int index = Pop();
+                        Push(ip);
+                        Push(bp);
+                        bp = sp;
+                        externalFunctions[index](this);
                         break;
                     }
 
@@ -1090,7 +1492,86 @@ namespace compiler
                         break;
                     }
 
-                    case Opcode.SCAN:
+                    case Opcode.RETN:
+                    {
+                        int count = ReadCodeInt(ref ip);
+                        bp = Pop();
+                        ip = Pop();
+                        sp -= count;
+                        break;
+                    }
+
+                    case Opcode.SCANB:
+                    {
+                        int addr = Pop();
+                        string str = OnConsoleRead();
+                        try
+                        {
+                            if (str == "verdadeiro" || str == "1")
+                                WriteStack(addr, 1);
+                            else if (str == "falso" || str == "0")
+                                WriteStack(addr, 0);
+                            else
+                            {
+                                bool value = bool.Parse(str);
+                                WriteStack(addr, value ? 1 : 0);
+                            }
+                        }
+                        catch (Exception)
+                        {
+                            WriteStack(addr, (byte) 0);
+                        }
+
+                        break;
+                    }
+
+                    case Opcode.SCAN8:
+                    {
+                        int addr = Pop();
+                        string str = OnConsoleRead();
+                        try
+                        {
+                            int value = int.Parse(str);
+                            WriteStack(addr, (byte) value);
+                        }
+                        catch (Exception)
+                        {
+                            WriteStack(addr, (byte) 0);
+                        }
+
+                        break;
+                    }
+
+                    case Opcode.SCANC:
+                    {
+                        int addr = Pop();
+                        string str = OnConsoleRead();
+                        if (str.Length == 0)
+                            WriteStack(addr, (short) 0);
+                        else
+                            WriteStack(addr, (short) str[0]);
+
+                        break;
+                    }
+
+                    case Opcode.SCAN16:
+                    {
+                        int addr = Pop();
+                        string str = OnConsoleRead();
+                        try
+                        {
+                            int value = int.Parse(str);
+                            WriteStack(addr, (short) value);
+                        }
+                        catch (Exception)
+                        {
+                            WriteStack(addr, (short) 0);
+                        }
+
+                        break;
+                    }
+
+                    case Opcode.SCAN32:
                     {
                         int addr = Pop();
                         string str = OnConsoleRead();
@@ -1101,7 +1582,7 @@ namespace compiler
                         }
                         catch (Exception)
                         {
-                            Push(0);
+                            WriteStack(addr, 0);
                         }
 
                         break;
@@ -1118,7 +1599,7 @@ namespace compiler
                         }
                         catch (Exception)
                         {
-                            Push(0L);
+                            WriteStack(addr, 0L);
                         }
 
                         break;
@@ -1135,7 +1616,7 @@ namespace compiler
                         }
                         catch (Exception)
                         {
-                            Push(0F);
+                            WriteStack(addr, 0F);
                         }
 
                         break;
@@ -1152,37 +1633,53 @@ namespace compiler
                         }
                         catch (Exception)
                         {
-                            Push(0.0);
+                            WriteStack(addr, 0.0);
                         }
 
                         break;
                     }
 
-                    case Opcode.PRINT:
+                    case Opcode.PSCAN:
+                    {
+                        int addr = Pop();
+                        string value = OnConsoleRead();
+                        WriteStack(addr, value);
+                        break;
+                    }
+
+                    case Opcode.PRINT32:
                     {
                         int value = Pop();
-                        PrintLn(value.ToString());
+                        Print(value.ToString());
                         break;
                     }
 
                     case Opcode.PRINT64:
                     {
                         long value = PopLong();
-                        PrintLn(value.ToString());
+                        Print(value.ToString());
                         break;
                     }
 
                     case Opcode.FPRINT:
                     {
                         float value = PopFloat();
-                        PrintLn(value.ToString(CultureInfo.InvariantCulture));
+                        Print(value.ToString(CultureInfo.InvariantCulture));
                         break;
                     }
 
                     case Opcode.FPRINT64:
                     {
                         double value = PopDouble();
-                        PrintLn(value.ToString(CultureInfo.InvariantCulture));
+                        Print(value.ToString(CultureInfo.InvariantCulture));
+                        break;
+                    }
+
+                    case Opcode.PPRINT:
+                    {
+                        int addr = Pop();
+                        string value = addr != 0 ? ReadStackString(addr) : "nulo";
+                        Print(value.ToString(CultureInfo.InvariantCulture));
                         break;
                     }
 
@@ -1322,9 +1819,42 @@ namespace compiler
                         break;
                     }
 
-                    case Opcode.LS:
+                    case Opcode.ADDSP:
                     {
-                        PrintLine(lastIP, op, "LS");
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "ADDSP " + offset);
+                        break;
+                    }
+
+                    case Opcode.SUBSP:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "SUBSP " + offset);
+                        break;
+                    }
+
+                    case Opcode.LLA:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "LLA " + offset + (offset < 0 ? " // param" : ""));
+                        break;
+                    }
+
+                    case Opcode.LS8:
+                    {
+                        PrintLine(lastIP, op, "LS8");
+                        break;
+                    }
+                    case Opcode.LS16:
+                    {
+                        PrintLine(lastIP, op, "LS16");
+                        break;
+                    }
+
+
+                    case Opcode.LS32:
+                    {
+                        PrintLine(lastIP, op, "LS32");
                         break;
                     }
 
@@ -1334,15 +1864,139 @@ namespace compiler
                         break;
                     }
 
-                    case Opcode.SS:
+                    case Opcode.SS8:
                     {
-                        PrintLine(lastIP, op, "SS");
+                        PrintLine(lastIP, op, "SS8");
+                        break;
+                    }
+
+                    case Opcode.SS16:
+                    {
+                        PrintLine(lastIP, op, "SS16");
+                        break;
+                    }
+
+                    case Opcode.SS32:
+                    {
+                        PrintLine(lastIP, op, "SS32");
                         break;
                     }
 
                     case Opcode.SS64:
                     {
                         PrintLine(lastIP, op, "SS64");
+                        break;
+                    }
+
+                    case Opcode.LG8:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "LG8 " + offset);
+                        break;
+                    }
+
+                    case Opcode.LG16:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "LG16 " + offset);
+                        break;
+                    }
+
+                    case Opcode.LG32:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "LG32 " + offset);
+                        break;
+                    }
+
+                    case Opcode.LG64:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "LG64 " + offset);
+                        break;
+                    }
+
+                    case Opcode.LL8:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "LL8 " + offset + (offset < 0 ? " // param" : ""));
+                        break;
+                    }
+
+                    case Opcode.LL16:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "LL16 " + offset + (offset < 0 ? " // param" : ""));
+                        break;
+                    }
+
+                    case Opcode.LL32:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "LL32 " + offset + (offset < 0 ? " // param" : ""));
+                        break;
+                    }
+
+                    case Opcode.LL64:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "LL64 " + offset + (offset < 0 ? " // param" : ""));
+                        break;
+                    }
+
+                    case Opcode.SG8:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "SG8 " + offset);
+                        break;
+                    }
+
+                    case Opcode.SG16:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "SG16 " + offset);
+                        break;
+                    }
+
+                    case Opcode.SG32:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "SG32 " + offset);
+                        break;
+                    }
+
+                    case Opcode.SG64:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "SG64 " + offset);
+                        break;
+                    }
+
+                    case Opcode.SL8:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "SL8 " + offset + (offset < 0 ? " // param" : ""));
+                        break;
+                    }
+
+                    case Opcode.SL16:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "SL16 " + offset + (offset < 0 ? " // param" : ""));
+                        break;
+                    }
+
+                    case Opcode.SL32:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "SL32 " + offset + (offset < 0 ? " // param" : ""));
+                        break;
+                    }
+
+                    case Opcode.SL64:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "SL64 " + offset + (offset < 0 ? " // param" : ""));
                         break;
                     }
 
@@ -1768,19 +2422,22 @@ namespace compiler
 
                     case Opcode.JMP:
                     {
-                        PrintLine(lastIP, op, "JMP");
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "JMP " + Format(lastIP + offset, 8) + " //" + (offset > 0 ? "+" : "") + offset);
                         break;
                     }
 
                     case Opcode.JT:
                     {
-                        PrintLine(lastIP, op, "JT");
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "JT " + Format(lastIP + offset, 8) + " //" + (offset > 0 ? "+" : "") + offset);
                         break;
                     }
 
                     case Opcode.JF:
                     {
-                        PrintLine(lastIP, op, "JF");
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "JF " + Format(lastIP + offset, 8) + " //" + (offset > 0 ? "+" : "") + offset);
                         break;
                     }
 
@@ -1831,7 +2488,20 @@ namespace compiler
 
                     case Opcode.CALL:
                     {
-                        PrintLine(lastIP, op, "CALL");
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "CALL " + Format(lastIP + offset, 8) + " //" + (offset > 0 ? "+" : "") + offset);
+                        break;
+                    }
+
+                    case Opcode.ICALL:
+                    {
+                        PrintLine(lastIP, op, "ICALL");
+                        break;
+                    }
+
+                    case Opcode.ECALL:
+                    {
+                        PrintLine(lastIP, op, "ECALL");
                         break;
                     }
 
@@ -1841,9 +2511,28 @@ namespace compiler
                         break;
                     }
 
-                    case Opcode.SCAN:
+                    case Opcode.RETN:
                     {
-                        PrintLine(lastIP, op, "SCAN");
+                        int count = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "RETN " + count);
+                        break;
+                    }
+
+                    case Opcode.SCAN8:
+                    {
+                        PrintLine(lastIP, op, "SCAN8");
+                        break;
+                    }
+
+                    case Opcode.SCAN16:
+                    {
+                        PrintLine(lastIP, op, "SCAN16");
+                        break;
+                    }
+
+                    case Opcode.SCAN32:
+                    {
+                        PrintLine(lastIP, op, "SCAN32");
                         break;
                     }
 
@@ -1865,9 +2554,15 @@ namespace compiler
                         break;
                     }
 
-                    case Opcode.PRINT:
+                    case Opcode.PSCAN:
                     {
-                        PrintLine(lastIP, op, "PRINT");
+                        PrintLine(lastIP, op, "PSCAN");
+                        break;
+                    }
+
+                    case Opcode.PRINT32:
+                    {
+                        PrintLine(lastIP, op, "PRINT32");
                         break;
                     }
 
@@ -1886,6 +2581,12 @@ namespace compiler
                     case Opcode.FPRINT64:
                     {
                         PrintLine(lastIP, op, "FPRINT64");
+                        break;
+                    }
+
+                    case Opcode.PPRINT:
+                    {
+                        PrintLine(lastIP, op, "PPRINT");
                         break;
                     }
 

@@ -60,7 +60,7 @@ namespace compiler
 
             long lastPosition = referenceAssembler.Position;
             referenceAssembler.Position = referenceIP;
-            referenceAssembler.EmitLoadConst(bindedIP - referenceIP - 5);
+            referenceAssembler.EmitData(bindedIP - referenceIP + 1);
             referenceAssembler.Position = lastPosition;
         }
 

@@ -8,6 +8,7 @@ namespace compiler
 {
     public enum Primitive
     {
+        VOID,
         BOOL,
         BYTE,
         CHAR,
@@ -20,6 +21,7 @@ namespace compiler
 
     public class PrimitiveType : AbstractType
     {
+        public static readonly PrimitiveType VOID = new PrimitiveType(Primitive.VOID);
         public static readonly PrimitiveType BOOL = new PrimitiveType(Primitive.BOOL);
         public static readonly PrimitiveType BYTE = new PrimitiveType(Primitive.BYTE);
         public static readonly PrimitiveType CHAR = new PrimitiveType(Primitive.CHAR);
@@ -28,6 +30,19 @@ namespace compiler
         public static readonly PrimitiveType LONG = new PrimitiveType(Primitive.LONG);
         public static readonly PrimitiveType FLOAT = new PrimitiveType(Primitive.FLOAT);
         public static readonly PrimitiveType DOUBLE = new PrimitiveType(Primitive.DOUBLE);
+
+        public static bool IsPrimitiveVoid(PrimitiveType type)
+        {
+            return type.primitive == Primitive.VOID;
+        }
+
+        public static bool IsPrimitiveVoid(AbstractType type)
+        {
+            if (type is PrimitiveType p)
+                return IsPrimitiveVoid(p);
+
+            return false;
+        }
 
         public static bool IsPrimitiveBool(PrimitiveType type)
         {
@@ -179,6 +194,9 @@ namespace compiler
         {
             switch (primitive)
             {
+                case Primitive.VOID:
+                    return "void";
+
                 case Primitive.BOOL:
                     return "bool";
 
@@ -211,6 +229,9 @@ namespace compiler
         {
             switch (primitive)
             {
+                case Primitive.VOID:
+                    return 0;
+
                 case Primitive.BOOL:
                     return 1;
 
@@ -245,6 +266,9 @@ namespace compiler
             {
                 switch (primitive)
                 {
+                    case Primitive.VOID:
+                        return false;
+
                     case Primitive.BOOL:
                         return isExplicit ? true : o.primitive == Primitive.BOOL;
 
@@ -275,6 +299,7 @@ namespace compiler
             {
                 switch (primitive)
                 {
+                    case Primitive.VOID:
                     case Primitive.BOOL:
                     case Primitive.BYTE:
                     case Primitive.CHAR:
@@ -299,6 +324,22 @@ namespace compiler
         public override int GetHashCode()
         {
             return 1968834918 + primitive.GetHashCode();
+        }
+
+        public static bool operator ==(PrimitiveType t1, PrimitiveType t2)
+        {
+            if (ReferenceEquals(t1, t2))
+                return true;
+
+            if (((object) t1) == null || ((object) t2) == null)
+                return false;
+
+            return t1.Equals(t2);
+        }
+
+        public static bool operator !=(PrimitiveType t1, PrimitiveType t2)
+        {
+            return !(t1 == t2);
         }
     }
 }

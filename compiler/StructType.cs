@@ -112,5 +112,21 @@ namespace compiler
             hashCode = hashCode * -1521134295 + EqualityComparer<List<Field>>.Default.GetHashCode(fields);
             return hashCode;
         }
+
+        public static bool operator ==(StructType t1, StructType t2)
+        {
+            if (ReferenceEquals(t1, t2))
+                return true;
+
+            if (((object) t1) == null || ((object) t2) == null)
+                return false;
+
+            return t1.Equals(t2);
+        }
+
+        public static bool operator !=(StructType t1, StructType t2)
+        {
+            return !(t1 == t2);
+        }
     }
 }
