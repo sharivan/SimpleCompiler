@@ -11,15 +11,9 @@ namespace compiler
     {
         private float value;
 
-        public float Value
-        {
-            get
-            {
-                return value;
-            }
-        }
+        public float Value => value;
 
-        public FloatLiteral(float value)
+        public FloatLiteral(SourceInterval interval, float value) : base(interval)
         {
             this.value = value;
         }

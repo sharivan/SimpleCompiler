@@ -8,11 +8,19 @@ namespace compiler
 {
     public abstract class Statement
     {
+        private SourceInterval interval;
+
+        public SourceInterval Interval => interval;
+
+        protected Statement(SourceInterval interval)
+        {
+            this.interval = interval;
+        }
     }
 
     public class EmptyStatement : Statement
     {
-        public EmptyStatement()
+        public EmptyStatement(SourceInterval interval) : base(interval)
         {
         }
     }
@@ -23,18 +31,12 @@ namespace compiler
 
         public Expression Expression
         {
-            get
-            {
-                return expression;
-            }
+            get => expression;
 
-            set
-            {
-                expression = value;
-            }
+            set => expression = value;
         }
 
-        public ExpressionStatement(Expression expression)
+        public ExpressionStatement(SourceInterval interval, Expression expression) : base(interval)
         {
             this.expression = expression;
         }
@@ -46,18 +48,12 @@ namespace compiler
 
         public Expression Expression
         {
-            get
-            {
-                return expression;
-            }
+            get => expression;
 
-            set
-            {
-                expression = value;
-            }
+            set => expression = value;
         }
 
-        public ReturnStatement(Expression expression = null)
+        public ReturnStatement(SourceInterval interval, Expression expression = null) : base(interval)
         {
             this.expression = expression;
         }
@@ -65,34 +61,25 @@ namespace compiler
 
     public class BreakStatement : Statement
     {
+        public BreakStatement(SourceInterval interval) : base(interval)
+        {
+        }
     }
 
     public class ReadStatement : Statement
     {
         private List<Expression> expressions;
 
-        public int ExpressionCount
-        {
-            get
-            {
-                return expressions.Count;
-            }
-        }
+        public int ExpressionCount => expressions.Count;
 
         public Expression this[int index]
         {
-            get
-            {
-                return expressions[index];
-            }
+            get => expressions[index];
 
-            set
-            {
-                expressions[index] = value;
-            }
+            set => expressions[index] = value;
         }
 
-        public ReadStatement()
+        public ReadStatement(SourceInterval interval) : base(interval)
         {
             expressions = new List<Expression>();
         }
@@ -119,7 +106,7 @@ namespace compiler
             set => expressions[index] = value;
         }
 
-        public PrintStatement(bool lineBreak)
+        public PrintStatement(SourceInterval interval, bool lineBreak) : base(interval)
         {
             this.lineBreak = lineBreak;
 
@@ -139,39 +126,21 @@ namespace compiler
 
         public AbstractType Type
         {
-            get
-            {
-                return type;
-            }
+            get => type;
 
-            set
-            {
-                type = value;
-            }
+            set => type = value;
         }
 
-        public int VariableCount
-        {
-            get
-            {
-                return vars.Count;
-            }
-        }
+        public int VariableCount => vars.Count;
 
         public Tuple<string, Expression> this[int index]
         {
-            get
-            {
-                return vars[index];
-            }
+            get => vars[index];
 
-            set
-            {
-                vars[index] = value;
-            }
+            set => vars[index] = value;
         }
 
-        public DeclarationStatement(AbstractType type)
+        public DeclarationStatement(SourceInterval interval, AbstractType type) : base(interval)
         {
             this.type = type;
 
@@ -192,44 +161,26 @@ namespace compiler
 
         public Expression Expression
         {
-            get
-            {
-                return expression;
-            }
+            get => expression;
 
-            set
-            {
-                expression = value;
-            }
+            set => expression = value;
         }
 
         public Statement ThenStatement
         {
-            get
-            {
-                return thenStatement;
-            }
+            get => thenStatement;
 
-            set
-            {
-                thenStatement = value;
-            }
+            set => thenStatement = value;
         }
 
         public Statement ElseStatement
         {
-            get
-            {
-                return elseStatement;
-            }
+            get => elseStatement;
 
-            set
-            {
-                elseStatement = value;
-            }
+            set => elseStatement = value;
         }
 
-        public IfStatement(Expression expression, Statement thenStatement, Statement elseStatement = null)
+        public IfStatement(SourceInterval interval, Expression expression, Statement thenStatement, Statement elseStatement = null) : base(interval)
         {
             this.expression = expression;
             this.thenStatement = thenStatement;
@@ -244,31 +195,19 @@ namespace compiler
 
         public Expression Expression
         {
-            get
-            {
-                return expression;
-            }
+            get => expression;
 
-            set
-            {
-                expression = value;
-            }
+            set => expression = value;
         }
 
         public Statement Statement
         {
-            get
-            {
-                return statement;
-            }
+            get => statement;
 
-            set
-            {
-                statement = value;
-            }
+            set => statement = value;
         }
 
-        public WhileStatement(Expression expression, Statement statement)
+        public WhileStatement(SourceInterval interval, Expression expression, Statement statement) : base(interval)
         {
             this.expression = expression;
             this.statement = statement;
@@ -282,31 +221,19 @@ namespace compiler
 
         public Expression Expression
         {
-            get
-            {
-                return expression;
-            }
+            get => expression;
 
-            set
-            {
-                expression = value;
-            }
+            set => expression = value;
         }
 
         public Statement Statement
         {
-            get
-            {
-                return statement;
-            }
+            get => statement;
 
-            set
-            {
-                statement = value;
-            }
+            set => statement = value;
         }
 
-        public DoStatement(Expression expression, Statement statement)
+        public DoStatement(SourceInterval interval, Expression expression, Statement statement) : base(interval)
         {
             this.expression = expression;
             this.statement = statement;
@@ -320,49 +247,25 @@ namespace compiler
         private List<Expression> updaters;
         private Statement statement;
 
-        public int InitializerCount
-        {
-            get
-            {
-                return initializers.Count;
-            }
-        }
+        public int InitializerCount => initializers.Count;
 
         public Expression Expression
         {
-            get
-            {
-                return expression;
-            }
+            get => expression;
 
-            set
-            {
-                expression = value;
-            }
+            set => expression = value;
         }
 
-        public int UpdaterCount
-        {
-            get
-            {
-                return updaters.Count;
-            }
-        }
+        public int UpdaterCount => updaters.Count;
 
         public Statement Statement
         {
-            get
-            {
-                return statement;
-            }
+            get => statement;
 
-            set
-            {
-                statement = value;
-            }
+            set => statement = value;
         }
 
-        public ForStatement(Expression expression = null)
+        public ForStatement(SourceInterval interval, Expression expression = null) : base(interval)
         {
             this.expression = expression;
 
@@ -405,28 +308,16 @@ namespace compiler
     {
         private List<Statement> statements;
 
-        public int StatementCount
-        {
-            get
-            {
-                return statements.Count;
-            }
-        }
+        public int StatementCount => statements.Count;
 
         public Statement this[int index]
         {
-            get
-            {
-                return statements[index];
-            }
+            get => statements[index];
 
-            set
-            {
-                statements[index] = value;
-            }
+            set => statements[index] = value;
         }
 
-        public BlockStatement()
+        public BlockStatement(SourceInterval interval) : base(interval)
         {
             statements = new List<Statement>();
         }

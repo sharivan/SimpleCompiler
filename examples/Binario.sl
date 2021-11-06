@@ -1,16 +1,16 @@
 programa Binario
 {
 	{
-		declare n:int;
+		var n:int;
 		leia n;
 		
-		declare i:int;
-		declare b:bool = falso;
+		var i:int;
+		var b:bool = falso;
 		para (i = 31; i >= 0; i = i - 1)
 		{
 			se ((n & (1 << i)) != 0)
 			{
-				b = verdadeiro;
+				b = verdade;
 				escreva 1;
 			}
 			senão se (b)

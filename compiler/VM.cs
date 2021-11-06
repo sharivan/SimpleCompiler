@@ -1507,7 +1507,7 @@ namespace compiler
                         string str = OnConsoleRead();
                         try
                         {
-                            if (str == "verdadeiro" || str == "1")
+                            if (str == "verdade" || str == "1")
                                 WriteStack(addr, 1);
                             else if (str == "falso" || str == "0")
                                 WriteStack(addr, 0);

@@ -6,6 +6,10 @@ namespace compiler
 {
     public abstract class NumericLiteral : Literal
     {
+        public NumericLiteral(SourceInterval interval) : base(interval)
+        {
+        }
+
         public abstract byte AsByte();
 
         public abstract short AsShort();

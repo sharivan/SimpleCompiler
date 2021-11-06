@@ -81,15 +81,9 @@ namespace compiler
 
         private string value;
 
-        public string Value
-        {
-            get
-            {
-                return value;
-            }
-        }
+        public string Value => value;
 
-        public Symbol(string value)
+        public Symbol(SourceInterval interval, string value) : base(interval)
         {
             this.value = value;
         }

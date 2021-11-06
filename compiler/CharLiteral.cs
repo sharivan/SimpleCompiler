@@ -10,15 +10,9 @@ namespace compiler
     {
         private char value;
 
-        public char Value
-        {
-            get
-            {
-                return value;
-            }
-        }
+        public char Value => value;
 
-        public CharLiteral(char value)
+        public CharLiteral(SourceInterval interval, char value) : base(interval)
         {
             this.value = value;
         }

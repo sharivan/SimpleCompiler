@@ -68,7 +68,8 @@
     <Compile Include="compiler\NumericLiteral.cs" />
     <Compile Include="compiler\Lexer.cs" />
     <Compile Include="compiler\Parameter.cs" />
-    <Compile Include="compiler\ParserException.cs" />
+    <Compile Include="compiler\CompilerException.cs" />
+    <Compile Include="compiler\SourceInterval.cs" />
     <Compile Include="compiler\PointerType.cs" />
     <Compile Include="compiler\PrimitiveType.cs" />
     <Compile Include="compiler\ShortLiteral.cs" />

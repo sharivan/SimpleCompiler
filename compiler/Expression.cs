@@ -8,6 +8,14 @@ namespace compiler
 {
     public abstract class Expression
     {
+        private SourceInterval interval;
+
+        public SourceInterval Interval => interval;
+
+        protected Expression(SourceInterval interval)
+        {
+            this.interval = interval;
+        }
     }
 
     public enum UnaryOperation
@@ -28,23 +36,11 @@ namespace compiler
         private UnaryOperation operation;
         private Expression operand;
 
-        public UnaryOperation Operation
-        {
-            get
-            {
-                return operation;
-            }
-        }
+        public UnaryOperation Operation => operation;
 
-        public Expression Operand
-        {
-            get
-            {
-                return operand;
-            }
-        }
+        public Expression Operand => operand;
 
-        public UnaryExpression(UnaryOperation operation, Expression operand)
+        public UnaryExpression(SourceInterval interval, UnaryOperation operation, Expression operand) : base(interval)
         {
             this.operation = operation;
             this.operand = operand;
@@ -93,31 +89,13 @@ namespace compiler
         private Expression leftOperand;
         private Expression rightOperand;
 
-        public BinaryOperation Operation
-        {
-            get
-            {
-                return operation;
-            }
-        }
+        public BinaryOperation Operation => operation;
 
-        public Expression LeftOperand
-        {
-            get
-            {
-                return leftOperand;
-            }
-        }
+        public Expression LeftOperand => leftOperand;
 
-        public Expression RightOperand
-        {
-            get
-            {
-                return rightOperand;
-            }
-        }
+        public Expression RightOperand => rightOperand;
 
-        public BinaryExpression(BinaryOperation operation, Expression leftOperand, Expression rightOperand)
+        public BinaryExpression(SourceInterval interval, BinaryOperation operation, Expression leftOperand, Expression rightOperand) : base(interval)
         {
             this.operation = operation;
             this.leftOperand = leftOperand;
@@ -130,23 +108,11 @@ namespace compiler
         private Expression operand;
         private string field;
 
-        public Expression Operand
-        {
-            get
-            {
-                return operand;
-            }
-        }
+        public Expression Operand => operand;
 
-        public string Field
-        {
-            get
-            {
-                return field;
-            }
-        }
+        public string Field => field;
 
-        public FieldAcessorExpression(Expression operand, string field)
+        public FieldAcessorExpression(SourceInterval interval, Expression operand, string field) : base(interval)
         {
             this.operand = operand;
             this.field = field;
@@ -158,31 +124,13 @@ namespace compiler
         private Expression operand;
         private List<Expression> indexers;
 
-        public Expression Operand
-        {
-            get
-            {
-                return operand;
-            }
-        }
+        public Expression Operand => operand;
 
-        public int IndexerCount
-        {
-            get
-            {
-                return indexers.Count;
-            }
-        }
+        public int IndexerCount => indexers.Count;
 
-        public Expression this[int index]
-        {
-            get
-            {
-                return indexers[index];
-            }
-        }
+        public Expression this[int index] => indexers[index];
 
-        public ArrayAccessorExpression(Expression operand)
+        public ArrayAccessorExpression(SourceInterval interval, Expression operand) : base(interval)
         {
             this.operand = operand;
 
@@ -200,31 +148,13 @@ namespace compiler
         private Expression operand;
         private List<Expression> parameters;
 
-        public Expression Operand
-        {
-            get
-            {
-                return operand;
-            }
-        }
+        public Expression Operand => operand;
 
-        public int ParameterCount
-        {
-            get
-            {
-                return parameters.Count;
-            }
-        }
+        public int ParameterCount => parameters.Count;
 
-        public Expression this[int index]
-        {
-            get
-            {
-                return parameters[index];
-            }
-        }
+        public Expression this[int index] => parameters[index];
 
-        public CallExpression(Expression operand)
+        public CallExpression(SourceInterval interval, Expression operand) : base(interval)
         {
             this.operand = operand;
 
@@ -242,23 +172,11 @@ namespace compiler
         private AbstractType type;
         private Expression operand;
 
-        public AbstractType Type
-        {
-            get
-            {
-                return type;
-            }
-        }
+        public AbstractType Type => type;
 
-        public Expression Operand
-        {
-            get
-            {
-                return operand;
-            }
-        }
+        public Expression Operand => operand;
 
-        public CastExpression(AbstractType type, Expression operand)
+        public CastExpression(SourceInterval interval, AbstractType type, Expression operand) : base(interval)
         {
             this.type = type;
             this.operand = operand;
@@ -287,7 +205,7 @@ namespace compiler
         public PrimaryType PrimaryType => primaryType;
 
         public AbstractType Type => GetType();
-        protected PrimaryExpression(PrimaryType primaryType)
+        protected PrimaryExpression(SourceInterval interval, PrimaryType primaryType) : base(interval)
         {
             this.primaryType = primaryType;
         }
@@ -301,15 +219,9 @@ namespace compiler
     {
         private bool value;
 
-        public bool Value
-        {
-            get
-            {
-                return value;
-            }
-        }
+        public bool Value => value;
 
-        public BoolLiteralExpression(bool value) : base(PrimaryType.BOOL_LITERAL)
+        public BoolLiteralExpression(SourceInterval interval, bool value) : base(interval, PrimaryType.BOOL_LITERAL)
         {
             this.value = value;
         }
@@ -324,15 +236,9 @@ namespace compiler
     {
         private byte value;
 
-        public byte Value
-        {
-            get
-            {
-                return value;
-            }
-        }
+        public byte Value => value;
 
-        public ByteLiteralExpression(byte value) : base(PrimaryType.BYTE_LITERAL)
+        public ByteLiteralExpression(SourceInterval interval, byte value) : base(interval, PrimaryType.BYTE_LITERAL)
         {
             this.value = value;
         }
@@ -347,15 +253,9 @@ namespace compiler
     {
         private char value;
 
-        public char Value
-        {
-            get
-            {
-                return value;
-            }
-        }
+        public char Value => value;
 
-        public CharLiteralExpression(char value) : base(PrimaryType.CHAR_LITERAL)
+        public CharLiteralExpression(SourceInterval interval, char value) : base(interval, PrimaryType.CHAR_LITERAL)
         {
             this.value = value;
         }
@@ -370,15 +270,9 @@ namespace compiler
     {
         private short value;
 
-        public short Value
-        {
-            get
-            {
-                return value;
-            }
-        }
+        public short Value => value;
 
-        public ShortLiteralExpression(short value) : base(PrimaryType.SHORT_LITERAL)
+        public ShortLiteralExpression(SourceInterval interval, short value) : base(interval, PrimaryType.SHORT_LITERAL)
         {
             this.value = value;
         }
@@ -393,15 +287,9 @@ namespace compiler
     {
         private int value;
 
-        public int Value
-        {
-            get
-            {
-                return value;
-            }
-        }
+        public int Value => value;
 
-        public IntLiteralExpression(int value) : base(PrimaryType.INT_LITERAL)
+        public IntLiteralExpression(SourceInterval interval, int value) : base(interval, PrimaryType.INT_LITERAL)
         {
             this.value = value;
         }
@@ -416,15 +304,9 @@ namespace compiler
     {
         private long value;
 
-        public long Value
-        {
-            get
-            {
-                return value;
-            }
-        }
+        public long Value => value;
 
-        public LongLiteralExpression(long value) : base(PrimaryType.LONG_LITERAL)
+        public LongLiteralExpression(SourceInterval interval, long value) : base(interval, PrimaryType.LONG_LITERAL)
         {
             this.value = value;
         }
@@ -439,15 +321,9 @@ namespace compiler
     {
         private float value;
 
-        public float Value
-        {
-            get
-            {
-                return value;
-            }
-        }
+        public float Value => value;
 
-        public FloatLiteralExpression(float value) : base(PrimaryType.FLOAT_LITERAL)
+        public FloatLiteralExpression(SourceInterval interval, float value) : base(interval, PrimaryType.FLOAT_LITERAL)
         {
             this.value = value;
         }
@@ -462,15 +338,9 @@ namespace compiler
     {
         private double value;
 
-        public double Value
-        {
-            get
-            {
-                return value;
-            }
-        }
+        public double Value => value;
 
-        public DoubleLiteralExpression(double value) : base(PrimaryType.DOUBLE_LITERAL)
+        public DoubleLiteralExpression(SourceInterval interval, double value) : base(interval, PrimaryType.DOUBLE_LITERAL)
         {
             this.value = value;
         }
@@ -485,15 +355,9 @@ namespace compiler
     {
         private string value;
 
-        public string Value
-        {
-            get
-            {
-                return value;
-            }
-        }
+        public string Value => value;
 
-        public StringLiteralExpression(string value) : base(PrimaryType.STRING_LITERAL)
+        public StringLiteralExpression(SourceInterval interval, string value) : base(interval, PrimaryType.STRING_LITERAL)
         {
             this.value = value;
         }
@@ -506,7 +370,7 @@ namespace compiler
 
     public class NullLiteralExpression : PrimaryExpression
     {
-        public NullLiteralExpression() : base(PrimaryType.NULL_LITERAL)
+        public NullLiteralExpression(SourceInterval interval) : base(interval, PrimaryType.NULL_LITERAL)
         {
         }
 
@@ -520,15 +384,9 @@ namespace compiler
     {
         private string name;
 
-        public string Name
-        {
-            get
-            {
-                return name;
-            }
-        }
+        public string Name => name;
 
-        public IdentifierExpression(string name) : base(PrimaryType.IDENTIFIER)
+        public IdentifierExpression(SourceInterval interval, string name) : base(interval, PrimaryType.IDENTIFIER)
         {
             this.name = name;
         }

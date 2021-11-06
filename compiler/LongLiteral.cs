@@ -10,15 +10,9 @@ namespace compiler
     {
         private long value;
 
-        public long Value
-        {
-            get
-            {
-                return value;
-            }
-        }
+        public long Value => value;
 
-        public LongLiteral(long value)
+        public LongLiteral(SourceInterval interval, long value) : base(interval)
         {
             this.value = value;
         }

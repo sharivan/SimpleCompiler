@@ -10,15 +10,9 @@ namespace compiler
     {
         private int value;
 
-        public int Value
-        {
-            get
-            {
-                return value;
-            }
-        }
+        public int Value => value;
 
-        public IntLiteral(int value)
+        public IntLiteral(SourceInterval interval, int value) : base(interval)
         {
             this.value = value;
         }

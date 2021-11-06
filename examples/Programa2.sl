@@ -1,8 +1,8 @@
 programa Programa2
 {	
 	{
-		declare x:int;
-		declare y:real;
+		var x:int;
+		var y:real;
 		
 		y = cast<real>(1);
 		escreva y;
@@ -11,7 +11,7 @@ programa Programa2
 		y = cast<real>(x);
 		escreva y;
 		
-		declare z:long;
+		var z:long;
 		z = 3;
 		escreva z;
 	}

@@ -11,24 +11,13 @@ namespace compiler
         private Function function;
         private Context parent;
         private List<Variable> variables;
+        private Dictionary<string, Variable> variableTable;
         private int offset;
         private Stack<Label> breakLabels;
 
-        public Function Function
-        {
-            get
-            {
-                return function;
-            }
-        }
+        public Function Function => function;
 
-        public Context Parent
-        {
-            get
-            {
-                return parent;
-            }
-        }
+        public Context Parent => parent;
 
         public int RealOffset
         {
@@ -48,6 +37,7 @@ namespace compiler
             this.parent = parent;
             
             variables = new List<Variable>();
+            variableTable = new Dictionary<string, Variable>();
             breakLabels = new Stack<Label>();
 
             if (parent == null)
@@ -59,42 +49,36 @@ namespace compiler
             return parent == null;
         }
 
-        public LocalVariable DeclareLocalVariable(Function function, string name, AbstractType type, bool recursive = true)
+        public Variable DeclareLocalVariable(Function function, string name, AbstractType type, bool recursive = true)
         {
-            for (int i = 0; i < variables.Count; i++)
-                if (variables[i].Name == name)
-                    return null;
+            if (variableTable.TryGetValue(name, out Variable result))
+                return result;
 
             if (recursive && parent != null && parent.FindVariable(name, true) != null)
                 return null;
 
-            LocalVariable result = new LocalVariable(function, name, type, RealOffset);
+            result = new LocalVariable(function, name, type, RealOffset);
             offset += type.Size();
             function.CheckLocalVariableOffset(offset);
             variables.Add(result);
+            variableTable.Add(name, result);
             return result;
         }
 
         public void AddParams(Function function)
         {
-            if (function == null)
-                return;
-
             for (int i = 0; i < function.ParamCount; i++)
             {
                 Parameter parameter = function[i];
                 variables.Add(parameter);
+                variableTable.Add(parameter.Name, parameter);
             }
         }
 
         public Variable FindVariable(string name, bool recursive = true)
         {
-            for (int i = 0; i < variables.Count; i++)
-            {
-                Variable var = variables[i];
-                if (var.Name == name)
-                    return var;
-            }
+            if (variableTable.TryGetValue(name, out Variable result))
+                return result;
 
             if (recursive && parent != null)
                 return parent.FindVariable(name, true);

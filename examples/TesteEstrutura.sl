@@ -7,7 +7,7 @@ programa TesteEstrutura
 	}
 	
 	{
-		declare e:Estrutura;
+		var e:Estrutura;
 		
 		leia e.x;
 		e.y = cast<int>(6.38);

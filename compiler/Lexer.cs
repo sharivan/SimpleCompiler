@@ -15,23 +15,29 @@ namespace compiler
 
         public string Input
         {
-            get
-            {
-                return input;
-            }
+            get => input;
 
             set
             {
-                input = value + '\0';
                 tokens.Clear();
-                tokenIndex = -1;
+
                 pos = 0;
+                line = 1;
+                tokenIndex = -1;
+
+                input = value + '\0';
             }
         }
+
+        public int CurrentPos => pos;
+
+        public int CurrentLine => line;
 
         public Lexer() : this("")
         {
         }
+
+        public SourceInterval CurrentInterval(int startPos) => new SourceInterval(startPos, pos, line);
 
         public Lexer(string input)
         {
@@ -63,13 +69,14 @@ namespace compiler
                     line++;
 
                 c = input[pos++];
-            }               
+            }
 
             pos--;
         }
 
         private void SkipComments()
         {
+            int startPos = pos;
             char c = input[pos++];
             if (c == '\0')
             {
@@ -107,7 +114,7 @@ namespace compiler
                         if (c == '\0')
                         {
                             pos--;
-                            throw new ParserException("Fim do comentário esperado mas fim do arquivo encontrado.");
+                            throw new CompilerException(CurrentInterval(startPos), "Fim do comentário esperado mas fim do arquivo encontrado.");
                         }
 
                         if (c == '*')
@@ -117,7 +124,7 @@ namespace compiler
                             if (c == '\0')
                             {
                                 pos--;
-                                throw new ParserException("Fim do comentário esperado mas fim do arquivo encontrado.");
+                                throw new CompilerException(CurrentInterval(startPos), "Fim do comentário esperado mas fim do arquivo encontrado.");
                             }
 
                             if (c == '/')
@@ -132,19 +139,20 @@ namespace compiler
                 pos--;
         }
 
-        private char ParseChar(bool fromString)
+        private char ParseChar(int startPos, bool fromString)
         {
+            int charStartPos = pos;
             char c = input[pos++];
             if (c == '\0')
             {
                 pos--;
-                throw new ParserException("Caractere esperado mas fim do arquivo encontrado.");
+                throw new CompilerException(CurrentInterval(startPos), "Caractere esperado mas fim do arquivo encontrado.");
             }
 
             if (c == '\n' || c == '\r')
             {
                 pos--;
-                throw new ParserException("Delimitador de " + (fromString ? "string" : "caractere") + " esperado mas quebra de linha encontrada.");
+                throw new CompilerException(CurrentInterval(startPos), "Delimitador de " + (fromString ? "string" : "caractere") + " esperado mas quebra de linha encontrada.");
             }
 
             if (c == '\\')
@@ -153,13 +161,13 @@ namespace compiler
                 if (c == '\0')
                 {
                     pos--;
-                    throw new ParserException("Código de escape esperado mas fim do arquivo encontrado.");
+                    throw new CompilerException(CurrentInterval(charStartPos), "Código de escape esperado mas fim do arquivo encontrado.");
                 }
 
                 if (c == '\n' || c == '\r')
                 {
                     pos--;
-                    throw new ParserException("Delimitador de " + (fromString ? "string" : "caractere") + " esperado mas quebra de linha encontrada.");
+                    throw new CompilerException(CurrentInterval(charStartPos), "Delimitador de " + (fromString ? "string" : "caractere") + " esperado mas quebra de linha encontrada.");
                 }
 
                 switch (c)
@@ -182,13 +190,13 @@ namespace compiler
                             if (c == '\0')
                             {
                                 pos--;
-                                throw new ParserException("Código unicode esperado mas fim do arquivo encontrado.");
+                                throw new CompilerException(CurrentInterval(charStartPos), "Código unicode esperado mas fim do arquivo encontrado.");
                             }
 
                             if (c == '\n' || c == '\r')
                             {
                                 pos--;
-                                throw new ParserException("Delimitador de " + (fromString ? "string" : "caractere") + " esperado mas quebra de linha encontrada.");
+                                throw new CompilerException(CurrentInterval(charStartPos), "Delimitador de " + (fromString ? "string" : "caractere") + " esperado mas quebra de linha encontrada.");
                             }
 
                             if (!(c >= '0' && c <= '9' || c >= 'A' && c <= 'F' || c >= 'a' && c <= 'f'))
@@ -199,7 +207,7 @@ namespace compiler
                         }
 
                         if (str == "")
-                            throw new ParserException("Código unicode esperado.");
+                            throw new CompilerException(CurrentInterval(charStartPos), "Código unicode esperado.");
 
                         int hex;
                         try
@@ -208,15 +216,15 @@ namespace compiler
                         }
                         catch (FormatException)
                         {
-                            throw new ParserException("Formato de código unicode inválido.");
+                            throw new CompilerException(CurrentInterval(charStartPos), "Formato de código unicode inválido.");
                         }
                         catch (OverflowException)
                         {
-                            throw new ParserException("Estouro na conversão de código unicode.");
+                            throw new CompilerException(CurrentInterval(charStartPos), "Estouro na conversão de código unicode.");
                         }
 
                         if (hex < 0 || hex >= short.MaxValue)
-                            throw new ParserException("Código unicode fora da faixa.");
+                            throw new CompilerException(CurrentInterval(charStartPos), "Código unicode fora da faixa.");
 
                         return (char) hex;
                     }
@@ -230,13 +238,13 @@ namespace compiler
                             if (c == '\0')
                             {
                                 pos--;
-                                throw new ParserException("Código octal esperado mas fim do arquivo encontrado.");
+                                throw new CompilerException(CurrentInterval(charStartPos), "Código octal esperado mas fim do arquivo encontrado.");
                             }
 
                             if (c == '\n' || c == '\r')
                             {
                                 pos--;
-                                throw new ParserException("Delimitador de " + (fromString ? "string" : "caractere") + " esperado mas quebra de linha encontrada.");
+                                throw new CompilerException(CurrentInterval(charStartPos), "Delimitador de " + (fromString ? "string" : "caractere") + " esperado mas quebra de linha encontrada.");
                             }
 
                             if (!(c >= '0' && c <= '7'))
@@ -247,7 +255,7 @@ namespace compiler
                         }
 
                         if (str == "")
-                            throw new ParserException("Código octal esperado.");
+                            throw new CompilerException(CurrentInterval(charStartPos), "Código octal esperado.");
 
                         int oct;
                         try
@@ -256,19 +264,19 @@ namespace compiler
                         }
                         catch (ArgumentOutOfRangeException)
                         {
-                            throw new ParserException("Código octal fora da faixa.");
+                            throw new CompilerException(CurrentInterval(charStartPos), "Código octal fora da faixa.");
                         }
                         catch (FormatException)
                         {
-                            throw new ParserException("Formato de código octal inválido.");
+                            throw new CompilerException(CurrentInterval(charStartPos), "Formato de código octal inválido.");
                         }
                         catch (OverflowException)
                         {
-                            throw new ParserException("Estouro na conversão de código octal.");
+                            throw new CompilerException(CurrentInterval(charStartPos), "Estouro na conversão de código octal.");
                         }
 
                         if (oct < 0 || oct >= short.MaxValue)
-                            throw new ParserException("Código octal fora da faixa.");
+                            throw new CompilerException(CurrentInterval(charStartPos), "Código octal fora da faixa.");
 
                         return (char) oct;
                     }
@@ -280,11 +288,11 @@ namespace compiler
                         return '\'';
 
                     case '"':
-                        return '"';   
+                        return '"';
                 }
 
                 pos--;
-                throw new ParserException("Código de escape inválido.");
+                throw new CompilerException(CurrentInterval(charStartPos), "Código de escape inválido.");
             }
 
             if (c == '\'')
@@ -292,125 +300,114 @@ namespace compiler
                 if (!fromString)
                 {
                     pos--;
-                    throw new ParserException("Caractere esperado.");
+                    throw new CompilerException(CurrentInterval(charStartPos), "Caractere esperado.");
                 }
 
                 return '\'';
             }
 
-            if (c == '"')
-            {
-                if (fromString)
-                {
-                    pos--;
-                    throw new ParserException("Caractere esperado.");
-                }
-
-                return '"';
-            }
-
             return c;
         }
 
-        private ByteLiteral ParseByte(string number)
+        private ByteLiteral ParseByte(int startPos, string number)
         {
             try
             {
                 byte value = byte.Parse(number);
-                return new ByteLiteral(value);
+                return new ByteLiteral(CurrentInterval(startPos), value);
             }
             catch (FormatException e)
             {
-                throw new ParserException("Formato de literal byte inválido: " + number, e);
+                throw new CompilerException(CurrentInterval(startPos), "Formato de literal byte inválido: " + number, e);
             }
             catch (OverflowException e)
             {
-                throw new ParserException("Overflow durante a conversão do literal byte: " + number, e);
+                throw new CompilerException(CurrentInterval(startPos), "Overflow durante a conversão do literal byte: " + number, e);
             }
         }
 
-        private ShortLiteral ParseShort(string number)
+        private ShortLiteral ParseShort(int startPos, string number)
         {
             try
             {
                 short value = short.Parse(number);
-                return new ShortLiteral(value);
+                return new ShortLiteral(CurrentInterval(startPos), value);
             }
             catch (FormatException e)
             {
-                throw new ParserException("Formato de literal inteiro curto inválido: " + number, e);
+                throw new CompilerException(CurrentInterval(startPos), "Formato de literal inteiro curto inválido: " + number, e);
             }
             catch (OverflowException e)
             {
-                throw new ParserException("Overflow durante a conversão do literal inteiro curto: " + number, e);
+                throw new CompilerException(CurrentInterval(startPos), "Overflow durante a conversão do literal inteiro curto: " + number, e);
             }
         }
 
-        private IntLiteral ParseInt(string number)
+        private IntLiteral ParseInt(int startPos, string number)
         {
             try
             {
                 int value = int.Parse(number);
-                return new IntLiteral(value);
+                return new IntLiteral(CurrentInterval(startPos), value);
             }
             catch (FormatException e)
             {
-                throw new ParserException("Formato de literal inteiro inválido: " + number, e);
+                throw new CompilerException(CurrentInterval(startPos), "Formato de literal inteiro inválido: " + number, e);
             }
             catch (OverflowException e)
             {
-                throw new ParserException("Overflow durante a conversão do literal inteiro: " + number, e);
+                throw new CompilerException(CurrentInterval(startPos), "Overflow durante a conversão do literal inteiro: " + number, e);
             }
         }
 
-        private LongLiteral ParseLong(string number)
+        private LongLiteral ParseLong(int startPos, string number)
         {
             try
             {
                 long value = long.Parse(number);
-                return new LongLiteral(value);
+                return new LongLiteral(CurrentInterval(startPos), value);
             }
             catch (FormatException e)
             {
-                throw new ParserException("Formato de literal inteiro longo inválido: " + number, e);
+                throw new CompilerException(CurrentInterval(startPos), "Formato de literal inteiro longo inválido: " + number, e);
             }
             catch (OverflowException e)
             {
-                throw new ParserException("Overflow durante a conversão do literal inteiro longo: " + number, e);
+                throw new CompilerException(CurrentInterval(startPos), "Overflow durante a conversão do literal inteiro longo: " + number, e);
             }
         }
 
-        private FloatLiteral ParseFloat(string number)
+        private FloatLiteral ParseFloat(int startPos, string number)
         {
             try
             {
                 float value = float.Parse(number, System.Globalization.CultureInfo.InvariantCulture);
-                return new FloatLiteral(value);
+                return new FloatLiteral(CurrentInterval(startPos), value);
             }
             catch (FormatException e)
             {
-                throw new ParserException("Formato de literal de ponto flutuante inválido: " + number, e);
+                throw new CompilerException(CurrentInterval(startPos), "Formato de literal de ponto flutuante inválido: " + number, e);
             }
             catch (OverflowException e)
             {
-                throw new ParserException("Overflow durante a conversão do literal de ponto flutuante: " + number, e);
+                throw new CompilerException(CurrentInterval(startPos), "Overflow durante a conversão do literal de ponto flutuante: " + number, e);
             }
         }
 
-        private DoubleLiteral ParseDouble(string number)
+        private DoubleLiteral ParseDouble(int startPos, string number)
         {
             try
             {
                 double value = double.Parse(number, System.Globalization.CultureInfo.InvariantCulture);
-                return new DoubleLiteral(value);
+                return new DoubleLiteral(CurrentInterval(startPos), value);
             }
             catch (FormatException e)
             {
-                throw new ParserException("Formato de literal de ponto flutuante inválido: " + number, e);
+                throw new CompilerException(CurrentInterval(startPos), "Formato de literal de ponto flutuante inválido: " + number, e);
             }
             catch (OverflowException e)
             {
-                throw new ParserException("Overflow durante a conversão do literal de ponto flutuante: " + number, e);
+                throw new CompilerException(CurrentInterval(startPos), "Overflow durante a conversão do literal de ponto flutuante: " + number, e);
             }
         }
 
@@ -422,9 +419,10 @@ namespace compiler
             if (pos >= input.Length)
                 return null;
 
+            int lastPos;
             while (true)
             {
-                int lastPos = pos;
+                lastPos = pos;
 
                 SkipBlanks();
                 SkipComments();
@@ -435,8 +433,9 @@ namespace compiler
                 lastPos = pos;
             }
 
+            lastPos = pos;
             char c = input[pos++];
-           
+
             Token result = null;
 
             if (c != '\0')
@@ -455,16 +454,23 @@ namespace compiler
                     }
 
                     if (c == 'B' || c == 'b')
-                        result = ParseByte(number);
+                        result = ParseByte(lastPos, number);
                     else if (c == 'S' || c == 's')
-                        result = ParseShort(number);
+                        result = ParseShort(lastPos, number);
                     else if (c == 'L' || c == 'l')
-                        result = ParseLong(number);
+                        result = ParseLong(lastPos, number);
                     else if (c == 'F' || c == 'f')
-                        result = ParseFloat(number);
+                        result = ParseFloat(lastPos, number);
                     else if (c == 'E' || c == 'e')
                     {
                         number += 'E';
+
+                        c = input[pos++];
+                        if (c == '+' || c == '-')
+                            number += c;
+                        else
+                            pos--;
+
                         c = input[pos++];
                         while (c >= '0' && c <= '9') // enquanto for um digito numérico
                         {
@@ -476,12 +482,12 @@ namespace compiler
                         }
 
                         if (c == 'F' || c == 'f')
-                            result = ParseFloat(number);
+                            result = ParseFloat(lastPos, number);
                         else
                         {
                             pos--;
 
-                            result = ParseDouble(number);
+                            result = ParseDouble(lastPos, number);
                         }
                     }
                     else if (c == '.')
@@ -495,10 +501,17 @@ namespace compiler
                         }
 
                         if (c == 'F' || c == 'f')
-                            result = ParseFloat(number);
+                            result = ParseFloat(lastPos, number);
                         else if (c == 'E' || c == 'e')
                         {
                             number += 'E';
+
+                            c = input[pos++];
+                            if (c == '+' || c == '-')
+                                number += c;
+                            else
+                                pos--;
+
                             c = input[pos++];
                             while (c >= '0' && c <= '9') // enquanto for um digito numérico
                             {
@@ -510,26 +523,26 @@ namespace compiler
                             }
 
                             if (c == 'F' || c == 'f')
-                                result = ParseFloat(number);
+                                result = ParseFloat(lastPos, number);
                             else
                             {
                                 pos--;
 
-                                result = ParseDouble(number);
+                                result = ParseDouble(lastPos, number);
                             }
                         }
                         else
                         {
                             pos--;
 
-                            result = ParseDouble(number);
+                            result = ParseDouble(lastPos, number);
                         }
                     }
                     else
                     {
                         pos--;
 
-                        result = ParseInt(number);
+                        result = ParseInt(lastPos, number);
                     }
                 }
                 else if (c == '\'')
@@ -538,21 +551,21 @@ namespace compiler
                     if (c == '\0')
                     {
                         pos--;
-                        throw new ParserException("Caractere esperado mas fim do arquivo encontrado.");
+                        throw new CompilerException(CurrentInterval(lastPos), "Caractere esperado mas fim do arquivo encontrado.");
                     }
                     else
                         pos--;
 
-                    char ch = ParseChar(false);
+                    char ch = ParseChar(lastPos, false);
 
                     c = input[pos++];
                     if (c != '\'')
                     {
                         pos--;
-                        throw new ParserException("Delimitador de caractere esperado.");
+                        throw new CompilerException(CurrentInterval(lastPos), "Delimitador de caractere esperado.");
                     }
 
-                    result = new CharLiteral(ch);
+                    result = new CharLiteral(CurrentInterval(lastPos), ch);
                 }
                 else if (c == '"')
                 {
@@ -565,11 +578,11 @@ namespace compiler
                         else
                             pos--;
 
-                        char ch = ParseChar(true);
+                        char ch = ParseChar(lastPos, true);
                         str += ch;
                     }
 
-                    result = new StringLiteral(str);
+                    result = new StringLiteral(CurrentInterval(lastPos), str);
                 }
                 else if (Symbol.IsSymbol(c))
                 {
@@ -586,7 +599,7 @@ namespace compiler
 
                     pos--;
 
-                    result = new Symbol(lastSymbol);
+                    result = new Symbol(CurrentInterval(lastPos), lastSymbol);
                 }
                 else if (Identifier.IsLetter(c)) // pode ser uma variável, uma constante ou uma função
                 {
@@ -601,12 +614,12 @@ namespace compiler
                     pos--;
 
                     if (Keyword.IsKeyword(name))
-                        result = new Keyword(name);
+                        result = new Keyword(CurrentInterval(lastPos), name);
                     else
-                        result = new Identifier(name);
+                        result = new Identifier(CurrentInterval(lastPos), name);
                 }
                 else
-                    throw new ParserException("Caractere inválido: " + c);
+                    throw new CompilerException(CurrentInterval(lastPos), "Caractere inválido: " + c);
             }
 
             tokens.Add(result);
@@ -623,7 +636,7 @@ namespace compiler
                 PreviusToken();
 
                 if (throwException)
-                    throw new ParserException(errorMessage != null ? errorMessage : "Número esperado mas fim do arquivo encontrado.");
+                    throw new CompilerException(CurrentInterval(pos), errorMessage != null ? errorMessage : "Número esperado mas fim do arquivo encontrado.");
 
                 return null;
             }
@@ -633,12 +646,12 @@ namespace compiler
                 PreviusToken();
 
                 if (throwException)
-                    throw new ParserException(errorMessage != null ? errorMessage : "Número esperado mas " + token + " encontrado.");
+                    throw new CompilerException(token.Interval, errorMessage != null ? errorMessage : "Número esperado mas " + token + " encontrado.");
 
                 return null;
             }
 
-            return (NumericLiteral)token;
+            return (NumericLiteral) token;
         }
 
         public Symbol NextSymbol(bool throwException = true, string errorMessage = null)
@@ -649,7 +662,7 @@ namespace compiler
                 PreviusToken();
 
                 if (throwException)
-                    throw new ParserException(errorMessage != null ? errorMessage : "Símbolo esperado mas fim do arquivo encontrado.");
+                    throw new CompilerException(CurrentInterval(pos), errorMessage != null ? errorMessage : "Símbolo esperado mas fim do arquivo encontrado.");
 
                 return null;
             }
@@ -659,12 +672,12 @@ namespace compiler
                 PreviusToken();
 
                 if (throwException)
-                    throw new ParserException(errorMessage != null ? errorMessage : "Símbolo esperado mas " + token + " encontrado.");
+                    throw new CompilerException(token.Interval, errorMessage != null ? errorMessage : "Símbolo esperado mas " + token + " encontrado.");
 
                 return null;
             }
 
-            return (Symbol)token;
+            return (Symbol) token;
         }
 
         public Symbol NextSymbol(string expectedValue, bool throwException = true, string errorMessage = null)
@@ -675,7 +688,7 @@ namespace compiler
                 PreviusToken();
 
                 if (throwException)
-                    throw new ParserException(errorMessage != null ? errorMessage : "'" + expectedValue + "' esperado mas fim da expressão encontrado.");
+                    throw new CompilerException(CurrentInterval(pos), errorMessage != null ? errorMessage : "'" + expectedValue + "' esperado mas fim da expressão encontrado.");
 
                 return null;
             }
@@ -685,18 +698,18 @@ namespace compiler
                 PreviusToken();
 
                 if (throwException)
-                    throw new ParserException(errorMessage != null ? errorMessage : "'" + expectedValue + "' esperado mas " + token + " encontrado.");
+                    throw new CompilerException(token.Interval, errorMessage != null ? errorMessage : "'" + expectedValue + "' esperado mas " + token + " encontrado.");
 
                 return null;
             }
 
-            Symbol symbol = (Symbol)token;
+            Symbol symbol = (Symbol) token;
             if (symbol.Value != expectedValue)
             {
                 PreviusToken();
 
                 if (throwException)
-                    throw new ParserException(errorMessage != null ? errorMessage : "'" + expectedValue + "' esperado mas '" + symbol.Value + "' encontrado.");
+                    throw new CompilerException(token.Interval, errorMessage != null ? errorMessage : "'" + expectedValue + "' esperado mas '" + symbol.Value + "' encontrado.");
 
                 return null;
             }
@@ -712,7 +725,7 @@ namespace compiler
                 PreviusToken();
 
                 if (throwException)
-                    throw new ParserException(errorMessage != null ? errorMessage : "Palavra reservada esperada mas fim do arquivo encontrado.");
+                    throw new CompilerException(CurrentInterval(pos), errorMessage != null ? errorMessage : "Palavra reservada esperada mas fim do arquivo encontrado.");
 
                 return null;
             }
@@ -722,12 +735,12 @@ namespace compiler
                 PreviusToken();
 
                 if (throwException)
-                    throw new ParserException(errorMessage != null ? errorMessage : "Palavra reservada esperada mas " + token + " encontrado.");
+                    throw new CompilerException(token.Interval, errorMessage != null ? errorMessage : "Palavra reservada esperada mas " + token + " encontrado.");
 
                 return null;
             }
 
-            return (Keyword)token;
+            return (Keyword) token;
         }
 
         public Keyword NextKeyword(string expectedValue, bool throwException = true, string errorMessage = null)
@@ -738,7 +751,7 @@ namespace compiler
                 PreviusToken();
 
                 if (throwException)
-                    throw new ParserException(errorMessage != null ? errorMessage : "'" + expectedValue + "' esperado mas fim do arquivo encontrado.");
+                    throw new CompilerException(CurrentInterval(pos), errorMessage != null ? errorMessage : "'" + expectedValue + "' esperado mas fim do arquivo encontrado.");
 
                 return null;
             }
@@ -748,18 +761,18 @@ namespace compiler
                 PreviusToken();
 
                 if (throwException)
-                    throw new ParserException(errorMessage != null ? errorMessage : "'" + expectedValue + "' esperado mas " + token + " encontrado.");
+                    throw new CompilerException(token.Interval, errorMessage != null ? errorMessage : "'" + expectedValue + "' esperado mas " + token + " encontrado.");
 
                 return null;
             }
 
-            Keyword keyword = (Keyword)token;
+            Keyword keyword = (Keyword) token;
             if (keyword.Value != expectedValue)
             {
                 PreviusToken();
 
                 if (throwException)
-                    throw new ParserException(errorMessage != null ? errorMessage : "'" + expectedValue + "' esperado mas '" + keyword.Value + "' encontrado.");
+                    throw new CompilerException(token.Interval, errorMessage != null ? errorMessage : "'" + expectedValue + "' esperado mas '" + keyword.Value + "' encontrado.");
 
                 return null;
             }
@@ -775,7 +788,7 @@ namespace compiler
                 PreviusToken();
 
                 if (throwException)
-                    throw new ParserException(errorMessage != null ? errorMessage : "Identificador esperado mas fim do arquivo encontrado.");
+                    throw new CompilerException(CurrentInterval(pos), errorMessage != null ? errorMessage : "Identificador esperado mas fim do arquivo encontrado.");
 
                 return null;
             }
@@ -785,12 +798,12 @@ namespace compiler
                 PreviusToken();
 
                 if (throwException)
-                    throw new ParserException(errorMessage != null ? errorMessage : "Identificador esperado mas " + token + " encontrado.");
+                    throw new CompilerException(token.Interval, errorMessage != null ? errorMessage : "Identificador esperado mas " + token + " encontrado.");
 
                 return null;
             }
 
-            return (Identifier)token;
+            return (Identifier) token;
         }
 
         public Identifier NextIdentifier(string expectedValue, bool throwException = true, string errorMessage = null)
@@ -801,7 +814,7 @@ namespace compiler
                 PreviusToken();
 
                 if (throwException)
-                    throw new ParserException(errorMessage != null ? errorMessage : "'" + expectedValue + "' mas fim do arquivo encontrado.");
+                    throw new CompilerException(CurrentInterval(pos), errorMessage != null ? errorMessage : "'" + expectedValue + "' mas fim do arquivo encontrado.");
 
                 return null;
             }
@@ -811,18 +824,18 @@ namespace compiler
                 PreviusToken();
 
                 if (throwException)
-                    throw new ParserException(errorMessage != null ? errorMessage : "'" + expectedValue + "' esperado mas " + token + " encontrado.");
+                    throw new CompilerException(token.Interval, errorMessage != null ? errorMessage : "'" + expectedValue + "' esperado mas " + token + " encontrado.");
 
                 return null;
             }
 
-            Identifier variable = (Identifier)token;
+            Identifier variable = (Identifier) token;
             if (variable.Name != expectedValue)
             {
                 PreviusToken();
 
                 if (throwException)
-                    throw new ParserException(errorMessage != null ? errorMessage : "'" + expectedValue + "' esperado mas '" + variable.Name + "' encontrado.");
+                    throw new CompilerException(token.Interval, errorMessage != null ? errorMessage : "'" + expectedValue + "' esperado mas '" + variable.Name + "' encontrado.");
 
                 return null;
             }

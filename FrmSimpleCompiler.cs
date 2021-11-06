@@ -201,9 +201,11 @@ namespace SimpleCompiler
                 vm.Print();
                 btnRun.Enabled = true;
             }
-            catch (ParserException ex)
+            catch (CompilerException ex)
             {
-                ConsolePrintLn(ex.Message);
+                ConsolePrintLn("Erro de compilação na linha " + ex.Interval.Line + ": " + ex.Message);
+                txtSource.Focus();
+                txtSource.Select(ex.Interval.Start, ex.Interval.End - ex.Interval.Start);
             }
         }
 

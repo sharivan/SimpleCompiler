@@ -2,16 +2,16 @@ programa TesteQuickSort
 {
 	função Troca(&a:int, &b:int)
 	{
-		declare temp:int = a;
+		var temp:int = a;
 		a = b;
 		b = temp;
 	}
 	
 	função Particiona(arr:*int, inicio:int, fim:int):int
 	{
-		declare pivo:int = inicio; // selecione o elemento pivô
-		declare i:int = inicio;
-		declare j:int = fim;
+		var pivo:int = inicio; // selecione o elemento pivô
+		var i:int = inicio;
+		var j:int = fim;
 		enquanto (i < j)
 		{
 			// increment i até que seja obtido um número maior que o elemento pivô
@@ -38,7 +38,7 @@ programa TesteQuickSort
 	{
 		se (inicio < fim)
 		{
-			declare p:int = Particiona(arr, inicio, fim);
+			var p:int = Particiona(arr, inicio, fim);
 			QuickSort(arr, inicio, p - 1);
 			QuickSort(arr, p + 1, fim);
 		}
@@ -47,9 +47,9 @@ programa TesteQuickSort
 	{
 		// teste de entrada: {9, -2, 6, 3)
 		
-		declare a:int[4];
+		var a:int[4];
 
-		declare i:int;
+		var i:int;
 		para (i = 0; i < 4; i++)
 			leia a[i];
 		

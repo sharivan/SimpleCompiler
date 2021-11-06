@@ -1,12 +1,12 @@
 programa TesteArray
 {
 	{
-		declare a:int[10];
+		var a:int[10];
 		
 		leia a[0];
 		a[1] = cast<int>(6.38);
 		
-		declare i:int;
+		var i:int;
 		para (i = 2; i < 10; i++)
 			a[i] = i;
 		

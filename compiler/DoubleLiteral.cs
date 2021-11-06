@@ -11,15 +11,9 @@ namespace compiler
     {
         private double value;
 
-        public double Value
-        {
-            get
-            {
-                return value;
-            }
-        }
+        public double Value => value;
 
-        public DoubleLiteral(double value)
+        public DoubleLiteral(SourceInterval interval, double value) : base(interval)
         {
             this.value = value;
         }

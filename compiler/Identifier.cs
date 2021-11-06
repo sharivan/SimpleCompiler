@@ -34,15 +34,9 @@ namespace compiler
 
         private string name;
 
-        public string Name
-        {
-            get
-            {
-                return name;
-            }
-        }
+        public string Name => name;
 
-        public Identifier(string name)
+        public Identifier(SourceInterval interval, string name) : base(interval)
         {
             this.name = name;
         }

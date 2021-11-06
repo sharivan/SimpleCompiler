@@ -7,8 +7,8 @@ programa NumerosPerfeitos
 
 	função É_Perfeito(n:int):bool
 	{
-		declare soma:int = 0;
-		declare i:int;
+		var soma:int = 0;
+		var i:int;
 		para (i = 1; i < n; i = i + 1)
 		{
 			se (É_Divisor(i, n))
@@ -19,7 +19,7 @@ programa NumerosPerfeitos
 	}
 
 	{
-		declare n:int;
+		var n:int;
 		leia n;
 		se (É_Perfeito(n))
 			escreva 1;

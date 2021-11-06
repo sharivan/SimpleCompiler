@@ -18,8 +18,11 @@ namespace compiler
 
         private Lexer lexer;
         private List<GlobalVariable> globals;
+        private Dictionary<string, GlobalVariable> globalTable;
         private List<StructType> structs;
+        private Dictionary<string, StructType> structTable;
         private List<Function> functions;
+        private Dictionary<string, Function> functionTable;
         private List<Label> labels;
         private Dictionary<string, int> stringTable;
 
@@ -30,8 +33,11 @@ namespace compiler
         {
             lexer = new Lexer();
             globals = new List<GlobalVariable>();
+            globalTable = new Dictionary<string, GlobalVariable>();
             structs = new List<StructType>();
+            structTable = new Dictionary<string, StructType>();
             functions = new List<Function>();
+            functionTable = new Dictionary<string, Function>();
             labels = new List<Label>();
             stringTable = new Dictionary<string, int>();
 
@@ -60,12 +66,8 @@ namespace compiler
 
         public GlobalVariable FindGlobalVariable(string name)
         {
-            for (int i = 0; i < globals.Count; i++)
-            {
-                GlobalVariable var = globals[i];
-                if (var.Name == name)
-                    return var;
-            }
+            if (globalTable.TryGetValue(name, out GlobalVariable result))
+                return result;
 
             return null;
         }
@@ -79,6 +81,7 @@ namespace compiler
             result = new GlobalVariable(name, type, globalVariableOffset);
             globalVariableOffset += type.Size();
             globals.Add(result);
+            globalTable.Add(name, result);
             return result;
         }
 
@@ -91,17 +94,14 @@ namespace compiler
             result = new GlobalVariable(name, type, globalVariableOffset, initialValue);
             globalVariableOffset += type.Size();
             globals.Add(result);
+            globalTable.Add(name, result);
             return result;
         }
 
         public StructType FindStruct(string name)
         {
-            for (int i = 0; i < structs.Count; i++)
-            {
-                StructType st = structs[i];
-                if (st.Name == name)
-                    return st;
-            }
+            if (structTable.TryGetValue(name, out StructType result))
+                return result;
 
             return null;
         }
@@ -114,17 +114,14 @@ namespace compiler
 
             result = new StructType(name);
             structs.Add(result);
+            structTable.Add(name, result);
             return result;
         }
 
         public Function FindFunction(string name)
         {
-            for (int i = 0; i < functions.Count; i++)
-            {
-                Function f = functions[i];
-                if (f.Name == name)
-                    return f;
-            }
+            if (functionTable.TryGetValue(name, out Function result))
+                return result;
 
             return null;
         }
@@ -137,6 +134,7 @@ namespace compiler
 
             result = new Function(this, name);
             functions.Add(result);
+            functionTable.Add(name, result);
             return result;
         }
 
@@ -158,7 +156,7 @@ namespace compiler
             }
         }
 
-        private void CompileCast(Assembler assembler, AbstractType fromType, AbstractType toType, bool isExplicit)
+        private void CompileCast(Assembler assembler, AbstractType fromType, AbstractType toType, bool isExplicit, SourceInterval interval)
         {
             if (fromType is PrimitiveType p)
             {
@@ -167,46 +165,46 @@ namespace compiler
                     switch (p.Primitive)
                     {
                         case Primitive.VOID:
-                            throw new ParserException("Conversão inválida de 'void' para '" + tp + "'.");
+                            throw new CompilerException(interval, "Conversão inválida de 'void' para '" + tp + "'.");
 
                         case Primitive.BOOL:
                             if (isExplicit ? false : tp.Primitive != Primitive.BOOL)
-                                throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
+                                throw new CompilerException(interval, "O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                             // TODO Implementar
                             break;
 
                         case Primitive.BYTE:
                             if (isExplicit ? tp.Primitive == Primitive.BOOL : tp.Primitive < Primitive.BYTE || tp.Primitive == Primitive.CHAR)
-                                throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
+                                throw new CompilerException(interval, "O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                             CompileInt32Conversion(assembler, tp);
                             break;
 
                         case Primitive.CHAR:
                             if (isExplicit ? tp.Primitive != Primitive.BOOL : tp.Primitive != Primitive.CHAR)
-                                throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
+                                throw new CompilerException(interval, "O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                             CompileInt32Conversion(assembler, tp);
                             break;
 
                         case Primitive.SHORT:
                             if (isExplicit ? tp.Primitive == Primitive.BOOL : tp.Primitive < Primitive.SHORT)
-                                throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
+                                throw new CompilerException(interval, "O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                             CompileInt32Conversion(assembler, tp);
                             break;
 
                         case Primitive.INT:
                             if (isExplicit ? tp.Primitive == Primitive.BOOL : tp.Primitive < Primitive.INT)
-                                throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
+                                throw new CompilerException(interval, "O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                             CompileInt32Conversion(assembler, tp);
                             break;
 
                         case Primitive.LONG:
                             if (isExplicit ? tp.Primitive == Primitive.BOOL : tp.Primitive < Primitive.LONG)
-                                throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
+                                throw new CompilerException(interval, "O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                             switch (tp.Primitive)
                             {
@@ -231,7 +229,7 @@ namespace compiler
 
                         case Primitive.FLOAT:
                             if (isExplicit ? tp.Primitive == Primitive.BOOL : tp.Primitive < Primitive.FLOAT)
-                                throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
+                                throw new CompilerException(interval, "O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                             switch (tp.Primitive)
                             {
@@ -255,7 +253,7 @@ namespace compiler
 
                         case Primitive.DOUBLE:
                             if (isExplicit ? tp.Primitive == Primitive.BOOL : tp.Primitive < Primitive.DOUBLE)
-                                throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
+                                throw new CompilerException(interval, "O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                             switch (tp.Primitive)
                             {
@@ -291,36 +289,36 @@ namespace compiler
                         case Primitive.BYTE:
                         case Primitive.CHAR:
                         case Primitive.SHORT:
-                            throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
+                            throw new CompilerException(interval, "O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                         case Primitive.INT:
                             if (!isExplicit)
-                                throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
+                                throw new CompilerException(interval, "O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                             break;
 
                         case Primitive.LONG:
                             if (!isExplicit)
-                                throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
+                                throw new CompilerException(interval, "O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                             assembler.EmitInt64ToInt32();
                             break;
 
                         case Primitive.FLOAT:
                         case Primitive.DOUBLE:
-                            throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
+                            throw new CompilerException(interval, "O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
                     }
 
                     return;
                 }
 
-                throw new ParserException("Tipo desconhecido: '" + toType + "'.");
+                throw new CompilerException(interval, "Tipo desconhecido: '" + toType + "'.");
             }
 
             if (fromType is StructType s)
             {
                 if (!s.Equals(toType))
-                    throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
+                    throw new CompilerException(interval, "O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                 return;
             }
@@ -328,7 +326,7 @@ namespace compiler
             if (fromType is ArrayType a)
             {
                 if (!a.Equals(toType))
-                    throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
+                    throw new CompilerException(interval, "O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                 return;
             }
@@ -341,52 +339,52 @@ namespace compiler
                     {
                         case Primitive.VOID:
                         case Primitive.BOOL:
-                            throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
+                            throw new CompilerException(interval, "O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                         case Primitive.BYTE:
                             if (!isExplicit)
-                                throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
+                                throw new CompilerException(interval, "O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                             return;
 
                         case Primitive.CHAR:
-                            throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
+                            throw new CompilerException(interval, "O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                         case Primitive.SHORT:
                             if (!isExplicit)
-                                throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
+                                throw new CompilerException(interval, "O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                             return;
 
                         case Primitive.INT:
                             if (!isExplicit)
-                                throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
+                                throw new CompilerException(interval, "O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                             return;
 
                         case Primitive.LONG:
                             if (!isExplicit)
-                                throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
+                                throw new CompilerException(interval, "O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                             assembler.EmitInt32ToInt64();
                             return;
 
                         case Primitive.FLOAT:
                             if (!isExplicit)
-                                throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
+                                throw new CompilerException(interval, "O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                             assembler.EmitInt32ToFloat32();
                             return;
 
                         case Primitive.DOUBLE:
                             if (!isExplicit)
-                                throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
+                                throw new CompilerException(interval, "O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                             assembler.EmitInt32ToFloat64();
                             return;
                     }
 
-                    throw new ParserException("Tipo desconhecido: '" + toType + "'.");
+                    throw new CompilerException(interval, "Tipo desconhecido: '" + toType + "'.");
                 }
 
                 if (toType is PointerType tptr)
@@ -396,67 +394,67 @@ namespace compiler
 
                     AbstractType otherType = tptr.Type;
                     if (isExplicit ? false : !PrimitiveType.IsPrimitiveVoid(otherType) && fptr.Type != otherType)
-                        throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
+                        throw new CompilerException(interval, "O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                     return;
                 }
 
-                throw new ParserException("Tipo desconhecido: '" + toType + "'.");
+                throw new CompilerException(interval, "Tipo desconhecido: '" + toType + "'.");
             }
 
-            throw new ParserException("Tipo desconhecido: '" + fromType + "'.");
+            throw new CompilerException(interval, "Tipo desconhecido: '" + fromType + "'.");
         }
 
         private Expression ParsePrimaryExpression()
         {
             Token token = lexer.NextToken();
             if (token == null)
-                throw new ParserException("Fim do arquivo encontrado mas token esperado.");
+                throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos), "Fim do arquivo encontrado mas token esperado.");
 
             if (token is Keyword kw)
             {
                 switch (kw.Value)
                 {
-                    case "verdadeiro":
-                        return new BoolLiteralExpression(true);
+                    case "verdade":
+                        return new BoolLiteralExpression(kw.Interval, true);
 
                     case "falso":
-                        return new BoolLiteralExpression(false);
+                        return new BoolLiteralExpression(kw.Interval, false);
 
                     case "nulo":
-                        return new NullLiteralExpression();
+                        return new NullLiteralExpression(kw.Interval);
                 }
             }
 
             if (token is ByteLiteral b)
-                return new ByteLiteralExpression(b.Value);
+                return new ByteLiteralExpression(token.Interval, b.Value);
 
             if (token is CharLiteral c)
-                return new CharLiteralExpression(c.Value);
+                return new CharLiteralExpression(token.Interval, c.Value);
 
             if (token is ShortLiteral s)
-                return new ShortLiteralExpression(s.Value);
+                return new ShortLiteralExpression(token.Interval, s.Value);
 
             if (token is IntLiteral i)
-                return new IntLiteralExpression(i.Value);
+                return new IntLiteralExpression(token.Interval, i.Value);
 
             if (token is LongLiteral l)
-                return new LongLiteralExpression(l.Value);
+                return new LongLiteralExpression(token.Interval, l.Value);
 
             if (token is FloatLiteral f)
-                return new FloatLiteralExpression(f.Value);
+                return new FloatLiteralExpression(token.Interval, f.Value);
 
             if (token is DoubleLiteral d)
-                return new DoubleLiteralExpression(d.Value);
+                return new DoubleLiteralExpression(token.Interval, d.Value);
 
             if (token is StringLiteral str)
-                return new StringLiteralExpression(str.Value);
+                return new StringLiteralExpression(token.Interval, str.Value);
 
             if (token is Identifier id)
             {
                 if (lexer.NextSymbol("(", false) != null)
                 {
-                    CallExpression result = new CallExpression(new IdentifierExpression(id.Name));
+                    CallExpression result = new CallExpression(id.Interval, new IdentifierExpression(id.Interval, id.Name));
 
                     if (lexer.NextSymbol(")", false) != null)
                         return result;
@@ -473,13 +471,13 @@ namespace compiler
                     return result;
                 }
 
-                return new IdentifierExpression(id.Name);
+                return new IdentifierExpression(id.Interval, id.Name);
             }
 
             if (token is Symbol symbol)
             {
                 if (symbol.Value != "(")
-                    throw new ParserException("'(' esperado mas '" + symbol.Value + "' encontrado.");
+                    throw new CompilerException(symbol.Interval, "'(' esperado mas '" + symbol.Value + "' encontrado.");
 
                 Expression result = ParseExpression();
 
@@ -488,7 +486,7 @@ namespace compiler
                 return result;
             }
 
-            throw new ParserException("Token não esperado: " + token);
+            throw new CompilerException(token.Interval, "Token não esperado: " + token);
         }
 
         private Expression ParsePostFixExpression()
@@ -502,20 +500,23 @@ namespace compiler
             switch (symbol.Value)
             {
                 case "++":
-                    return new UnaryExpression(UnaryOperation.POST_INCREMENT, operand);
+                    return new UnaryExpression(SourceInterval.Merge(operand.Interval, symbol.Interval), UnaryOperation.POST_INCREMENT, operand);
 
                 case "--":
-                    return new UnaryExpression(UnaryOperation.POST_DECREMENT, operand);
+                    return new UnaryExpression(SourceInterval.Merge(operand.Interval, symbol.Interval), UnaryOperation.POST_DECREMENT, operand);
 
                 case ".":
                 {
                     Identifier id = lexer.NextIdentifier();
-                    return new FieldAcessorExpression(operand, id.Name);
+                    return new FieldAcessorExpression(SourceInterval.Merge(operand.Interval, id.Interval), operand, id.Name);
                 }
 
                 case "[":
                 {
-                    ArrayAccessorExpression result = new ArrayAccessorExpression(operand);
+                    if (lexer.NextSymbol("]", false) != null)
+                        throw new CompilerException(operand.Interval, "Índice de array esperado.");
+
+                    ArrayAccessorExpression result = new ArrayAccessorExpression(SourceInterval.Merge(operand.Interval, symbol.Interval), operand);
                     Expression indexer = ParseExpression();
                     result.AddIndexer(indexer);
 
@@ -548,31 +549,31 @@ namespace compiler
 
                 case "-":
                     operand = ParsePostFixExpression();
-                    return new UnaryExpression(UnaryOperation.NEGATION, operand);
+                    return new UnaryExpression(SourceInterval.Merge(symbol.Interval, operand.Interval), UnaryOperation.NEGATION, operand);
 
                 case "*":
                     operand = ParsePostFixExpression();
-                    return new UnaryExpression(UnaryOperation.POINTER_INDIRECTION, operand);
+                    return new UnaryExpression(SourceInterval.Merge(symbol.Interval, operand.Interval), UnaryOperation.POINTER_INDIRECTION, operand);
 
                 case "!":
                     operand = ParsePostFixExpression();
-                    return new UnaryExpression(UnaryOperation.LOGICAL_NOT, operand);
+                    return new UnaryExpression(SourceInterval.Merge(symbol.Interval, operand.Interval), UnaryOperation.LOGICAL_NOT, operand);
 
                 case "~":
                     operand = ParsePostFixExpression();
-                    return new UnaryExpression(UnaryOperation.BITWISE_NOT, operand);
+                    return new UnaryExpression(SourceInterval.Merge(symbol.Interval, operand.Interval), UnaryOperation.BITWISE_NOT, operand);
 
                 case "++":
                     operand = ParsePostFixExpression();
-                    return new UnaryExpression(UnaryOperation.PRE_INCREMENT, operand);
+                    return new UnaryExpression(SourceInterval.Merge(symbol.Interval, operand.Interval), UnaryOperation.PRE_INCREMENT, operand);
 
                 case "--":
                     operand = ParsePostFixExpression();
-                    return new UnaryExpression(UnaryOperation.PRE_DECREMENT, operand);
+                    return new UnaryExpression(SourceInterval.Merge(symbol.Interval, operand.Interval), UnaryOperation.PRE_DECREMENT, operand);
 
                 case "&":
                     operand = ParsePostFixExpression();
-                    return new UnaryExpression(UnaryOperation.POINTER_TO, operand);
+                    return new UnaryExpression(SourceInterval.Merge(symbol.Interval, operand.Interval), UnaryOperation.POINTER_TO, operand);
             }
 
             lexer.PreviusToken();
@@ -583,14 +584,14 @@ namespace compiler
             if (lexer.NextKeyword("cast", false) == null)
                 return ParseUnaryExpression();
 
-            lexer.NextSymbol("<");
+            Symbol start = lexer.NextSymbol("<");
             AbstractType type = ParseType();
             lexer.NextSymbol(">");
             lexer.NextSymbol("(");
             Expression operand = ParseExpression();
-            lexer.NextSymbol(")");
+            Symbol end = lexer.NextSymbol(")");
 
-            return new CastExpression(type, operand);
+            return new CastExpression(SourceInterval.Merge(start.Interval, end.Interval), type, operand);
         }
 
         private Expression ParseMultiplicativeExpression()
@@ -607,17 +608,17 @@ namespace compiler
                 {
                     case "*":
                         rightOperand = ParseCastExpression();
-                        leftOperand = new BinaryExpression(BinaryOperation.MUL, leftOperand, rightOperand);
+                        leftOperand = new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.MUL, leftOperand, rightOperand);
                         break;
 
                     case "/":
                         rightOperand = ParseCastExpression();
-                        leftOperand = new BinaryExpression(BinaryOperation.DIV, leftOperand, rightOperand);
+                        leftOperand = new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.DIV, leftOperand, rightOperand);
                         break;
 
                     case "%":
                         rightOperand = ParseCastExpression();
-                        leftOperand = new BinaryExpression(BinaryOperation.MOD, leftOperand, rightOperand);
+                        leftOperand = new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.MOD, leftOperand, rightOperand);
                         break;
 
                     default:
@@ -641,12 +642,12 @@ namespace compiler
                 {
                     case "+":
                         rightOperand = ParseMultiplicativeExpression();
-                        leftOperand = new BinaryExpression(BinaryOperation.ADD, leftOperand, rightOperand);
+                        leftOperand = new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.ADD, leftOperand, rightOperand);
                         break;
 
                     case "-":
                         rightOperand = ParseMultiplicativeExpression();
-                        leftOperand = new BinaryExpression(BinaryOperation.SUB, leftOperand, rightOperand);
+                        leftOperand = new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.SUB, leftOperand, rightOperand);
                         break;
 
                     default:
@@ -669,15 +670,15 @@ namespace compiler
             {
                 case "<<":
                     rightOperand = ParseAdditiveExpression();
-                    return new BinaryExpression(BinaryOperation.SHIFT_LEFT, leftOperand, rightOperand);
+                    return new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.SHIFT_LEFT, leftOperand, rightOperand);
 
                 case ">>":
                     rightOperand = ParseAdditiveExpression();
-                    return new BinaryExpression(BinaryOperation.SHIFT_RIGHT, leftOperand, rightOperand);
+                    return new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.SHIFT_RIGHT, leftOperand, rightOperand);
 
                 case ">>>":
                     rightOperand = ParseAdditiveExpression();
-                    return new BinaryExpression(BinaryOperation.UNSIGNED_SHIFT_RIGHT, leftOperand, rightOperand);
+                    return new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.UNSIGNED_SHIFT_RIGHT, leftOperand, rightOperand);
             }
 
             lexer.PreviusToken();
@@ -697,19 +698,19 @@ namespace compiler
             {
                 case ">":
                     rightOperand = ParseShiftExpression();
-                    return new BinaryExpression(BinaryOperation.GREATER, leftOperand, rightOperand);
+                    return new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.GREATER, leftOperand, rightOperand);
 
                 case ">=":
                     rightOperand = ParseShiftExpression();
-                    return new BinaryExpression(BinaryOperation.GREATER_OR_EQUALS, leftOperand, rightOperand);
+                    return new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.GREATER_OR_EQUALS, leftOperand, rightOperand);
 
                 case "<":
                     rightOperand = ParseShiftExpression();
-                    return new BinaryExpression(BinaryOperation.LESS, leftOperand, rightOperand);
+                    return new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.LESS, leftOperand, rightOperand);
 
                 case "<=":
                     rightOperand = ParseShiftExpression();
-                    return new BinaryExpression(BinaryOperation.LESS_OR_EQUALS, leftOperand, rightOperand);
+                    return new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.LESS_OR_EQUALS, leftOperand, rightOperand);
             }
 
             lexer.PreviusToken();
@@ -729,11 +730,11 @@ namespace compiler
             {
                 case "==":
                     rightOperand = ParseInequalityExpression();
-                    return new BinaryExpression(BinaryOperation.EQUALS, leftOperand, rightOperand);
+                    return new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.EQUALS, leftOperand, rightOperand);
 
                 case "!=":
                     rightOperand = ParseInequalityExpression();
-                    return new BinaryExpression(BinaryOperation.NOT_EQUALS, leftOperand, rightOperand);
+                    return new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.NOT_EQUALS, leftOperand, rightOperand);
             }
 
             lexer.PreviusToken();
@@ -749,7 +750,7 @@ namespace compiler
                     return leftOperand;
 
                 Expression rightOperand = ParseEqualityExpression();
-                leftOperand = new BinaryExpression(BinaryOperation.BITWISE_AND, leftOperand, rightOperand);
+                leftOperand = new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.BITWISE_AND, leftOperand, rightOperand);
             }
         }
 
@@ -762,7 +763,7 @@ namespace compiler
                     return leftOperand;
 
                 Expression rightOperand = ParseBitwiseAndExpression();
-                leftOperand = new BinaryExpression(BinaryOperation.BITWISE_AND, leftOperand, rightOperand);
+                leftOperand = new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.BITWISE_AND, leftOperand, rightOperand);
             }
         }
 
@@ -775,7 +776,7 @@ namespace compiler
                     return leftOperand;
 
                 Expression rightOperand = ParseBitwiseXorExpression();
-                leftOperand = new BinaryExpression(BinaryOperation.BITWISE_OR, leftOperand, rightOperand);
+                leftOperand = new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.BITWISE_OR, leftOperand, rightOperand);
             }
         }
 
@@ -788,7 +789,7 @@ namespace compiler
                     return leftOperand;
 
                 Expression rightOperand = ParseBitwiseOrExpression();
-                leftOperand = new BinaryExpression(BinaryOperation.LOGICAL_AND, leftOperand, rightOperand);
+                leftOperand = new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.LOGICAL_AND, leftOperand, rightOperand);
             }
         }
 
@@ -801,7 +802,7 @@ namespace compiler
                     return leftOperand;
 
                 Expression rightOperand = ParseLogicalAndExpression();
-                leftOperand = new BinaryExpression(BinaryOperation.LOGICAL_XOR, leftOperand, rightOperand);
+                leftOperand = new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.LOGICAL_XOR, leftOperand, rightOperand);
             }
         }
 
@@ -814,7 +815,7 @@ namespace compiler
                     return leftOperand;
 
                 Expression rightOperand = ParseLogicalXorExpression();
-                leftOperand = new BinaryExpression(BinaryOperation.LOGICAL_OR, leftOperand, rightOperand);
+                leftOperand = new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.LOGICAL_OR, leftOperand, rightOperand);
             }
         }
 
@@ -831,50 +832,50 @@ namespace compiler
             {
                 case "=":
                     rightOperand = ParseExpression();
-                    return new BinaryExpression(BinaryOperation.STORE, leftOperand, rightOperand);
+                    return new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.STORE, leftOperand, rightOperand);
 
                 case "+=":
                     rightOperand = ParseExpression();
-                    return new BinaryExpression(BinaryOperation.STORE_ADD, leftOperand, rightOperand);
+                    return new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.STORE_ADD, leftOperand, rightOperand);
 
                 case "-=":
                     rightOperand = ParseExpression();
-                    return new BinaryExpression(BinaryOperation.STORE_SUB, leftOperand, rightOperand);
+                    return new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.STORE_SUB, leftOperand, rightOperand);
 
                 case "*=":
                     rightOperand = ParseExpression();
-                    return new BinaryExpression(BinaryOperation.STORE_MUL, leftOperand, rightOperand);
+                    return new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.STORE_MUL, leftOperand, rightOperand);
 
                 case "/=":
                     rightOperand = ParseExpression();
-                    return new BinaryExpression(BinaryOperation.STORE_DIV, leftOperand, rightOperand);
+                    return new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.STORE_DIV, leftOperand, rightOperand);
 
                 case "%=":
                     rightOperand = ParseExpression();
-                    return new BinaryExpression(BinaryOperation.STORE_MOD, leftOperand, rightOperand);
+                    return new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.STORE_MOD, leftOperand, rightOperand);
 
                 case "&=":
                     rightOperand = ParseExpression();
-                    return new BinaryExpression(BinaryOperation.STORE_AND, leftOperand, rightOperand);
+                    return new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.STORE_AND, leftOperand, rightOperand);
                 case "|=":
                     rightOperand = ParseExpression();
-                    return new BinaryExpression(BinaryOperation.STORE_OR, leftOperand, rightOperand);
+                    return new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.STORE_OR, leftOperand, rightOperand);
 
                 case "^=":
                     rightOperand = ParseExpression();
-                    return new BinaryExpression(BinaryOperation.STORE_XOR, leftOperand, rightOperand);
+                    return new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.STORE_XOR, leftOperand, rightOperand);
 
                 case "<<=":
                     rightOperand = ParseExpression();
-                    return new BinaryExpression(BinaryOperation.STORE_SHIFT_LEFT, leftOperand, rightOperand);
+                    return new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.STORE_SHIFT_LEFT, leftOperand, rightOperand);
 
                 case ">>=":
                     rightOperand = ParseExpression();
-                    return new BinaryExpression(BinaryOperation.STORE_SHIFT_RIGHT, leftOperand, rightOperand);
+                    return new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.STORE_SHIFT_RIGHT, leftOperand, rightOperand);
 
                 case ">>>=":
                     rightOperand = ParseExpression();
-                    return new BinaryExpression(BinaryOperation.STORE_UNSIGNED_SHIFT_RIGHT, leftOperand, rightOperand);
+                    return new BinaryExpression(SourceInterval.Merge(leftOperand.Interval, rightOperand.Interval), BinaryOperation.STORE_UNSIGNED_SHIFT_RIGHT, leftOperand, rightOperand);
             }
 
             lexer.PreviusToken();
@@ -943,7 +944,7 @@ namespace compiler
                 Identifier id = lexer.NextIdentifier();
                 result = FindStruct(id.Name);
                 if (result == null)
-                    throw new ParserException("Tipo não declarado: '" + id.Name + "'");
+                    throw new CompilerException(id.Interval, "Tipo não declarado: '" + id.Name + "'");
             }
 
             while (true)
@@ -951,16 +952,16 @@ namespace compiler
                 if (lexer.NextSymbol("[", false) != null)
                 {
                     if (PrimitiveType.IsPrimitiveVoid(result))
-                        throw new ParserException("Uso inválido do tipo void.");
+                        throw new CompilerException(kw.Interval, "Uso inválido do tipo void.");
 
                     ArrayType a = new ArrayType(result);
 
                     NumericLiteral number = lexer.NextNumber();
                     if (!(number is IntLiteral n))
-                        throw new ParserException("Literal inteiro esperado.");
+                        throw new CompilerException(number.Interval, "Literal inteiro esperado.");
 
                     if (n.Value <= 0)
-                        throw new ParserException("Tamanho de array deve ser maior que zero.");
+                        throw new CompilerException(number.Interval, "Tamanho de array deve ser maior que zero.");
 
                     a.AddBoundary(n.Value);
 
@@ -968,10 +969,10 @@ namespace compiler
                     {
                         number = lexer.NextNumber();
                         if (!(number is IntLiteral n2))
-                            throw new ParserException("Literal inteiro esperado.");
+                            throw new CompilerException(number.Interval, "Literal inteiro esperado.");
 
                         if (n2.Value <= 0)
-                            throw new ParserException("Tamanho de array deve ser maior que zero.");
+                            throw new CompilerException(number.Interval, "Tamanho de array deve ser maior que zero.");
 
                         a.AddBoundary(n2.Value);
                     }
@@ -983,7 +984,7 @@ namespace compiler
                 else
                 {
                     if (PrimitiveType.IsPrimitiveVoid(result))
-                        throw new ParserException("Uso inválido do tipo void.");
+                        throw new CompilerException(kw.Interval, "Uso inválido do tipo void.");
 
                     return result;
                 }
@@ -1002,7 +1003,7 @@ namespace compiler
 
                 Parameter p = function.DeclareParameter(id.Name, type, byRef);
                 if (p == null)
-                    throw new ParserException("Parâmetro '" + id.Name + "' já declarado.");
+                    throw new CompilerException(id.Interval, "Parâmetro '" + id.Name + "' já declarado.");
 
                 if (lexer.NextSymbol(",", false) == null)
                     break;
@@ -1021,7 +1022,7 @@ namespace compiler
 
                 Field field = st.DeclareField(id.Name, type);
                 if (field == null)
-                    throw new ParserException("Campo '" + id.Name + "' já declarado.");
+                    throw new CompilerException(id.Interval, "Campo '" + id.Name + "' já declarado.");
 
                 lexer.NextSymbol(";");
 
@@ -1039,7 +1040,7 @@ namespace compiler
         private Statement ParseStatement()
         {
             if (lexer.NextSymbol(";", false) != null)
-                return new EmptyStatement();
+                return new EmptyStatement(lexer.CurrentInterval(lexer.CurrentPos));
 
             if (lexer.NextSymbol("{", false) != null)
             {
@@ -1052,7 +1053,7 @@ namespace compiler
             {
                 switch (kw.Value)
                 {
-                    case "declare":
+                    case "var":
                     {
                         DeclarationStatement result = ParseVariableDeclaration();
                         lexer.NextSymbol(";");
@@ -1065,7 +1066,7 @@ namespace compiler
 
                         Expression expression = ParseExpression();
                         
-                        lexer.NextSymbol(")");
+                        Symbol end = lexer.NextSymbol(")");
             
                         Statement thenStatement = ParseStatement();
 
@@ -1073,7 +1074,7 @@ namespace compiler
                         if (lexer.NextKeyword("senão", false) != null)
                             elseStatement = ParseStatement();
 
-                        IfStatement result = new IfStatement(expression, thenStatement, elseStatement);
+                        IfStatement result = new IfStatement(SourceInterval.Merge(kw.Interval, end.Interval), expression, thenStatement, elseStatement);
                         return result;
                     }
 
@@ -1081,7 +1082,7 @@ namespace compiler
                     {
                         lexer.NextSymbol("(");
 
-                        ForStatement result = new ForStatement();
+                        ForStatement result = new ForStatement(kw.Interval);
 
                         // inicializadores
                         if (lexer.NextSymbol(";", false) == null)
@@ -1130,11 +1131,11 @@ namespace compiler
 
                         Expression expression = ParseExpression();
 
-                        lexer.NextSymbol(")");
+                        Symbol end = lexer.NextSymbol(")");
 
                         Statement statement = ParseStatement();
 
-                        return new WhileStatement(expression, statement);
+                        return new WhileStatement(SourceInterval.Merge(kw.Interval, end.Interval), expression, statement);
                     }
 
                     case "repita":
@@ -1146,17 +1147,17 @@ namespace compiler
 
                         Expression expression = ParseExpression();
 
-                        lexer.NextSymbol(")");
+                        Symbol end = lexer.NextSymbol(")");
 
-                        return new DoStatement(expression, statement);
+                        return new DoStatement(SourceInterval.Merge(kw.Interval, end.Interval), expression, statement);
                     }
 
                     case "leia":
                     {
-                        ReadStatement result = new ReadStatement();
+                        ReadStatement result = new ReadStatement(kw.Interval);
 
                         if (lexer.NextSymbol(";", false) != null)
-                            throw new ParserException("Expressão esperada.");
+                            throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos), "Expressão esperada.");
 
                         Expression expression = ParseExpression();
                         result.AddExpression(expression);
@@ -1175,10 +1176,10 @@ namespace compiler
                     case "escreva":
                     case "escrevaln":
                     {
-                        PrintStatement result = new PrintStatement(kw.Value == "escrevaln");
+                        PrintStatement result = new PrintStatement(kw.Interval, kw.Value == "escrevaln");
 
                         if (lexer.NextSymbol(";", false) != null)
-                            throw new ParserException("Expressão esperada.");
+                            throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos), "Expressão esperada.");
 
                         Expression expression = ParseExpression();
                         result.AddExpression(expression);
@@ -1198,20 +1199,21 @@ namespace compiler
                     {
                         Expression expression = null;
 
-                        if (lexer.NextSymbol(";", false) == null)
+                        Symbol end;
+                        if ((end = lexer.NextSymbol(";", false)) == null)
                         {
                             expression = ParseExpression();
-                            lexer.NextSymbol(";");
+                            end = lexer.NextSymbol(";");
                         }
 
-                        return new ReturnStatement(expression);
+                        return new ReturnStatement(SourceInterval.Merge(kw.Interval, end.Interval), expression);
                     }
 
                     case "quebra":
                     {
-                        lexer.NextSymbol(";");
+                        Symbol end = lexer.NextSymbol(";");
 
-                        return new BreakStatement();
+                        return new BreakStatement(SourceInterval.Merge(kw.Interval, end.Interval));
                     }
                 }
 
@@ -1220,7 +1222,7 @@ namespace compiler
 
             Expression expr = ParseExpression();
             lexer.NextSymbol(";");
-            return new ExpressionStatement(expr);
+            return new ExpressionStatement(expr.Interval, expr);
         }
 
         private void CompileArrayIndexer(Function function, Context context, Assembler assembler, Expression indexer)
@@ -1236,7 +1238,7 @@ namespace compiler
                     case Primitive.LONG:
                     case Primitive.FLOAT:
                     case Primitive.DOUBLE:
-                        throw new ParserException("Tipo de indexador inválido: '" + pt + "'.");
+                        throw new CompilerException(indexer.Interval, "Tipo de indexador inválido: '" + pt + "'.");
                 }
             }
         }
@@ -1248,10 +1250,10 @@ namespace compiler
                 Expression operand = u.Operand;
                 AbstractType operandType = CompileExpression(function, context, assembler, operand);
                 if (u.Operation != UnaryOperation.POINTER_INDIRECTION)
-                    throw new ParserException("A expressão do lado esquerdo não é atribuível.");
+                    throw new CompilerException(operand.Interval, "A expressão do lado esquerdo não é atribuível.");
 
                 if (!(operandType is PointerType ptr))
-                    throw new ParserException("Indireção de ponteiros só pode ser feita com um tipo 'pointer'.");
+                    throw new CompilerException(operand.Interval, "Indireção de ponteiros só pode ser feita com um tipo 'pointer'.");
 
                 storeVar = null;
                 return ptr.Type;
@@ -1262,14 +1264,13 @@ namespace compiler
                 Expression operand = f.Operand;
                 string fieldName = f.Field;
 
-
                 AbstractType operandType = CompileAssignableExpression(function, context, assembler, operand, out _);
 
                 if (operandType is StructType s)
                 {
                     Field field = s.FindField(fieldName);
                     if (field == null)
-                        throw new ParserException("Campo '" + fieldName + "' não encontrado na estrutura: '" + s.Name + "'.");
+                        throw new CompilerException(expression.Interval, "Campo '" + fieldName + "' não encontrado na estrutura: '" + s.Name + "'.");
 
                     assembler.EmitLoadConst(field.Offset);
                     assembler.EmitAdd();
@@ -1281,13 +1282,13 @@ namespace compiler
                 if (operandType is PointerType ptr)
                 {
                     if (ptr.Type == null || !(ptr.Type is StructType s2))
-                        throw new ParserException("Pointeiro de estrutura esperado.");
+                        throw new CompilerException(operand.Interval, "Pointeiro de estrutura esperado.");
 
                     assembler.EmitLoadStack32();
 
                     Field field = s2.FindField(fieldName);
                     if (field == null)
-                        throw new ParserException("Campo '" + fieldName + "' não encontrado na estrutura: '" + s2.Name + "'.");
+                        throw new CompilerException(expression.Interval, "Campo '" + fieldName + "' não encontrado na estrutura: '" + s2.Name + "'.");
 
                     assembler.EmitLoadConst(field.Offset);
                     assembler.EmitAdd();
@@ -1296,7 +1297,7 @@ namespace compiler
                     return field.Type;
                 }
 
-                throw new ParserException("Acesso de membros em um tipo que não é estrutura: '" + operandType + "'.");
+                throw new CompilerException(operand.Interval, "Acesso de membros em um tipo que não é estrutura: '" + operandType + "'.");
             }
 
             if (expression is ArrayAccessorExpression a)
@@ -1309,10 +1310,10 @@ namespace compiler
                     int rank = at.Rank;
 
                     if (a.IndexerCount == 0)
-                        throw new ParserException("Não foi fornecido nenhum índice para o array.");
+                        throw new CompilerException(operand.Interval, "Não foi fornecido nenhum índice para o array.");
 
                     if (a.IndexerCount != rank)
-                        throw new ParserException("Número de inídices fornecidos é diferente da dimensão do array.");
+                        throw new CompilerException(operand.Interval, "Número de inídices fornecidos é diferente da dimensão do array.");
 
                     Expression indexer = a[0];
                     CompileArrayIndexer(function, context, assembler, indexer);
@@ -1337,13 +1338,13 @@ namespace compiler
                 if (operandType is PointerType ptr)
                 {
                     if (ptr.Type == null)
-                        throw new ParserException("Não é possível realizar esta operação em um ponteiro do tipo void.");
+                        throw new CompilerException(operand.Interval, "Não é possível realizar esta operação em um ponteiro do tipo void.");
 
                     if (a.IndexerCount == 0)
-                        throw new ParserException("Não foi fornecido nenhum índice para o ponteiro.");
+                        throw new CompilerException(operand.Interval, "Não foi fornecido nenhum índice para o ponteiro.");
 
                     if (a.IndexerCount != 1)
-                        throw new ParserException("Deve-se fornecer somente um índice para o ponteiro.");
+                        throw new CompilerException(operand.Interval, "Deve-se fornecer somente um índice para o ponteiro.");
 
                     assembler.EmitLoadStack32();
 
@@ -1357,13 +1358,13 @@ namespace compiler
                     return ptr.Type;
                 }
 
-                throw new ParserException("Tipo '" + operandType + "' não é um array.");
+                throw new CompilerException(operand.Interval, "Tipo '" + operandType + "' não é um array.");
             }
 
             if (expression is PrimaryExpression p)
             {
                 if (p.PrimaryType != PrimaryType.IDENTIFIER)
-                    throw new ParserException("Tipo de expressão não atribuível.");
+                    throw new CompilerException(expression.Interval, "Tipo de expressão não atribuível.");
 
                 IdentifierExpression id = (IdentifierExpression) p;
                 string name = id.Name;
@@ -1374,7 +1375,7 @@ namespace compiler
                 {
                     var = FindGlobalVariable(id.Name);
                     if (var == null)
-                        throw new ParserException("Identificador'" + id.Name + "' não declarado.");
+                        throw new CompilerException(id.Interval, "Identificador'" + id.Name + "' não declarado.");
 
                     // variável local ou parâmetro
                     int offset = var.Offset;
@@ -1398,10 +1399,10 @@ namespace compiler
                 return var.Type;
             }
 
-            throw new ParserException("Tipo de expressão não atribuível.");
+            throw new CompilerException(expression.Interval, "Tipo de expressão não atribuível.");
         }
 
-        private void CompileLoad(Assembler assembler, AbstractType type)
+        private void CompileLoad(Assembler assembler, AbstractType type, SourceInterval interval)
         {
             if (type is PrimitiveType p)
             {
@@ -1447,10 +1448,10 @@ namespace compiler
                 return;
             }
 
-            throw new ParserException("Tipo desconhecido: '" + type + "'.");
+            throw new CompilerException(interval, "Tipo desconhecido: '" + type + "'.");
         }
 
-        private void CompileLoad(Assembler assembler, Variable loadVar)
+        private void CompileLoad(Assembler assembler, Variable loadVar, SourceInterval interval)
         {
             AbstractType type = loadVar.Type;
             if (type is PrimitiveType p)
@@ -1526,10 +1527,10 @@ namespace compiler
                 return;
             }
 
-            throw new ParserException("Tipo desconhecido: '" + type + "'.");
+            throw new CompilerException(interval, "Tipo desconhecido: '" + type + "'.");
         }
 
-        private void CompileStore(Assembler assembler, AbstractType type)
+        private void CompileStore(Assembler assembler, AbstractType type, SourceInterval interval)
         {
             if (type is PrimitiveType p)
             {
@@ -1575,10 +1576,10 @@ namespace compiler
                 return;
             }
 
-            throw new ParserException("Tipo desconhecido: '" + type + "'.");
+            throw new CompilerException(interval, "Tipo desconhecido: '" + type + "'.");
         }
 
-        private void CompileStoreGlobal(Assembler assembler, AbstractType type, int offset)
+        private void CompileStoreGlobal(Assembler assembler, AbstractType type, int offset, SourceInterval interval)
         {
             if (type is PrimitiveType p)
             {
@@ -1612,10 +1613,10 @@ namespace compiler
                 return;
             }
 
-            throw new ParserException("Tipo desconhecido: '" + type + "'.");
+            throw new CompilerException(interval, "Tipo desconhecido: '" + type + "'.");
         }
 
-        private void CompileStoreLocal(Assembler assembler, AbstractType type, int offset)
+        private void CompileStoreLocal(Assembler assembler, AbstractType type, int offset, SourceInterval interval)
         {
             if (type is PrimitiveType p)
             {
@@ -1649,18 +1650,18 @@ namespace compiler
                 return;
             }
 
-            throw new ParserException("Tipo desconhecido: '" + type + "'.");
+            throw new CompilerException(interval, "Tipo desconhecido: '" + type + "'.");
         }
 
-        private void CompileStore(Assembler assembler, Variable storeVar)
+        private void CompileStore(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             if (storeVar is GlobalVariable)
-                CompileStoreGlobal(assembler, storeVar.Type, storeVar.Offset);
+                CompileStoreGlobal(assembler, storeVar.Type, storeVar.Offset, interval);
             else
-                CompileStoreLocal(assembler, storeVar.Type, storeVar.Offset);
+                CompileStoreLocal(assembler, storeVar.Type, storeVar.Offset, interval);
         }
 
-        private void CompileStoreAdd(Assembler assembler, AbstractType type)
+        private void CompileStoreAdd(Assembler assembler, AbstractType type, SourceInterval interval)
         {
             if (type is PrimitiveType p)
             {
@@ -1705,10 +1706,10 @@ namespace compiler
                 return;
             }
 
-            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
         }
 
-        private void CompileStoreAdd(Assembler assembler, Variable storeVar)
+        private void CompileStoreAdd(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
             if (type is PrimitiveType p)
@@ -1789,10 +1790,10 @@ namespace compiler
                 return;
             }
 
-            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
         }
 
-        private void CompileStoreSub(Assembler assembler, AbstractType type)
+        private void CompileStoreSub(Assembler assembler, AbstractType type, SourceInterval interval)
         {
             if (type is PrimitiveType p)
             {
@@ -1837,10 +1838,10 @@ namespace compiler
                 return;
             }
 
-            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
         }
 
-        private void CompileStoreSub(Assembler assembler, Variable storeVar)
+        private void CompileStoreSub(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
             if (type is PrimitiveType p)
@@ -1921,10 +1922,10 @@ namespace compiler
                 return;
             }
 
-            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
         }
 
-        private void CompileStoreMul(Assembler assembler, AbstractType type)
+        private void CompileStoreMul(Assembler assembler, AbstractType type, SourceInterval interval)
         {
             if (type is PrimitiveType p)
             {
@@ -1962,10 +1963,10 @@ namespace compiler
                 }
             }
 
-            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
         }
 
-        private void CompileStoreMul(Assembler assembler, Variable storeVar)
+        private void CompileStoreMul(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
             if (type is PrimitiveType p)
@@ -2034,10 +2035,10 @@ namespace compiler
                 }
             }
 
-            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
         }
 
-        private void CompileStoreDiv(Assembler assembler, AbstractType type)
+        private void CompileStoreDiv(Assembler assembler, AbstractType type, SourceInterval interval)
         {
             if (type is PrimitiveType p)
             {
@@ -2075,10 +2076,10 @@ namespace compiler
                 }
             }
 
-            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
         }
 
-        private void CompileStoreDiv(Assembler assembler, Variable storeVar)
+        private void CompileStoreDiv(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
             if (type is PrimitiveType p)
@@ -2147,10 +2148,10 @@ namespace compiler
                 }
             }
 
-            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
         }
 
-        private void CompileStoreMod(Assembler assembler, AbstractType type)
+        private void CompileStoreMod(Assembler assembler, AbstractType type, SourceInterval interval)
         {
             if (type is PrimitiveType p)
             {
@@ -2178,10 +2179,10 @@ namespace compiler
                 }
             }
 
-            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
         }
 
-        private void CompileStoreMod(Assembler assembler, Variable storeVar)
+        private void CompileStoreMod(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
             if (type is PrimitiveType p)
@@ -2230,10 +2231,10 @@ namespace compiler
                 }
             }
 
-            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
         }
 
-        private void CompileStoreAnd(Assembler assembler, AbstractType type)
+        private void CompileStoreAnd(Assembler assembler, AbstractType type, SourceInterval interval)
         {
             if (type is PrimitiveType p)
             {
@@ -2262,10 +2263,10 @@ namespace compiler
                 }
             }
 
-            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
         }
 
-        private void CompileStoreAnd(Assembler assembler, Variable storeVar)
+        private void CompileStoreAnd(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
             if (type is PrimitiveType p)
@@ -2315,10 +2316,10 @@ namespace compiler
                 }
             }
 
-            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
         }
 
-        private void CompileStoreOr(Assembler assembler, AbstractType type)
+        private void CompileStoreOr(Assembler assembler, AbstractType type, SourceInterval interval)
         {
             if (type is PrimitiveType p)
             {
@@ -2347,10 +2348,10 @@ namespace compiler
                 }
             }
 
-            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
         }
 
-        private void CompileStoreOr(Assembler assembler, Variable storeVar)
+        private void CompileStoreOr(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
             if (type is PrimitiveType p)
@@ -2400,10 +2401,10 @@ namespace compiler
                 }
             }
 
-            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
         }
 
-        private void CompileStoreXor(Assembler assembler, AbstractType type)
+        private void CompileStoreXor(Assembler assembler, AbstractType type, SourceInterval interval)
         {
             if (type is PrimitiveType p)
             {
@@ -2432,10 +2433,10 @@ namespace compiler
                 }
             }
 
-            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
         }
 
-        private void CompileStoreXor(Assembler assembler, Variable storeVar)
+        private void CompileStoreXor(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
             if (type is PrimitiveType p)
@@ -2485,10 +2486,10 @@ namespace compiler
                 }
             }
 
-            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
         }
 
-        private void CompileStoreShiftLeft(Assembler assembler, AbstractType type)
+        private void CompileStoreShiftLeft(Assembler assembler, AbstractType type, SourceInterval interval)
         {
             if (type is PrimitiveType p)
             {
@@ -2516,10 +2517,10 @@ namespace compiler
                 }
             }
 
-            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
         }
 
-        private void CompileStoreShiftLeft(Assembler assembler, Variable storeVar)
+        private void CompileStoreShiftLeft(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
             if (type is PrimitiveType p)
@@ -2568,10 +2569,10 @@ namespace compiler
                 }
             }
 
-            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
         }
 
-        private void CompileStoreShiftRight(Assembler assembler, AbstractType type)
+        private void CompileStoreShiftRight(Assembler assembler, AbstractType type, SourceInterval interval)
         {
             if (type is PrimitiveType p)
             {
@@ -2599,10 +2600,10 @@ namespace compiler
                 }
             }
 
-            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
         }
 
-        private void CompileStoreShiftRight(Assembler assembler, Variable storeVar)
+        private void CompileStoreShiftRight(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
             if (type is PrimitiveType p)
@@ -2651,10 +2652,10 @@ namespace compiler
                 }
             }
 
-            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
         }
 
-        private void CompileStoreUnsignedShiftRight(Assembler assembler, AbstractType type)
+        private void CompileStoreUnsignedShiftRight(Assembler assembler, AbstractType type, SourceInterval interval)
         {
             if (type is PrimitiveType p)
             {
@@ -2682,10 +2683,10 @@ namespace compiler
                 }
             }
 
-            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
         }
 
-        private void CompileStoreUnsignedShiftRight(Assembler assembler, Variable storeVar)
+        private void CompileStoreUnsignedShiftRight(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
             if (type is PrimitiveType p)
@@ -2734,7 +2735,7 @@ namespace compiler
                 }
             }
 
-            throw new ParserException("Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
         }
 
         private void CompileStoreExpression(Function function, Context context, Assembler assembler, BinaryOperation operation, Expression leftOperand, Expression rightOperand)
@@ -2750,12 +2751,12 @@ namespace compiler
                     assembler.Emit(leftAssembler);
 
                 rightType = CompileExpression(function, context, assembler, rightOperand);
-                CompileCast(assembler, rightType, leftType, false);
+                CompileCast(assembler, rightType, leftType, false, rightOperand.Interval);
 
                 if (storeVar != null)
-                    CompileStore(assembler, storeVar);
+                    CompileStore(assembler, storeVar, leftOperand.Interval);
                 else
-                    CompileStore(assembler, leftType);
+                    CompileStore(assembler, leftType, leftOperand.Interval);
 
                 return;
             }
@@ -2767,24 +2768,24 @@ namespace compiler
             {
                 Assembler tempAssembler2 = new Assembler();
                 tempAssembler2.Emit(tempAssembler);
-                CompileLoad(tempAssembler2, leftType);
+                CompileLoad(tempAssembler2, leftType, leftOperand.Interval);
                 assembler.Emit(tempAssembler);
                 assembler.Emit(tempAssembler2);
             }
             else
-                CompileLoad(assembler, storeVar2);
+                CompileLoad(assembler, storeVar2, leftOperand.Interval);
 
             rightType = CompileExpression(function, context, assembler, rightOperand);
-            CompileCast(assembler, rightType, leftType, false);
+            CompileCast(assembler, rightType, leftType, false, rightOperand.Interval);
 
             switch (operation)
             {
                 case BinaryOperation.STORE_OR:
                 {
                     if (storeVar2 == null)
-                        CompileStoreOr(assembler, leftType);
+                        CompileStoreOr(assembler, leftType, leftOperand.Interval);
                     else
-                        CompileStoreOr(assembler, storeVar2);
+                        CompileStoreOr(assembler, storeVar2, leftOperand.Interval);
 
                     break;
                 }
@@ -2792,9 +2793,9 @@ namespace compiler
                 case BinaryOperation.STORE_XOR:
                 {
                     if (storeVar2 == null)
-                        CompileStoreXor(assembler, leftType);
+                        CompileStoreXor(assembler, leftType, leftOperand.Interval);
                     else
-                        CompileStoreXor(assembler, storeVar2);
+                        CompileStoreXor(assembler, storeVar2, leftOperand.Interval);
 
                     break;
                 }
@@ -2802,9 +2803,9 @@ namespace compiler
                 case BinaryOperation.STORE_AND:
                 {
                     if (storeVar2 == null)
-                        CompileStoreAnd(assembler, leftType);
+                        CompileStoreAnd(assembler, leftType, leftOperand.Interval);
                     else
-                        CompileStoreAnd(assembler, storeVar2);
+                        CompileStoreAnd(assembler, storeVar2, leftOperand.Interval);
 
                     break;
                 }
@@ -2812,9 +2813,9 @@ namespace compiler
                 case BinaryOperation.STORE_SHIFT_LEFT:
                 {
                     if (storeVar2 == null)
-                        CompileStoreShiftLeft(assembler, leftType);
+                        CompileStoreShiftLeft(assembler, leftType, leftOperand.Interval);
                     else
-                        CompileStoreShiftLeft(assembler, storeVar2);
+                        CompileStoreShiftLeft(assembler, storeVar2, leftOperand.Interval);
 
                     break;
                 }
@@ -2822,9 +2823,9 @@ namespace compiler
                 case BinaryOperation.STORE_SHIFT_RIGHT:
                 {
                     if (storeVar2 == null)
-                        CompileStoreShiftRight(assembler, leftType);
+                        CompileStoreShiftRight(assembler, leftType, leftOperand.Interval);
                     else
-                        CompileStoreShiftRight(assembler, storeVar2);
+                        CompileStoreShiftRight(assembler, storeVar2, leftOperand.Interval);
 
                     break;
                 }
@@ -2832,9 +2833,9 @@ namespace compiler
                 case BinaryOperation.STORE_UNSIGNED_SHIFT_RIGHT:
                 {
                     if (storeVar2 == null)
-                        CompileStoreUnsignedShiftRight(assembler, leftType);
+                        CompileStoreUnsignedShiftRight(assembler, leftType, leftOperand.Interval);
                     else
-                        CompileStoreUnsignedShiftRight(assembler, storeVar2);
+                        CompileStoreUnsignedShiftRight(assembler, storeVar2, leftOperand.Interval);
 
                     break;
                 }
@@ -2842,9 +2843,9 @@ namespace compiler
                 case BinaryOperation.STORE_ADD:
                 {
                     if (storeVar2 == null)
-                        CompileStoreAdd(assembler, leftType);
+                        CompileStoreAdd(assembler, leftType, leftOperand.Interval);
                     else
-                        CompileStoreAdd(assembler, storeVar2);
+                        CompileStoreAdd(assembler, storeVar2, leftOperand.Interval);
 
                     break;
                 }
@@ -2852,9 +2853,9 @@ namespace compiler
                 case BinaryOperation.STORE_SUB:
                 {
                     if (storeVar2 == null)
-                        CompileStoreSub(assembler, leftType);
+                        CompileStoreSub(assembler, leftType, leftOperand.Interval);
                     else
-                        CompileStoreSub(assembler, storeVar2);
+                        CompileStoreSub(assembler, storeVar2, leftOperand.Interval);
 
                     break;
                 }
@@ -2862,9 +2863,9 @@ namespace compiler
                 case BinaryOperation.STORE_MUL:
                 {
                     if (storeVar2 == null)
-                        CompileStoreMul(assembler, leftType);
+                        CompileStoreMul(assembler, leftType, leftOperand.Interval);
                     else
-                        CompileStoreMul(assembler, storeVar2);
+                        CompileStoreMul(assembler, storeVar2, leftOperand.Interval);
 
                     break;
                 }
@@ -2872,9 +2873,9 @@ namespace compiler
                 case BinaryOperation.STORE_DIV:
                 {
                     if (storeVar2 == null)
-                        CompileStoreDiv(assembler, leftType);
+                        CompileStoreDiv(assembler, leftType, leftOperand.Interval);
                     else
-                        CompileStoreDiv(assembler, storeVar2);
+                        CompileStoreDiv(assembler, storeVar2, leftOperand.Interval);
 
                     break;
                 }
@@ -2882,15 +2883,15 @@ namespace compiler
                 case BinaryOperation.STORE_MOD:
                 {
                     if (storeVar2 == null)
-                        CompileStoreMod(assembler, leftType);
+                        CompileStoreMod(assembler, leftType, leftOperand.Interval);
                     else
-                        CompileStoreMod(assembler, storeVar2);
+                        CompileStoreMod(assembler, storeVar2, leftOperand.Interval);
 
                     break;
                 }
 
                 default:
-                    throw new ParserException("Operador '" + operation + "' desconhecido.");
+                    throw new CompilerException(leftOperand.Interval, "Operador '" + operation + "' desconhecido.");
             }
         }
 
@@ -2910,7 +2911,7 @@ namespace compiler
                             {
                                 case Primitive.BOOL:
                                 case Primitive.CHAR:
-                                    throw new ParserException("Operação não definida para o tipo '" + pt + "'.");
+                                    throw new CompilerException(operand.Interval, "Operação não definida para o tipo '" + pt + "'.");
 
                                 case Primitive.BYTE:
                                 case Primitive.SHORT:
@@ -2934,7 +2935,7 @@ namespace compiler
                             return operandType;
                         }
                         
-                        throw new ParserException("Operação não definida para o tipo '" + operandType + "'.");
+                        throw new CompilerException(operand.Interval, "Operação não definida para o tipo '" + operandType + "'.");
                     }
 
                     case UnaryOperation.BITWISE_NOT:
@@ -2948,7 +2949,7 @@ namespace compiler
                                 case Primitive.CHAR:
                                 case Primitive.FLOAT:
                                 case Primitive.DOUBLE:
-                                    throw new ParserException("Operação não definida para o tipo '" + pt + "'.");
+                                    throw new CompilerException(operand.Interval, "Operação não definida para o tipo '" + pt + "'.");
 
                                 case Primitive.BYTE:
                                 case Primitive.SHORT:
@@ -2964,7 +2965,7 @@ namespace compiler
                             return operandType;
                         }
                         
-                        throw new ParserException("Operação não definida para o tipo '" + operandType + "'.");
+                        throw new CompilerException(operand.Interval, "Operação não definida para o tipo '" + operandType + "'.");
                     }
 
                     case UnaryOperation.LOGICAL_NOT:
@@ -2979,13 +2980,13 @@ namespace compiler
                                     break;
 
                                 default:
-                                    throw new ParserException("Operação não definida para o tipo '" + pt + "'.");
+                                    throw new CompilerException(operand.Interval, "Operação não definida para o tipo '" + pt + "'.");
                             }
 
                             return PrimitiveType.BOOL;
                         }
 
-                        throw new ParserException("Operação não definida para o tipo '" + operandType + "'.");
+                        throw new CompilerException(operand.Interval, "Operação não definida para o tipo '" + operandType + "'.");
                     }
 
                     case UnaryOperation.POINTER_INDIRECTION:
@@ -3001,7 +3002,7 @@ namespace compiler
                                 switch (pt.Primitive)
                                 {
                                     case Primitive.VOID:
-                                        throw new ParserException("Indireção em ponteiros do tipo void não pode ser feita.");
+                                        throw new CompilerException(operand.Interval, "Indireção em ponteiros do tipo void não pode ser feita.");
 
                                     case Primitive.BOOL:
                                     case Primitive.BYTE:
@@ -3032,7 +3033,7 @@ namespace compiler
                             return ptrType;
                         }
                         
-                        throw new ParserException("Operação não definida para o tipo '" + operandType + "'.");
+                        throw new CompilerException(operand.Interval, "Operação não definida para o tipo '" + operandType + "'.");
                     }
 
                     case UnaryOperation.PRE_INCREMENT: // ++x <=> x = x + 1
@@ -3045,10 +3046,10 @@ namespace compiler
                             assembler.Emit(tempAssembler);
 
                             assembler.Emit(tempAssembler);
-                            CompileLoad(assembler, operandType);
+                            CompileLoad(assembler, operandType, operand.Interval);
                         }
                         else
-                            CompileLoad(assembler, storeVar);
+                            CompileLoad(assembler, storeVar, operand.Interval);
 
                         if (operandType is PrimitiveType pt)
                         {
@@ -3056,7 +3057,7 @@ namespace compiler
                             {
                                 case Primitive.BOOL:
                                 case Primitive.CHAR:
-                                    throw new ParserException("Operação não definida para o tipo '" + pt + "'.");
+                                    throw new CompilerException(operand.Interval, "Operação não definida para o tipo '" + pt + "'.");
 
                                 case Primitive.BYTE:
                                     assembler.EmitLoadConst((byte) 1);
@@ -3140,15 +3141,15 @@ namespace compiler
                             if (storeVar == null)
                             {
                                 assembler.Emit(tempAssembler);
-                                CompileLoad(assembler, operandType);
+                                CompileLoad(assembler, operandType, operand.Interval);
                             }
                             else
-                                CompileLoad(assembler, storeVar);
+                                CompileLoad(assembler, storeVar, operand.Interval);
 
                             return operandType;
                         }
                         
-                        throw new ParserException("Operação não definida para o tipo '" + operandType + "'.");
+                        throw new CompilerException(operand.Interval, "Operação não definida para o tipo '" + operandType + "'.");
                     }
 
                     case UnaryOperation.PRE_DECREMENT:
@@ -3161,10 +3162,10 @@ namespace compiler
                             assembler.Emit(tempAssembler);
 
                             assembler.Emit(tempAssembler);
-                            CompileLoad(assembler, operandType);
+                            CompileLoad(assembler, operandType, operand.Interval);
                         }
                         else
-                            CompileLoad(assembler, storeVar);
+                            CompileLoad(assembler, storeVar, operand.Interval);
 
                         if (operandType is PrimitiveType pt)
                         {
@@ -3172,7 +3173,7 @@ namespace compiler
                             {
                                 case Primitive.BOOL:
                                 case Primitive.CHAR:
-                                    throw new ParserException("Operação não definida para o tipo '" + pt + "'.");
+                                    throw new CompilerException(operand.Interval, "Operação não definida para o tipo '" + pt + "'.");
 
                                 case Primitive.BYTE:
                                     assembler.EmitLoadConst((byte) 1);
@@ -3256,15 +3257,15 @@ namespace compiler
                             if (storeVar == null)
                             {
                                 assembler.Emit(tempAssembler);
-                                CompileLoad(assembler, operandType);
+                                CompileLoad(assembler, operandType, operand.Interval);
                             }
                             else
-                                CompileLoad(assembler, storeVar);
+                                CompileLoad(assembler, storeVar, operand.Interval);
 
                             return operandType;
                         }
                         
-                        throw new ParserException("Operação não definida para o tipo '" + operandType + "'.");
+                        throw new CompilerException(operand.Interval, "Operação não definida para o tipo '" + operandType + "'.");
                     }
 
                     case UnaryOperation.POST_INCREMENT:
@@ -3276,7 +3277,7 @@ namespace compiler
                         {
                             Assembler tempAssembler2 = new Assembler();
                             tempAssembler2.Emit(tempAssembler);
-                            CompileLoad(tempAssembler2, operandType);
+                            CompileLoad(tempAssembler2, operandType, operand.Interval);
                             assembler.Emit(tempAssembler2);
 
                             assembler.Emit(tempAssembler);
@@ -3285,7 +3286,7 @@ namespace compiler
                         else
                         {
                             Assembler tempAssembler2 = new Assembler();
-                            CompileLoad(tempAssembler2, storeVar);
+                            CompileLoad(tempAssembler2, storeVar, operand.Interval);
 
                             assembler.Emit(tempAssembler2);
                             assembler.Emit(tempAssembler2);
@@ -3297,7 +3298,7 @@ namespace compiler
                             {
                                 case Primitive.BOOL:
                                 case Primitive.CHAR:
-                                    throw new ParserException("Operação não definida para o tipo '" + pt + "'.");
+                                    throw new CompilerException(operand.Interval, "Operação não definida para o tipo '" + pt + "'.");
 
                                 case Primitive.BYTE:
                                     assembler.EmitLoadConst((byte) 1);
@@ -3381,7 +3382,7 @@ namespace compiler
                             return operandType;
                         }
                         
-                       throw new ParserException("Operação não definida para o tipo '" + operandType + "'.");
+                       throw new CompilerException(operand.Interval, "Operação não definida para o tipo '" + operandType + "'.");
                     }
 
                     case UnaryOperation.POST_DECREMENT:
@@ -3393,7 +3394,7 @@ namespace compiler
                         {
                             Assembler tempAssembler2 = new Assembler();
                             tempAssembler2.Emit(tempAssembler);
-                            CompileLoad(tempAssembler2, operandType);
+                            CompileLoad(tempAssembler2, operandType, operand.Interval);
                             assembler.Emit(tempAssembler2);
 
                             assembler.Emit(tempAssembler);
@@ -3402,7 +3403,7 @@ namespace compiler
                         else
                         {
                             Assembler tempAssembler2 = new Assembler();
-                            CompileLoad(tempAssembler2, storeVar);
+                            CompileLoad(tempAssembler2, storeVar, operand.Interval);
 
                             assembler.Emit(tempAssembler2);
                             assembler.Emit(tempAssembler2);
@@ -3414,7 +3415,7 @@ namespace compiler
                             {
                                 case Primitive.BOOL:
                                 case Primitive.CHAR:
-                                    throw new ParserException("Operação não definida para o tipo '" + pt + "'.");
+                                    throw new CompilerException(operand.Interval, "Operação não definida para o tipo '" + pt + "'.");
 
                                 case Primitive.BYTE:
                                     assembler.EmitLoadConst((byte) 1);
@@ -3498,7 +3499,7 @@ namespace compiler
                             return operandType;
                         }
                         
-                        throw new ParserException("Operação não definida para o tipo '" + operandType + "'.");
+                        throw new CompilerException(operand.Interval, "Operação não definida para o tipo '" + operandType + "'.");
                     }
 
                     case UnaryOperation.POINTER_TO:
@@ -3513,7 +3514,7 @@ namespace compiler
                     }
 
                     default:
-                        throw new ParserException("Operador '" + u.Operation + "' desconhecido.");
+                        throw new CompilerException(expression.Interval, "Operador '" + u.Operation + "' desconhecido.");
                 }
             }
 
@@ -3538,8 +3539,11 @@ namespace compiler
                 {
                     case BinaryOperation.LOGICAL_OR:
                     {
-                        if (!PrimitiveType.IsPrimitiveBool(leftType) || !PrimitiveType.IsPrimitiveBool(rightType))
-                            throw new ParserException("Operação não definida entre tipos não booleanos.");
+                        if (!PrimitiveType.IsPrimitiveBool(leftType))
+                            throw new CompilerException(leftOperand.Interval, "Operação não definida entre tipos não booleanos.");
+
+                        if (!PrimitiveType.IsPrimitiveBool(rightType))
+                            throw new CompilerException(rightOperand.Interval, "Operação não definida entre tipos não booleanos.");
 
                         assembler.Emit(leftAssembler);
                         assembler.Emit(rightAssembler);
@@ -3549,8 +3553,11 @@ namespace compiler
 
                     case BinaryOperation.LOGICAL_XOR:
                     {
-                        if (!PrimitiveType.IsPrimitiveBool(leftType) || !PrimitiveType.IsPrimitiveBool(rightType))
-                            throw new ParserException("Operação não definida entre tipos não booleanos.");
+                        if (!PrimitiveType.IsPrimitiveBool(leftType))
+                            throw new CompilerException(leftOperand.Interval, "Operação não definida entre tipos não booleanos.");
+
+                        if (!PrimitiveType.IsPrimitiveBool(rightType))
+                            throw new CompilerException(rightOperand.Interval, "Operação não definida entre tipos não booleanos.");
 
                         assembler.Emit(leftAssembler);
                         assembler.Emit(rightAssembler);
@@ -3560,8 +3567,11 @@ namespace compiler
 
                     case BinaryOperation.LOGICAL_AND:
                     {
-                        if (!PrimitiveType.IsPrimitiveBool(leftType) || !PrimitiveType.IsPrimitiveBool(rightType))
-                            throw new ParserException("Operação não definida entre tipos não booleanos.");
+                        if (!PrimitiveType.IsPrimitiveBool(leftType))
+                            throw new CompilerException(leftOperand.Interval, "Operação não definida entre tipos não booleanos.");
+
+                        if (!PrimitiveType.IsPrimitiveBool(rightType))
+                            throw new CompilerException(rightOperand.Interval, "Operação não definida entre tipos não booleanos.");
 
                         assembler.Emit(leftAssembler);
                         assembler.Emit(rightAssembler);
@@ -3572,7 +3582,7 @@ namespace compiler
                     case BinaryOperation.SHIFT_LEFT:
                     {
                         if (!PrimitiveType.IsUpTo32BitsInt(rightType))
-                            throw new ParserException("Tipo inválido para o operando 2: '" + rightType + "'.");
+                            throw new CompilerException(rightOperand.Interval, "Tipo inválido para o operando 2: '" + rightType + "'.");
 
                         assembler.Emit(leftAssembler);
                         assembler.Emit(rightAssembler);
@@ -3582,7 +3592,7 @@ namespace compiler
                         else if (PrimitiveType.Is64BitsInt(leftType))
                             assembler.EmitShl64();
                         else
-                            throw new ParserException("Tipo inválido para o operando 1: '" + leftType + "'.");
+                            throw new CompilerException(leftOperand.Interval, "Tipo inválido para o operando 1: '" + leftType + "'.");
 
                         return leftType;
                     }
@@ -3590,7 +3600,7 @@ namespace compiler
                     case BinaryOperation.SHIFT_RIGHT:
                     {
                         if (!PrimitiveType.IsUpTo32BitsInt(rightType))
-                            throw new ParserException("Tipo inválido para o operando 2: '" + rightType + "'.");
+                            throw new CompilerException(rightOperand.Interval, "Tipo inválido para o operando 2: '" + rightType + "'.");
 
                         assembler.Emit(leftAssembler);
                         assembler.Emit(rightAssembler);
@@ -3600,7 +3610,7 @@ namespace compiler
                         else if (PrimitiveType.Is64BitsInt(leftType))
                             assembler.EmitShr64();
                         else
-                            throw new ParserException("Tipo inválido para o operando 1: '" + leftType + "'.");
+                            throw new CompilerException(leftOperand.Interval, "Tipo inválido para o operando 1: '" + leftType + "'.");
 
                         return leftType;
                     }
@@ -3608,7 +3618,7 @@ namespace compiler
                     case BinaryOperation.UNSIGNED_SHIFT_RIGHT:
                     {
                         if (!PrimitiveType.IsUpTo32BitsInt(rightType))
-                            throw new ParserException("Tipo inválido para o operando 2: '" + rightType + "'.");
+                            throw new CompilerException(rightOperand.Interval, "Tipo inválido para o operando 2: '" + rightType + "'.");
 
                         assembler.Emit(leftAssembler);
                         assembler.Emit(rightAssembler);
@@ -3618,7 +3628,7 @@ namespace compiler
                         else if (PrimitiveType.Is64BitsInt(leftType))
                             assembler.EmitUShr64();
                         else
-                            throw new ParserException("Tipo inválido para o operando 1: '" + leftType + "'.");
+                            throw new CompilerException(leftOperand.Interval, "Tipo inválido para o operando 1: '" + leftType + "'.");
 
                         return leftType;
                     }
@@ -3643,12 +3653,12 @@ namespace compiler
                             if (leftType.CoerceWith(rightType, false))
                             {
                                 resultType = (PrimitiveType) rightType;
-                                CompileCast(leftAssembler, leftType, rightType, false);
+                                CompileCast(leftAssembler, leftType, rightType, false, leftOperand.Interval);
                             }
                             else if (rightType.CoerceWith(leftType, false))
                             {
                                 resultType = (PrimitiveType) leftType;
-                                CompileCast(rightAssembler, rightType, leftType, false);
+                                CompileCast(rightAssembler, rightType, leftType, false, rightOperand.Interval);
                             }
 
                             assembler.Emit(leftAssembler);
@@ -3700,7 +3710,7 @@ namespace compiler
                             return PrimitiveType.BOOL;
                         }
 
-                        throw new ParserException("Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
+                        throw new CompilerException(expression.Interval, "Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
                     }
 
                     case BinaryOperation.NOT_EQUALS:
@@ -3723,12 +3733,12 @@ namespace compiler
                             if (leftType.CoerceWith(rightType, false))
                             {
                                 resultType = (PrimitiveType) rightType;
-                                CompileCast(leftAssembler, leftType, rightType, false);
+                                CompileCast(leftAssembler, leftType, rightType, false, leftOperand.Interval);
                             }
                             else if (rightType.CoerceWith(leftType, false))
                             {
                                 resultType = (PrimitiveType) leftType;
-                                CompileCast(rightAssembler, rightType, leftType, false);
+                                CompileCast(rightAssembler, rightType, leftType, false, rightOperand.Interval);
                             }
 
                             assembler.Emit(leftAssembler);
@@ -3780,7 +3790,7 @@ namespace compiler
                             return PrimitiveType.BOOL;
                         }
 
-                        throw new ParserException("Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
+                        throw new CompilerException(expression.Interval, "Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
                     }
 
                     case BinaryOperation.GREATER:
@@ -3791,12 +3801,12 @@ namespace compiler
                             if (leftType.CoerceWith(rightType, false))
                             {
                                 resultType = (PrimitiveType) rightType;
-                                CompileCast(leftAssembler, leftType, rightType, false);
+                                CompileCast(leftAssembler, leftType, rightType, false, leftOperand.Interval);
                             }
                             else if (rightType.CoerceWith(leftType, false))
                             {
                                 resultType = (PrimitiveType) leftType;
-                                CompileCast(rightAssembler, rightType, leftType, false);
+                                CompileCast(rightAssembler, rightType, leftType, false, rightOperand.Interval);
                             }
 
                             assembler.Emit(leftAssembler);
@@ -3842,7 +3852,7 @@ namespace compiler
                             return PrimitiveType.BOOL;
                         }
 
-                        throw new ParserException("Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
+                        throw new CompilerException(expression.Interval, "Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
                     }
 
                     case BinaryOperation.GREATER_OR_EQUALS:
@@ -3853,12 +3863,12 @@ namespace compiler
                             if (leftType.CoerceWith(rightType, false))
                             {
                                 resultType = (PrimitiveType) rightType;
-                                CompileCast(leftAssembler, leftType, rightType, false);
+                                CompileCast(leftAssembler, leftType, rightType, false, leftOperand.Interval);
                             }
                             else if (rightType.CoerceWith(leftType, false))
                             {
                                 resultType = (PrimitiveType) leftType;
-                                CompileCast(rightAssembler, rightType, leftType, false);
+                                CompileCast(rightAssembler, rightType, leftType, false, rightOperand.Interval);
                             }
 
                             assembler.Emit(leftAssembler);
@@ -3904,7 +3914,7 @@ namespace compiler
                             return PrimitiveType.BOOL;
                         }
 
-                        throw new ParserException("Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
+                        throw new CompilerException(expression.Interval, "Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
                     }
 
                     case BinaryOperation.LESS:
@@ -3915,12 +3925,12 @@ namespace compiler
                             if (leftType.CoerceWith(rightType, false))
                             {
                                 resultType = (PrimitiveType) rightType;
-                                CompileCast(leftAssembler, leftType, rightType, false);
+                                CompileCast(leftAssembler, leftType, rightType, false, leftOperand.Interval);
                             }
                             else if (rightType.CoerceWith(leftType, false))
                             {
                                 resultType = (PrimitiveType) leftType;
-                                CompileCast(rightAssembler, rightType, leftType, false);
+                                CompileCast(rightAssembler, rightType, leftType, false, rightOperand.Interval);
                             }
 
                             assembler.Emit(leftAssembler);
@@ -3966,7 +3976,7 @@ namespace compiler
                             return PrimitiveType.BOOL;
                         }
 
-                        throw new ParserException("Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
+                        throw new CompilerException(expression.Interval, "Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
                     }
 
                     case BinaryOperation.LESS_OR_EQUALS:
@@ -3977,12 +3987,12 @@ namespace compiler
                             if (leftType.CoerceWith(rightType, false))
                             {
                                 resultType = (PrimitiveType) rightType;
-                                CompileCast(leftAssembler, leftType, rightType, false);
+                                CompileCast(leftAssembler, leftType, rightType, false, leftOperand.Interval);
                             }
                             else if (rightType.CoerceWith(leftType, false))
                             {
                                 resultType = (PrimitiveType) leftType;
-                                CompileCast(rightAssembler, rightType, leftType, false);
+                                CompileCast(rightAssembler, rightType, leftType, false, rightOperand.Interval);
                             }
 
                             assembler.Emit(leftAssembler);
@@ -4028,7 +4038,7 @@ namespace compiler
                             return PrimitiveType.BOOL;
                         }
 
-                        throw new ParserException("Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
+                        throw new CompilerException(expression.Interval, "Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
                     }
 
                     case BinaryOperation.BITWISE_OR:
@@ -4039,12 +4049,12 @@ namespace compiler
                             if (leftType.CoerceWith(rightType, false))
                             {
                                 resultType = (PrimitiveType) rightType;
-                                CompileCast(leftAssembler, leftType, rightType, false);
+                                CompileCast(leftAssembler, leftType, rightType, false, leftOperand.Interval);
                             }
                             else if (rightType.CoerceWith(leftType, false))
                             {
                                 resultType = (PrimitiveType) leftType;
-                                CompileCast(rightAssembler, rightType, leftType, false);
+                                CompileCast(rightAssembler, rightType, leftType, false, rightOperand.Interval);
                             }
 
                             assembler.Emit(leftAssembler);
@@ -4066,7 +4076,7 @@ namespace compiler
                             return resultType.Size() < 4 ? PrimitiveType.INT : resultType;
                         }
 
-                        throw new ParserException("Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
+                        throw new CompilerException(expression.Interval, "Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
                     }
 
                     case BinaryOperation.BITWISE_XOR:
@@ -4077,12 +4087,12 @@ namespace compiler
                             if (leftType.CoerceWith(rightType, false))
                             {
                                 resultType = (PrimitiveType) rightType;
-                                CompileCast(leftAssembler, leftType, rightType, false);
+                                CompileCast(leftAssembler, leftType, rightType, false, leftOperand.Interval);
                             }
                             else if (rightType.CoerceWith(leftType, false))
                             {
                                 resultType = (PrimitiveType) leftType;
-                                CompileCast(rightAssembler, rightType, leftType, false);
+                                CompileCast(rightAssembler, rightType, leftType, false, rightOperand.Interval);
                             }
 
                             assembler.Emit(leftAssembler);
@@ -4104,7 +4114,7 @@ namespace compiler
                             return resultType.Size() < 4 ? PrimitiveType.INT : resultType;
                         }
 
-                        throw new ParserException("Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
+                        throw new CompilerException(expression.Interval, "Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
                     }
 
                     case BinaryOperation.BITWISE_AND:
@@ -4115,12 +4125,12 @@ namespace compiler
                             if (leftType.CoerceWith(rightType, false))
                             {
                                 resultType = (PrimitiveType) rightType;
-                                CompileCast(leftAssembler, leftType, rightType, false);
+                                CompileCast(leftAssembler, leftType, rightType, false, leftOperand.Interval);
                             }
                             else if (rightType.CoerceWith(leftType, false))
                             {
                                 resultType = (PrimitiveType) leftType;
-                                CompileCast(rightAssembler, rightType, leftType, false);
+                                CompileCast(rightAssembler, rightType, leftType, false, rightOperand.Interval);
                             }
 
                             assembler.Emit(leftAssembler);
@@ -4142,7 +4152,7 @@ namespace compiler
                             return resultType.Size() < 4 ? PrimitiveType.INT : resultType;
                         }
 
-                        throw new ParserException("Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
+                        throw new CompilerException(expression.Interval, "Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
                     }
 
                     case BinaryOperation.ADD:
@@ -4153,12 +4163,12 @@ namespace compiler
                             if (leftType.CoerceWith(rightType, false))
                             {
                                 resultType = (PrimitiveType) rightType;
-                                CompileCast(leftAssembler, leftType, rightType, false);
+                                CompileCast(leftAssembler, leftType, rightType, false, leftOperand.Interval);
                             }
                             else if (rightType.CoerceWith(leftType, false))
                             {
                                 resultType = (PrimitiveType) leftType;
-                                CompileCast(rightAssembler, rightType, leftType, false);
+                                CompileCast(rightAssembler, rightType, leftType, false, rightOperand.Interval);
                             }
 
                             assembler.Emit(leftAssembler);
@@ -4188,10 +4198,13 @@ namespace compiler
                             return resultType.Size() < 4 ? PrimitiveType.INT : resultType;
                         }
 
-                        if (leftType is PointerType ptr && PrimitiveType.IsPrimitiveInteger(rightType))
+                        if (leftType is PointerType ptr)
                         {
                             if (PrimitiveType.IsPrimitiveVoid(ptr.Type))
-                                throw new ParserException("Operação aritimética com ponteiros não permitida para ponteiros do tipo void.");
+                                throw new CompilerException(leftOperand.Interval, "Operação aritimética com ponteiros não permitida para ponteiros do tipo void.");
+
+                            if (!PrimitiveType.IsPrimitiveInteger(rightType))
+                                throw new CompilerException(rightOperand.Interval, "Operando direito de uma operação de deslocamento de ponteiros deve ser um inteiro.");
 
                             int size = ptr.Type.Size();
 
@@ -4203,22 +4216,7 @@ namespace compiler
                             return leftType;
                         }
 
-                        if (PrimitiveType.IsPrimitiveInteger(leftType) && rightType is PointerType ptr2)
-                        {
-                            if (PrimitiveType.IsPrimitiveVoid(ptr2.Type))
-                                throw new ParserException("Operação aritimética com ponteiros não permitida para ponteiros do tipo void.");
-
-                            int size = ptr2.Type.Size();
-
-                            assembler.Emit(leftAssembler);
-                            assembler.EmitLoadConst(size);
-                            assembler.EmitMul();
-                            assembler.Emit(rightAssembler);
-                            assembler.EmitAdd();
-                            return rightType;
-                        }
-
-                        throw new ParserException("Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
+                        throw new CompilerException(expression.Interval, "Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
                     }
 
                     case BinaryOperation.SUB:
@@ -4229,12 +4227,12 @@ namespace compiler
                             if (leftType.CoerceWith(rightType, false))
                             {
                                 resultType = (PrimitiveType) rightType;
-                                CompileCast(leftAssembler, leftType, rightType, false);
+                                CompileCast(leftAssembler, leftType, rightType, false, leftOperand.Interval);
                             }
                             else if (rightType.CoerceWith(leftType, false))
                             {
                                 resultType = (PrimitiveType) leftType;
-                                CompileCast(rightAssembler, rightType, leftType, false);
+                                CompileCast(rightAssembler, rightType, leftType, false, rightOperand.Interval);
                             }
 
                             assembler.Emit(leftAssembler);
@@ -4269,7 +4267,7 @@ namespace compiler
                             if (PrimitiveType.IsPrimitiveInteger(rightType))
                             {
                                 if (PrimitiveType.IsPrimitiveVoid(ptr.Type))
-                                    throw new ParserException("Operação aritimética com ponteiros não permitida para ponteiros do tipo void.");
+                                    throw new CompilerException(leftOperand.Interval, "Operação aritimética com ponteiros não permitida para ponteiros do tipo void.");
 
                                 int size = ptr.Type.Size();
 
@@ -4288,9 +4286,11 @@ namespace compiler
                                 assembler.EmitSub();
                                 return PrimitiveType.INT;
                             }
+
+                            throw new CompilerException(rightOperand.Interval, "Operando direito de uma operação de subtração envolvendo ponteiros deve ser um inteiro ou um ponteiro.");
                         }
 
-                        throw new ParserException("Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
+                        throw new CompilerException(expression.Interval, "Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
                     }
 
                     case BinaryOperation.MUL:
@@ -4301,12 +4301,12 @@ namespace compiler
                             if (leftType.CoerceWith(rightType, false))
                             {
                                 resultType = (PrimitiveType) rightType;
-                                CompileCast(leftAssembler, leftType, rightType, false);
+                                CompileCast(leftAssembler, leftType, rightType, false, leftOperand.Interval);
                             }
                             else if (rightType.CoerceWith(leftType, false))
                             {
                                 resultType = (PrimitiveType) leftType;
-                                CompileCast(rightAssembler, rightType, leftType, false);
+                                CompileCast(rightAssembler, rightType, leftType, false, rightOperand.Interval);
                             }
 
                             assembler.Emit(leftAssembler);
@@ -4331,12 +4331,15 @@ namespace compiler
                                 case Primitive.DOUBLE:
                                     assembler.EmitFMul64();
                                     break;
+
+                                default:
+                                    throw new CompilerException(expression.Interval, "Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
                             }
 
                             return resultType.Size() < 4 ? PrimitiveType.INT : resultType;
                         }
 
-                        throw new ParserException("Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
+                        throw new CompilerException(expression.Interval, "Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
                     }
 
                     case BinaryOperation.DIV:
@@ -4347,12 +4350,12 @@ namespace compiler
                             if (leftType.CoerceWith(rightType, false))
                             {
                                 resultType = (PrimitiveType) rightType;
-                                CompileCast(leftAssembler, leftType, rightType, false);
+                                CompileCast(leftAssembler, leftType, rightType, false, leftOperand.Interval);
                             }
                             else if (rightType.CoerceWith(leftType, false))
                             {
                                 resultType = (PrimitiveType) leftType;
-                                CompileCast(rightAssembler, rightType, leftType, false);
+                                CompileCast(rightAssembler, rightType, leftType, false, rightOperand.Interval);
                             }
 
                             assembler.Emit(leftAssembler);
@@ -4377,12 +4380,15 @@ namespace compiler
                                 case Primitive.DOUBLE:
                                     assembler.EmitFDiv64();
                                     break;
+
+                                default:
+                                    throw new CompilerException(expression.Interval, "Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
                             }
 
                             return resultType.Size() < 4 ? PrimitiveType.INT : resultType;
                         }
 
-                        throw new ParserException("Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
+                        throw new CompilerException(expression.Interval, "Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
                     }
 
                     case BinaryOperation.MOD:
@@ -4393,12 +4399,12 @@ namespace compiler
                             if (leftType.CoerceWith(rightType, false))
                             {
                                 resultType = (PrimitiveType) rightType;
-                                CompileCast(leftAssembler, leftType, rightType, false);
+                                CompileCast(leftAssembler, leftType, rightType, false, leftOperand.Interval);
                             }
                             else if (rightType.CoerceWith(leftType, false))
                             {
                                 resultType = (PrimitiveType) leftType;
-                                CompileCast(rightAssembler, rightType, leftType, false);
+                                CompileCast(rightAssembler, rightType, leftType, false, rightOperand.Interval);
                             }
 
                             assembler.Emit(leftAssembler);
@@ -4415,16 +4421,19 @@ namespace compiler
                                 case Primitive.LONG:
                                     assembler.EmitMod64();
                                     break;
+
+                                default:
+                                    throw new CompilerException(expression.Interval, "Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
                             }
 
                             return resultType.Size() < 4 ? PrimitiveType.INT : resultType;
                         }
 
-                        throw new ParserException("Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
+                        throw new CompilerException(expression.Interval, "Tipos imcompatíveis: '" + leftType + "' e '" + rightType + "'.");
                     }
 
                     default:
-                        throw new ParserException("Operador '" + b.Operation + "' desconhecido.");
+                        throw new CompilerException(expression.Interval, "Operador '" + b.Operation + "' desconhecido.");
                 }
             }
 
@@ -4439,16 +4448,16 @@ namespace compiler
                 {
                     Field field = s.FindField(fieldName);
                     if (field == null)
-                        throw new ParserException("Campo '" + fieldName + "' não encontrado na estrutura: '" + s.Name + "'.");
+                        throw new CompilerException(expression.Interval, "Campo '" + fieldName + "' não encontrado na estrutura: '" + s.Name + "'.");
 
                     assembler.EmitLoadConst(field.Offset);
                     assembler.EmitAdd();
-                    CompileLoad(assembler, field.Type);
+                    CompileLoad(assembler, field.Type, expression.Interval);
 
                     return field.Type;
                 }
 
-                throw new ParserException("Acesso de membros em um tipo que não é estrutura: '" + operandType + "'.");
+                throw new CompilerException(operand.Interval, "Acesso de membros em um tipo que não é estrutura: '" + operandType + "'.");
             }
 
             if (expression is ArrayAccessorExpression a)
@@ -4461,10 +4470,10 @@ namespace compiler
                     int rank = at.Rank;
 
                     if (a.IndexerCount == 0)
-                        throw new ParserException("Não foi fornecido nenhum índice para o array.");
+                        throw new CompilerException(operand.Interval, "Não foi fornecido nenhum índice para o array.");
 
                     if (a.IndexerCount != rank)
-                        throw new ParserException("Número de inídices fornecidos é diferente da dimensão do array.");
+                        throw new CompilerException(operand.Interval, "Número de inídices fornecidos é diferente da dimensão do array.");
 
                     Expression indexer = a[0];
                     CompileArrayIndexer(function, context, assembler, indexer);
@@ -4482,7 +4491,7 @@ namespace compiler
                     assembler.EmitMul();
                     assembler.EmitAdd();
 
-                    CompileLoad(assembler, at.Type);
+                    CompileLoad(assembler, at.Type, expression.Interval);
 
                     return at.Type;
                 }
@@ -4490,13 +4499,13 @@ namespace compiler
                 if (operandType is PointerType ptr)
                 {
                     if (ptr.Type == null)
-                        throw new ParserException("Não é possível realizar essa operação em um ponteiro do tipo void.");
+                        throw new CompilerException(operand.Interval, "Não é possível realizar essa operação em um ponteiro do tipo void.");
 
                     if (a.IndexerCount == 0)
-                        throw new ParserException("Não foi fornecido nenhum índice para o ponteiro.");
+                        throw new CompilerException(operand.Interval, "Não foi fornecido nenhum índice para o ponteiro.");
 
                     if (a.IndexerCount != 1)
-                        throw new ParserException("Deve-se fornecer somente um índice para o ponteiro.");
+                        throw new CompilerException(operand.Interval, "Deve-se fornecer somente um índice único para o ponteiro.");
 
                     assembler.EmitLoadStack32();
 
@@ -4506,12 +4515,12 @@ namespace compiler
                     assembler.EmitMul();
                     assembler.EmitAdd();
 
-                    CompileLoad(assembler, ptr.Type);
+                    CompileLoad(assembler, ptr.Type, expression.Interval);
 
                     return ptr.Type;
                 }
 
-                throw new ParserException("Tipo '" + operandType + "' não é um array.");
+                throw new CompilerException(operand.Interval, "Tipo '" + operandType + "' não é um array.");
             }
 
             if (expression is PrimaryExpression p)
@@ -4570,15 +4579,15 @@ namespace compiler
                         {
                             var = FindGlobalVariable(name);
                             if (var == null)
-                                throw new ParserException("Identificador'" + name + "' não declarado.");
+                                throw new CompilerException(id.Interval, "Identificador'" + name + "' não declarado.");
                         }
 
-                        CompileLoad(assembler, var);
+                        CompileLoad(assembler, var, id.Interval);
                         return var.Type;
                     }
                 }
 
-                throw new ParserException("Tipo de expressão primária desconhecido: '" + p + "'");
+                throw new CompilerException(expression.Interval, "Tipo de expressão primária desconhecido: '" + p + "'");
             }
 
             if (expression is CallExpression c)
@@ -4589,14 +4598,14 @@ namespace compiler
                     string functionName = id.Name;
                     Function func = FindFunction(id.Name);
                     if (func == null)
-                        throw new ParserException("Função '" + id.Name + "' não declarada.");
+                        throw new CompilerException(id.Interval, "Função '" + id.Name + "' não declarada.");
 
                     AbstractType returnType = func.ReturnType;
                     if (!PrimitiveType.IsPrimitiveVoid(returnType))
                         assembler.EmitAddSP(returnType.Size());
 
                     if (func.ParamCount != c.ParameterCount)
-                        throw new ParserException("A quantidade de parâmetros fornecido é diferente da quantidade total de parâmetros esperada.");
+                        throw new CompilerException(id.Interval, "A quantidade de parâmetros fornecido é diferente da quantidade total de parâmetros esperada.");
 
                     for (int j = 0; j < func.ParamCount; j++)
                     {
@@ -4607,12 +4616,12 @@ namespace compiler
                         {
                             AbstractType paramType = CompileAssignableExpression(function, context, assembler, expressionParameter, out Variable storeVar);
                             if (paramType != parameter.Type)
-                                throw new ParserException("Parâmetro passado por referência deve ser do mesmo tipo que o parâmetro correspondente da função a ser chamada.");
+                                throw new CompilerException(expressionParameter.Interval, "Parâmetro passado por referência deve ser do mesmo tipo que o parâmetro correspondente da função a ser chamada.");
                         }
                         else
                         {
                             AbstractType paramType = CompileExpression(function, context, assembler, expressionParameter);
-                            CompileCast(assembler, paramType, parameter.Type, false);
+                            CompileCast(assembler, paramType, parameter.Type, false, expressionParameter.Interval);
                         }
                     }
 
@@ -4621,7 +4630,7 @@ namespace compiler
                     return func.ReturnType;
                 }
 
-                throw new ParserException("Expressão de nome de função inválida.");
+                throw new CompilerException(c.Interval, "Expressão de nome de função inválida.");
             }
 
             if (expression is CastExpression cs)
@@ -4630,21 +4639,21 @@ namespace compiler
                 AbstractType type = cs.Type;
 
                 AbstractType operandType = CompileExpression(function, context, assembler, operand);
-                CompileCast(assembler, operandType, type, true);
+                CompileCast(assembler, operandType, type, true, operand.Interval);
                 return type;
             }
 
-            throw new ParserException("Tipo desconhecido de expressão: " + expression);
+            throw new CompilerException(expression.Interval, "Tipo desconhecido de expressão: " + expression);
         }
 
-        public Variable CheckVariable(Context context, string name)
+        public Variable CheckVariable(Context context, string name, SourceInterval interval)
         {
             Variable var = context.FindVariable(name);
             if (var == null)
             {
                 var = FindGlobalVariable(name);
                 if (var == null)
-                    throw new ParserException("Variável '" + name + "' não declarada.");
+                    throw new CompilerException(interval, "Variável '" + name + "' não declarada.");
             }
 
             return var;
@@ -4665,25 +4674,25 @@ namespace compiler
                 Expression expr = r.Expression;
 
                 if (expr != null && PrimitiveType.IsPrimitiveVoid(function.ReturnType))
-                    throw new ParserException("A função não possui tipo de retorno.");
+                    throw new CompilerException(expr.Interval, "A função não possui tipo de retorno.");
 
                 if (expr == null && PrimitiveType.IsPrimitiveVoid(function.ReturnType))
-                    throw new ParserException("Expressão de retorno esperada.");
+                    throw new CompilerException(r.Interval, "Expressão de retorno esperada.");
 
                 if (expr != null)
                 {
                     if (function.ReturnType is PrimitiveType || function.ReturnType is PointerType)
                     {
                         AbstractType returnType = CompileExpression(function, context, assembler, expr);
-                        CompileCast(assembler, returnType, function.ReturnType, false);
-                        CompileStoreLocal(assembler, function.ReturnType, function.ReturnOffset);
+                        CompileCast(assembler, returnType, function.ReturnType, false, expr.Interval);
+                        CompileStoreLocal(assembler, function.ReturnType, function.ReturnOffset, expr.Interval);
                     }
                     else
                     {
                         assembler.EmitLoadLocalAddress(function.ReturnOffset);
                         AbstractType returnType = CompileExpression(function, context, assembler, expr);
-                        CompileCast(assembler, returnType, function.ReturnType, false);
-                        CompileStore(assembler, function.ReturnType);
+                        CompileCast(assembler, returnType, function.ReturnType, false, expr.Interval);
+                        CompileStore(assembler, function.ReturnType, expr.Interval);
                     }
                 }
 
@@ -4693,7 +4702,7 @@ namespace compiler
             {
                 Label breakLabel = context.FindNearestBreakLabel();
                 if (breakLabel == null)
-                    throw new ParserException("Instrução 'quebra' deve estar dentro de um loop.");
+                    throw new CompilerException(b.Interval, "Instrução 'quebra' deve estar dentro de um loop.");
 
                 lexer.NextSymbol(";");
 
@@ -4743,13 +4752,13 @@ namespace compiler
                                 break;
 
                             default:
-                                throw new ParserException("Expressão de tipo primitivo ou string esperada.");
+                                throw new CompilerException(expr.Interval, "Expressão de tipo primitivo ou string esperada.");
                         }
                     }
                     else if (exprType is PointerType ptr && ptr.IsString)
                         assembler.EmitPScan();
                     else
-                        throw new ParserException("Expressão de tipo primitivo ou string esperada.");
+                        throw new CompilerException(expr.Interval, "Expressão de tipo primitivo ou string esperada.");
                 }
             }
             else if (statement is PrintStatement p)
@@ -4812,13 +4821,13 @@ namespace compiler
                                 break;
 
                             default:
-                                throw new ParserException("Expressão de tipo primitivo ou string esperada.");
+                                throw new CompilerException(expr.Interval, "Expressão de tipo primitivo ou string esperada.");
                         }
                     }
                     else if (exprType is PointerType ptr && ptr.IsString)
                         assembler.EmitPPrint();
                     else
-                        throw new ParserException("Expressão de tipo primitivo ou string esperada.");
+                        throw new CompilerException(expr.Interval, "Expressão de tipo primitivo ou string esperada.");
                 }
 
                 if (p.LineBreak)
@@ -4837,7 +4846,7 @@ namespace compiler
                 AbstractType exprType = CompileExpression(function, context, assembler, expression);
   
                 if (!PrimitiveType.IsPrimitiveBool(exprType))
-                    throw new ParserException("Expressão do tipo bool experada.");
+                    throw new CompilerException(expression.Interval, "Expressão do tipo bool experada.");
 
                 Label lblElse = CreateLabel();
                 assembler.EmitJumpIfFalse(lblElse);
@@ -4869,7 +4878,7 @@ namespace compiler
                 assembler.EmitJumpIfFalse(lblEnd);
 
                 if (!PrimitiveType.IsPrimitiveBool(exprType))
-                    throw new ParserException("Expressão do tipo bool experada.");
+                    throw new CompilerException(expression.Interval, "Expressão do tipo bool experada.");
 
                 CompileStatement(function, context, assembler, stm);
 
@@ -4893,7 +4902,7 @@ namespace compiler
 
                 AbstractType exprType = CompileExpression(function, context, assembler, expr);
                 if (!PrimitiveType.IsPrimitiveBool(exprType))
-                    throw new ParserException("Expressão do tipo bool experada.");
+                    throw new CompilerException(expr.Interval, "Expressão do tipo bool experada.");
 
                 assembler.EmitJumpIfFalse(lblLoop);
 
@@ -4919,7 +4928,7 @@ namespace compiler
                 {
                     AbstractType expressionType = CompileExpression(function, context, assembler, expression);
                     if (!PrimitiveType.IsPrimitiveBool(expressionType))
-                        throw new ParserException("Expressão do tipo bool esperada.");
+                        throw new CompilerException(expression.Interval, "Expressão do tipo bool esperada.");
                 }
                 else
                     assembler.EmitLoadConst(true);
@@ -4955,12 +4964,12 @@ namespace compiler
                 }
             }
             else
-                throw new ParserException("Tipo desconhecido de statement: " + statement);
+                throw new CompilerException(statement.Interval, "Tipo desconhecido de statement: " + statement);
         }
 
         public BlockStatement ParseBlock()
         {
-            BlockStatement result = new BlockStatement();
+            BlockStatement result = new BlockStatement(lexer.CurrentInterval(lexer.CurrentPos));
             while (lexer.NextSymbol("}", false) == null)
             {
                 Statement statement = ParseStatement();
@@ -4980,7 +4989,7 @@ namespace compiler
             if (lexer.NextSymbol("=", false) != null)
                 initializer = ParseExpression();
 
-            DeclarationStatement result = new DeclarationStatement(type);
+            DeclarationStatement result = new DeclarationStatement(id.Interval, type);
             result.AddVariable(id.Name, initializer);
             return result;
         }
@@ -4994,14 +5003,14 @@ namespace compiler
                 string name = tuple.Item1;
                 Expression initializer = tuple.Item2;
 
-                Variable var = function == null ? (Variable) DeclareGlobalVariable(name, type) : context.DeclareLocalVariable(function, name, type);
+                Variable var = function == null ? DeclareGlobalVariable(name, type) : context.DeclareLocalVariable(function, name, type);
                 if (var == null)
-                    throw new ParserException("Variável '" + name + "' já declarada.");
+                    throw new CompilerException(statement.Interval, "Variável '" + name + "' já declarada.");
 
                 if (initializer != null)
                 {
                     if (function == null)
-                        throw new ParserException("Variável global não pode ser inicializada.");
+                        throw new CompilerException(statement.Interval, "Variável global não pode ser inicializada.");
 
                     bool useVar = false;
                     if (var is GlobalVariable)
@@ -5014,12 +5023,12 @@ namespace compiler
                     }
 
                     AbstractType initializerType = CompileExpression(function, context, assembler, initializer);
-                    CompileCast(assembler, initializerType, type, false);
+                    CompileCast(assembler, initializerType, type, false, initializer.Interval);
 
                     if (useVar)
-                        CompileStore(assembler, var);
+                        CompileStore(assembler, var, initializer.Interval);
                     else
-                        CompileStore(assembler, type);
+                        CompileStore(assembler, type, initializer.Interval);
                 }
             }
         }
@@ -5029,7 +5038,7 @@ namespace compiler
             Identifier id = lexer.NextIdentifier();
             Function f = DeclareFunction(id.Name);
             if (f == null)
-                throw new ParserException("Função '" + id.Name + "' já declarada.");
+                throw new CompilerException(id.Interval, "Função '" + id.Name + "' já declarada.");
 
             lexer.NextSymbol("(");
             if (lexer.NextSymbol(")", false) == null)
@@ -5056,7 +5065,7 @@ namespace compiler
             Identifier id = lexer.NextIdentifier();
             StructType st = DeclareStruct(id.Name);
             if (st == null)
-                throw new ParserException("Estrutura '" + id.Name + "' já declarada.");
+                throw new CompilerException(id.Interval, "Estrutura '" + id.Name + "' já declarada.");
 
             lexer.NextSymbol("{");
             if (lexer.NextSymbol("}", false) == null)
@@ -5070,7 +5079,7 @@ namespace compiler
             {
                 switch (kw.Value)
                 {
-                    case "declare":
+                    case "var":
                     {
                         DeclarationStatement declaration = ParseVariableDeclaration();
                         CompileVariableDeclaration(null, null, null, declaration);
@@ -5090,11 +5099,11 @@ namespace compiler
                 lexer.PreviusToken();
             }
 
-            lexer.NextSymbol("{");
+            Symbol start = lexer.NextSymbol("{");
 
             Function f = DeclareFunction("@main");
             if (f == null)
-                throw new ParserException("Ponto de entrada já declarado.");
+                throw new CompilerException(start.Interval, "Ponto de entrada já declarado.");
 
             entryPoint = f;
 
@@ -5133,7 +5142,7 @@ namespace compiler
 
             Token token = lexer.NextToken();
             if (token != null)
-                throw new ParserException("Fim do programa esperado mas " + token + " encontrado.");
+                throw new CompilerException(token.Interval, "Fim do programa esperado mas " + token + " encontrado.");
         }
 
         public AbstractType CompileAdditiveExpression(string expression, Assembler assembler)
@@ -5142,8 +5151,11 @@ namespace compiler
             entryPoint = null;
 
             globals.Clear();
+            globalTable.Clear();
             structs.Clear();
+            structTable.Clear();
             functions.Clear();
+            functionTable.Clear();
             labels.Clear();
             stringTable.Clear();
 
@@ -5154,7 +5166,7 @@ namespace compiler
 
             Token token = lexer.NextToken();
             if (token != null)
-                throw new ParserException("Fim da expressão esperado mas " + token + " encontrado.");
+                throw new CompilerException(token.Interval, "Fim da expressão esperado mas " + token + " encontrado.");
 
             AbstractType type = CompileExpression(null, context, assembler, expr);
 
@@ -5167,8 +5179,11 @@ namespace compiler
             entryPoint = null;
 
             globals.Clear();
+            globalTable.Clear();
             structs.Clear();
+            structTable.Clear();
             functions.Clear();
+            functionTable.Clear();
             labels.Clear();
             stringTable.Clear();
 

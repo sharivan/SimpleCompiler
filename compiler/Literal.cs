@@ -6,7 +6,10 @@ using System.Threading.Tasks;
 
 namespace compiler
 {
-    public class Literal : Token
+    public abstract class Literal : Token
     {
+        public Literal(SourceInterval interval) : base(interval)
+        {
+        }
     }
 }

@@ -8,8 +8,8 @@ programa Teste_Passagem_Por_Referência
 	
 	função g(x:int, &y:int):int // g(4, 9)
 	{
-		declare z:real = x - 2; // z = 2;
-		declare t:real = z + 3; // t = 5;
+		var z:real = x - 2; // z = 2;
+		var t:real = z + 3; // t = 5;
 		f(x, y, z, t); // f(4, 9, 2, 5)
 		// y = 14
 		// t = 18
@@ -17,10 +17,10 @@ programa Teste_Passagem_Por_Referência
 	}
 	
 	{
-		declare x:int = 4;
-		declare y:int = 9;
+		var x:int = 4;
+		var y:int = 9;
 		
-		declare z:int = g(x, y);
+		var z:int = g(x, y);
 		// y = 14
 		
 		escrevaln "x=", x;

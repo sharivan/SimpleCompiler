@@ -10,15 +10,9 @@ namespace compiler
     {
         private short value;
 
-        public short Value
-        {
-            get
-            {
-                return value;
-            }
-        }
+        public short Value => value;
 
-        public ShortLiteral(short value)
+        public ShortLiteral(SourceInterval interval, short value) : base(interval)
         {
             this.value = value;
         }

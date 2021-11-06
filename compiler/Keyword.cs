@@ -22,7 +22,7 @@ namespace compiler
             // conversão de tipo
             "cast",
             // declarações
-            "declare",
+            "var",
             "função",
             "estrutura",
             "programa",
@@ -31,7 +31,7 @@ namespace compiler
             "escreva",
             "escrevaln",
             // literais lógicos
-            "verdadeiro", // true
+            "verdade", // true
             "falso", // false
             // literal nulo
             "nulo", // null
@@ -58,15 +58,9 @@ namespace compiler
 
         private string value;
 
-        public string Value
-        {
-            get
-            {
-                return value;
-            }
-        }
+        public string Value => value;
 
-        public Keyword(string value)
+        public Keyword(SourceInterval interval, string value) : base(interval)
         {
             this.value = value;
         }

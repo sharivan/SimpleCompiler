@@ -10,15 +10,9 @@ namespace compiler
     {
         private byte value;
 
-        public byte Value
-        {
-            get
-            {
-                return value;
-            }
-        }
+        public byte Value => value;
 
-        public ByteLiteral(byte value)
+        public ByteLiteral(SourceInterval interval, byte value) : base(interval)
         {
             this.value = value;
         }
