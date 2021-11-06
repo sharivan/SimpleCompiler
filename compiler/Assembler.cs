@@ -84,9 +84,7 @@ namespace compiler
         public void ReserveConstantBuffer(int size)
         {
             constantOut.Position = 0;
-
-            byte[] buffer = new byte[size];
-            constantOut.Write(buffer, 0, size);
+            constantOut.Seek(size, SeekOrigin.Current);
         }
 
         public void WriteConstant(int offset, bool value)
@@ -239,8 +237,12 @@ namespace compiler
                 for (int j = 0; j < label.references.Count; j++)
                 {
                     Tuple<Assembler, int> reference = label.references[j];
-                    int referenceIP = reference.Item2;
-                    label.references[j] = new Tuple<Assembler, int>(this, (int) (referenceIP + startPosition));
+                    Assembler referenceAssembler = reference.Item1;
+                    if (referenceAssembler == other)
+                    {
+                        int referenceIP = reference.Item2;
+                        label.references[j] = new Tuple<Assembler, int>(this, (int) (referenceIP + startPosition));
+                    }
                 }
 
                 issuedLabels.Add(label);

@@ -1725,6 +1725,11 @@ namespace compiler
             return result;
         }
 
+        private void PrintLn()
+        {
+            Print("\n");
+        }
+
         private void PrintLn(string message)
         {
             Print(message + '\n');
@@ -2508,6 +2513,7 @@ namespace compiler
                     case Opcode.RET:
                     {
                         PrintLine(lastIP, op, "RET");
+                        PrintLn();
                         break;
                     }
 
@@ -2515,6 +2521,7 @@ namespace compiler
                     {
                         int count = ReadCodeInt(ref ip);
                         PrintLine(lastIP, op, "RETN " + count);
+                        PrintLn();
                         break;
                     }
 
@@ -2593,6 +2600,7 @@ namespace compiler
                     case Opcode.HALT:
                     {
                         PrintLine(lastIP, op, "HALT");
+                        PrintLn();
                         break;
                     }
 

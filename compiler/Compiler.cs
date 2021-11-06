@@ -347,7 +347,7 @@ namespace compiler
                             if (!isExplicit)
                                 throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
-                            break;
+                            return;
 
                         case Primitive.CHAR:
                             throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
@@ -356,35 +356,37 @@ namespace compiler
                             if (!isExplicit)
                                 throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
-                            break;
+                            return;
 
                         case Primitive.INT:
                             if (!isExplicit)
                                 throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
-                            break;
+                            return;
 
                         case Primitive.LONG:
                             if (!isExplicit)
                                 throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                             assembler.EmitInt32ToInt64();
-                            break;
+                            return;
 
                         case Primitive.FLOAT:
                             if (!isExplicit)
                                 throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                             assembler.EmitInt32ToFloat32();
-                            break;
+                            return;
 
                         case Primitive.DOUBLE:
                             if (!isExplicit)
                                 throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
 
                             assembler.EmitInt32ToFloat64();
-                            break;
+                            return;
                     }
+
+                    throw new ParserException("Tipo desconhecido: '" + toType + "'.");
                 }
 
                 if (toType is PointerType tptr)
@@ -395,6 +397,8 @@ namespace compiler
                     AbstractType otherType = tptr.Type;
                     if (isExplicit ? false : !PrimitiveType.IsPrimitiveVoid(otherType) && fptr.Type != otherType)
                         throw new ParserException("O tipo '" + fromType + "' não pode ser convertido implicitamente para o tipo '" + toType + "'.");
+
+                    return;
                 }
 
                 throw new ParserException("Tipo desconhecido: '" + toType + "'.");
@@ -881,6 +885,12 @@ namespace compiler
         {
             AbstractType result = null;
 
+            if (lexer.NextSymbol("*", false) != null)
+            {
+                AbstractType type = ParseType();
+                return new PointerType(type);
+            }
+
             Keyword kw = lexer.NextKeyword(false);
             if (kw != null)
             {
@@ -938,9 +948,7 @@ namespace compiler
 
             while (true)
             {
-                if (lexer.NextSymbol("*", false) != null)
-                    result = new PointerType(result);
-                else if (lexer.NextSymbol("[", false) != null)
+                if (lexer.NextSymbol("[", false) != null)
                 {
                     if (PrimitiveType.IsPrimitiveVoid(result))
                         throw new ParserException("Uso inválido do tipo void.");
@@ -1269,7 +1277,25 @@ namespace compiler
                     storeVar = null;
                     return field.Type;
                 }
-                
+
+                if (operandType is PointerType ptr)
+                {
+                    if (ptr.Type == null || !(ptr.Type is StructType s2))
+                        throw new ParserException("Pointeiro de estrutura esperado.");
+
+                    assembler.EmitLoadStack32();
+
+                    Field field = s2.FindField(fieldName);
+                    if (field == null)
+                        throw new ParserException("Campo '" + fieldName + "' não encontrado na estrutura: '" + s2.Name + "'.");
+
+                    assembler.EmitLoadConst(field.Offset);
+                    assembler.EmitAdd();
+
+                    storeVar = null;
+                    return field.Type;
+                }
+
                 throw new ParserException("Acesso de membros em um tipo que não é estrutura: '" + operandType + "'.");
             }
 
@@ -1300,10 +1326,35 @@ namespace compiler
                         assembler.EmitAdd();
                     }
 
+                    assembler.EmitLoadConst(at.Type.Size());
+                    assembler.EmitMul();
                     assembler.EmitAdd();
 
                     storeVar = null;
                     return at.Type;
+                }
+
+                if (operandType is PointerType ptr)
+                {
+                    if (ptr.Type == null)
+                        throw new ParserException("Não é possível realizar esta operação em um ponteiro do tipo void.");
+
+                    if (a.IndexerCount == 0)
+                        throw new ParserException("Não foi fornecido nenhum índice para o ponteiro.");
+
+                    if (a.IndexerCount != 1)
+                        throw new ParserException("Deve-se fornecer somente um índice para o ponteiro.");
+
+                    assembler.EmitLoadStack32();
+
+                    Expression indexer = a[0];
+                    CompileArrayIndexer(function, context, assembler, indexer);
+                    assembler.EmitLoadConst(ptr.Type.Size());
+                    assembler.EmitMul();
+                    assembler.EmitAdd();
+
+                    storeVar = null;
+                    return ptr.Type;
                 }
 
                 throw new ParserException("Tipo '" + operandType + "' não é um array.");
@@ -3453,7 +3504,11 @@ namespace compiler
                     case UnaryOperation.POINTER_TO:
                     {
                         Assembler tempAssembler = new Assembler();
-                        AbstractType operandType = CompileAssignableExpression(function, context, tempAssembler, operand, out Variable storeVar);
+                        AbstractType operandType = CompileAssignableExpression(function, context, assembler, operand, out _);
+
+                        if (operandType is ArrayType at)
+                            return new PointerType(at.Type);
+
                         return new PointerType(operandType);
                     }
 
@@ -4423,11 +4478,37 @@ namespace compiler
                         assembler.EmitAdd();
                     }
 
+                    assembler.EmitLoadConst(at.Type.Size());
+                    assembler.EmitMul();
                     assembler.EmitAdd();
 
                     CompileLoad(assembler, at.Type);
 
                     return at.Type;
+                }
+
+                if (operandType is PointerType ptr)
+                {
+                    if (ptr.Type == null)
+                        throw new ParserException("Não é possível realizar essa operação em um ponteiro do tipo void.");
+
+                    if (a.IndexerCount == 0)
+                        throw new ParserException("Não foi fornecido nenhum índice para o ponteiro.");
+
+                    if (a.IndexerCount != 1)
+                        throw new ParserException("Deve-se fornecer somente um índice para o ponteiro.");
+
+                    assembler.EmitLoadStack32();
+
+                    Expression indexer = a[0];
+                    CompileArrayIndexer(function, context, assembler, indexer);
+                    assembler.EmitLoadConst(ptr.Type.Size());
+                    assembler.EmitMul();
+                    assembler.EmitAdd();
+
+                    CompileLoad(assembler, ptr.Type);
+
+                    return ptr.Type;
                 }
 
                 throw new ParserException("Tipo '" + operandType + "' não é um array.");
@@ -4943,7 +5024,7 @@ namespace compiler
             }
         }
 
-        public void ParseFunctionDeclaration(Assembler assembler)
+        public void ParseFunctionDeclaration()
         {
             Identifier id = lexer.NextIdentifier();
             Function f = DeclareFunction(id.Name);
@@ -4964,20 +5045,10 @@ namespace compiler
             }
 
             lexer.NextSymbol("{");
-            Context context = new Context(f);
-            Assembler tempAssembler = new Assembler();
-
-            f.CreateReturnLabel();
-            BlockStatement block = ParseBlock();
-            CompileStatement(f, context, tempAssembler, block);
-            f.BindReturnLabel(tempAssembler);
 
             f.CreateEntryLabel();
-            f.BindEntryLabel(assembler);
-
-            f.BeginBlock(assembler);
-            assembler.Emit(tempAssembler);
-            f.EndBlock(assembler);
+            f.CreateReturnLabel();
+            f.Block = ParseBlock();
         }
 
         public void ParseStructDeclaration()
@@ -4992,7 +5063,7 @@ namespace compiler
                 ParseFieldsDeclaration(st);
         }
 
-        public bool ParseDeclaration(Assembler assembler)
+        public bool ParseDeclaration()
         {
             Keyword kw = lexer.NextKeyword(false);
             if (kw != null)
@@ -5008,7 +5079,7 @@ namespace compiler
                     }
 
                     case "função":
-                        ParseFunctionDeclaration(assembler);
+                        ParseFunctionDeclaration();
                         return true;
 
                     case "estrutura":
@@ -5027,47 +5098,42 @@ namespace compiler
 
             entryPoint = f;
 
-            Context context = new Context(f);
-            Assembler tempAssembler = new Assembler();
-
-            f.CreateReturnLabel();
-            BlockStatement block = ParseBlock();
-            CompileStatement(f, context, tempAssembler, block);
-            f.BindReturnLabel(tempAssembler);
-
             f.CreateEntryLabel();
-            f.BindEntryLabel(assembler);
-
-            f.BeginBlock(assembler);
-            assembler.Emit(tempAssembler);
-            f.EndBlock(assembler);
+            f.CreateReturnLabel();
+            f.Block = ParseBlock();
 
             return false;
         }
 
-        public void ParseProgram(Assembler assembler)
+        public void CompileFunction(Function function, Assembler assembler)
+        {
+            Context context = new Context(function);
+            Assembler tempAssembler = new Assembler();
+
+            CompileStatement(function, context, tempAssembler, function.Block);
+            function.BindReturnLabel(tempAssembler);
+
+            function.BindEntryLabel(assembler);
+            function.BeginBlock(assembler);
+            assembler.Emit(tempAssembler);
+            function.EndBlock(assembler);
+        }
+
+        public void ParseProgram()
         {
             lexer.NextKeyword("programa");
             lexer.NextIdentifier();
             lexer.NextSymbol("{");
-
-            Assembler tempAssembler = new Assembler();
-            while (ParseDeclaration(tempAssembler))
+           
+            while (ParseDeclaration())
             {
             }
 
             lexer.NextSymbol("}");
 
-            if (entryPoint != null)
-                assembler.EmitCall(entryPoint.EntryLabel);
-
-            assembler.EmitHalt();
-
-            assembler.Emit(tempAssembler);
-
-            assembler.ReserveConstantBuffer(globalVariableOffset);
-            foreach (var kv in stringTable)
-                assembler.WriteConstant(kv.Value, kv.Key);
+            Token token = lexer.NextToken();
+            if (token != null)
+                throw new ParserException("Fim do programa esperado mas " + token + " encontrado.");
         }
 
         public AbstractType CompileAdditiveExpression(string expression, Assembler assembler)
@@ -5085,11 +5151,12 @@ namespace compiler
 
             Context context = new Context(null);
             Expression expr = ParseAdditiveExpression();
-            AbstractType type = CompileExpression(null, context, assembler, expr);
 
             Token token = lexer.NextToken();
             if (token != null)
                 throw new ParserException("Fim da expressão esperado mas " + token + " encontrado.");
+
+            AbstractType type = CompileExpression(null, context, assembler, expr);
 
             return type;
         }
@@ -5107,18 +5174,29 @@ namespace compiler
 
             lexer.Input = source;
 
-            ParseProgram(assembler);
+            ParseProgram();
+
+            if (entryPoint != null)
+                assembler.EmitCall(entryPoint.EntryLabel);
+
+            assembler.EmitHalt();
+
+            for (int i = 0; i < functions.Count; i++)
+            {
+                Function f = functions[i];
+                CompileFunction(f, assembler);
+            }
+
+            assembler.ReserveConstantBuffer(globalVariableOffset);
+            foreach (var kv in stringTable)
+                assembler.WriteConstant(kv.Value, kv.Key);
 
             for (int i = 0; i < labels.Count; i++)
             {
                 Label label = labels[i];
                 if (label.BindedIP != -1)
-                    label.UpdateReferences();
+                    label.UpdateReferences(assembler);
             }
-
-            Token token = lexer.NextToken();
-            if (token != null)
-                throw new ParserException("Fim do programa esperado mas " + token + " encontrado.");
         }
     }
 }

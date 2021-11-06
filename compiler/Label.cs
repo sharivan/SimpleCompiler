@@ -12,37 +12,13 @@ namespace compiler
         internal int bindedIP;
         internal List<Tuple<Assembler, int>> references;
 
-        public Assembler BindedAssembler
-        {
-            get
-            {
-                return bindedAssembler;
-            }
-        }
+        public Assembler BindedAssembler => bindedAssembler;
 
-        public int BindedIP
-        {
-            get
-            {
-                return bindedIP;
-            }
-        }
+        public int BindedIP => bindedIP;
 
-        public int ReferenceCount
-        {
-            get
-            {
-                return references.Count;
-            }
-        }
+        public int ReferenceCount => references.Count;
 
-        public Tuple<Assembler, int> this[int index]
-        {
-            get
-            {
-                return references[index];
-            }
-        }
+        public Tuple<Assembler, int> this[int index] => references[index];
 
         internal Label()
         {
@@ -52,10 +28,13 @@ namespace compiler
             references = new List<Tuple<Assembler, int>>();
         }
 
-        private void UpdateReference(int index)
+        private void UpdateReference(Assembler assembler, int index)
         {
             Tuple<Assembler, int> reference = references[index];
             Assembler referenceAssembler = reference.Item1;
+            if (assembler != referenceAssembler)
+                return;
+
             int referenceIP = reference.Item2;
 
             long lastPosition = referenceAssembler.Position;
@@ -64,10 +43,10 @@ namespace compiler
             referenceAssembler.Position = lastPosition;
         }
 
-        internal void UpdateReferences()
+        internal void UpdateReferences(Assembler assembler)
         {
             for (int i = 0; i < references.Count; i++)
-                UpdateReference(i);
+                UpdateReference(assembler, i);
         }
 
         internal void Bind(Assembler assembler, int ip)

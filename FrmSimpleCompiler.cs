@@ -211,7 +211,7 @@ namespace SimpleCompiler
         {
             string text = "";
             for (int i = 0; i < lbConsole.SelectedItems.Count; i++)
-                text += lbConsole.SelectedItems[i].ToString() + '\n';
+                text += lbConsole.SelectedItems[i] + "\n";
 
             Clipboard.SetText(text);
         }
@@ -219,7 +219,7 @@ namespace SimpleCompiler
         private void mnuConsoleSelectAll_Click(object sender, EventArgs e)
         {
             for (int i = 0; i < lbConsole.Items.Count; i++)
-                lbConsole.SelectedItems.Add(lbConsole.Items[i]);
+                lbConsole.SelectedIndices.Add(i);
         }
 
         private void txtInput_KeyPress(object sender, KeyPressEventArgs e)

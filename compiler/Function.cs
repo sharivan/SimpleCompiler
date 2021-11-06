@@ -12,50 +12,25 @@ namespace compiler
         private string name;
         private List<Parameter> parameters;
         private AbstractType returnType;
+
+        private BlockStatement block;
         private int parameterOffset;
         private int localVariableOffset;
         private int returnOffset;
         private Label entryLabel;
         private Label returnLabel;
 
-        public Compiler Compiler
-        {
-            get
-            {
-                return compiler;
-            }
-        }
+        public Compiler Compiler => compiler;
 
-        public string Name
-        {
-            get
-            {
-                return name;
-            }
-        }
+        public string Name => name;
 
-        public Parameter this[int index]
-        {
-            get
-            {
-                return parameters[index];
-            }
-        }
+        public Parameter this[int index] => parameters[index];
 
-        public int ParamCount
-        {
-            get
-            {
-                return parameters.Count;
-            }
-        }
+        public int ParamCount => parameters.Count;
 
         public AbstractType ReturnType
         {
-            get
-            {
-                return returnType;
-            }
+            get => returnType;
 
             set
             {
@@ -67,45 +42,22 @@ namespace compiler
             }
         }
 
-        public int ParameterOffset
+        public BlockStatement Block
         {
-            get
-            {
-                return parameterOffset;
-            }
+            get => block;
+
+            set => block = value;
         }
 
-        public int LocalVariableOffset
-        {
-            get
-            {
-                return localVariableOffset;
-            }
-        }
+        public int ParameterOffset => parameterOffset;
 
-        public int ReturnOffset
-        {
-            get
-            {
-                return returnOffset;
-            }
-        }
+        public int LocalVariableOffset => localVariableOffset;
 
-        public Label EntryLabel
-        {
-            get
-            {
-                return entryLabel;
-            }
-        }
+        public int ReturnOffset => returnOffset;
 
-        public Label ReturnLabel
-        {
-            get
-            {
-                return returnLabel;
-            }
-        }
+        public Label EntryLabel => entryLabel;
+
+        public Label ReturnLabel => returnLabel;
 
 
         public Function(Compiler compiler, string name)
