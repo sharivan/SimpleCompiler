@@ -1,5 +1,5 @@
 # SimpleCompiler
-Um compilador simples que foi desenvolvido em um único dia, durante uma live de devstream em meu canal na [twitch](https://www.twitch.tv/sharivanx) no dia 28/10/2021. A reprise da live que acabou sendo dividida em dois vídeos pode ser conferida nos seguintes links:
+Um compilador simples que teve seu desenvolvimento iniciado a partir de 28/10/2021 em uma série de lives em meu canal na [twitch](https://www.twitch.tv/sharivanx), mas depois foi continuado em off. A reprise das lives podem ser conferidas nos seguintes links:
 
 - Parte 1: https://www.youtube.com/watch?v=27Sksfc3psA
 - Parte 2: https://www.youtube.com/watch?v=_osQMFl4pcw
