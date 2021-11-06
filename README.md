@@ -15,10 +15,10 @@ Uma nova gramática foi criada para ser aceita por este compilador, a sintaxe de
 
 A seguir, temos um exemplo simples de um programa escrito nessa linguagem:
 
-```c#
+```c++
 programa Programa1
 {
-	declare a:long;
+	var a:long;
 
 	estrutura Vetor
 	{
@@ -26,7 +26,7 @@ programa Programa1
 		y:real;
 	}
 	
-	declare v:Vetor;
+	var v:Vetor;
 
 	função f(x:real):real
 	{
@@ -39,16 +39,16 @@ programa Programa1
 	}
 	
 	{
-		declare x:int;
-		declare y:int;
-		declare z:real;
+		var x:int;
+		var y:int;
+		var z:real;
 		
 		leia x;
 		leia y;
 		leia z;
 		
-		declare w:int = g(x, y);
-		declare t:real = f(z);
+		var w:int = g(x, y);
+		var t:real = f(z);
 		
 		escrevaln "w=", w;
 		escrevaln "t=", t;
