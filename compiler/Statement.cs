@@ -27,7 +27,48 @@ namespace compiler
         }
     }
 
-    public class ExpressionStatement : Statement
+    public abstract class InitializerStatement : Statement
+    {
+        protected InitializerStatement(SourceInterval interval) : base(interval)
+        {
+        }
+    }
+
+    public class DeclarationStatement : InitializerStatement
+    {
+        private AbstractType type;
+        private List<Tuple<string, Expression>> vars;
+
+        public AbstractType Type
+        {
+            get => type;
+
+            set => type = value;
+        }
+
+        public int VariableCount => vars.Count;
+
+        public Tuple<string, Expression> this[int index]
+        {
+            get => vars[index];
+
+            set => vars[index] = value;
+        }
+
+        public DeclarationStatement(SourceInterval interval, AbstractType type) : base(interval)
+        {
+            this.type = type;
+
+            vars = new List<Tuple<string, Expression>>();
+        }
+
+        public void AddVariable(string name, Expression initializer = null)
+        {
+            vars.Add(new Tuple<string, Expression>(name, initializer));
+        }
+    }
+
+    public class ExpressionStatement : InitializerStatement
     {
         private Expression expression;
 
@@ -121,40 +162,6 @@ namespace compiler
         }
     }
 
-    public class DeclarationStatement : Statement
-    {
-        private AbstractType type;
-        private List<Tuple<string, Expression>> vars;
-
-        public AbstractType Type
-        {
-            get => type;
-
-            set => type = value;
-        }
-
-        public int VariableCount => vars.Count;
-
-        public Tuple<string, Expression> this[int index]
-        {
-            get => vars[index];
-
-            set => vars[index] = value;
-        }
-
-        public DeclarationStatement(SourceInterval interval, AbstractType type) : base(interval)
-        {
-            this.type = type;
-
-            vars = new List<Tuple<string, Expression>>();
-        }
-
-        public void AddVariable(string name, Expression initializer = null)
-        {
-            vars.Add(new Tuple<string, Expression>(name, initializer));
-        }
-    }
-
     public class IfStatement : Statement
     {
         private Expression expression;
@@ -244,7 +251,7 @@ namespace compiler
 
     public class ForStatement : Statement
     {
-        private List<Expression> initializers;
+        private List<InitializerStatement> initializers;
         private Expression expression;
         private List<Expression> updaters;
         private Statement statement;
@@ -271,21 +278,21 @@ namespace compiler
         {
             this.expression = expression;
 
-            initializers = new List<Expression>();
+            initializers = new List<InitializerStatement>();
             updaters = new List<Expression>();
         }
 
-        public void AddInitializer(Expression initializer)
+        public void AddInitializer(InitializerStatement initializer)
         {
             initializers.Add(initializer);
         }
 
-        public Expression GetInitializer(int index)
+        public InitializerStatement GetInitializer(int index)
         {
             return initializers[index];
         }
 
-        public void SetInitializer(int index, Expression value)
+        public void SetInitializer(int index, InitializerStatement value)
         {
             initializers[index] = value;
         }

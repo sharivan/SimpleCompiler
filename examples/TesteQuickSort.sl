@@ -49,14 +49,13 @@ programa TesteQuickSort
 		
 		var a:int[4];
 
-		var i:int;
-		para (i = 0; i < 4; i++)
+		para (var i:int = 0; i < 4; i++)
 			leia a[i];
 		
 		QuickSort(a, 0, 3);
 		
 		escreva "{", a[0];
-		para (i = 1; i < 4; i++)
+		para (var i:int = 1; i < 4; i++)
 			escreva ", ", a[i];
 			
 		escrevaln "}";

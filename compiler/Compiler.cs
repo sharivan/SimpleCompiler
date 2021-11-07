@@ -3084,9 +3084,8 @@ namespace compiler
                 // inicializadores
                 for (int j = 0; j < f.InitializerCount; j++)
                 {
-                    Expression initializer = f.GetInitializer(j);
-                    AbstractType initializerType = CompileExpression(function, context, assembler, initializer);
-                    CompilePop(assembler, initializerType);
+                    InitializerStatement initializer = f.GetInitializer(j);
+                    CompileStatement(function, context, assembler, initializer);
                 }
 
                 Label lblLoop = CreateLabel();

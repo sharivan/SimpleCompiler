@@ -645,6 +645,18 @@ namespace compiler
             }
         }
 
+        private InitializerStatement ParseInitializerStatement()
+        {
+            if (lexer.NextKeyword("var", false) != null)
+            {
+                DeclarationStatement result = ParseVariableDeclaration();
+                return result;
+            }
+
+            Expression expr = ParseExpression();
+            return new ExpressionStatement(expr.Interval, expr);
+        }
+
         private Statement ParseStatement()
         {
             if (lexer.NextSymbol(";", false) != null)
@@ -697,7 +709,7 @@ namespace compiler
                         {
                             do
                             {
-                                Expression initializer = ParseExpression();
+                                InitializerStatement initializer = ParseInitializerStatement();
                                 result.AddInitializer(initializer);
                             }
                             while (lexer.NextSymbol(",", false) != null);
