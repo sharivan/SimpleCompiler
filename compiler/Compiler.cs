@@ -3136,33 +3136,6 @@ namespace compiler
                 throw new CompilerException(statement.Interval, "Tipo desconhecido de statement: " + statement);
         }
 
-        public BlockStatement ParseBlock()
-        {
-            BlockStatement result = new BlockStatement(lexer.CurrentInterval(lexer.CurrentPos));
-            while (lexer.NextSymbol("}", false) == null)
-            {
-                Statement statement = ParseStatement();
-                result.AddStatement(statement);
-            }
-
-            return result;
-        }
-
-        private DeclarationStatement ParseVariableDeclaration()
-        {
-            Identifier id = lexer.NextIdentifier();
-            lexer.NextSymbol(":");
-            AbstractType type = ParseType();
-
-            Expression initializer = null;
-            if (lexer.NextSymbol("=", false) != null)
-                initializer = ParseExpression();
-
-            DeclarationStatement result = new DeclarationStatement(id.Interval, type);
-            result.AddVariable(id.Name, initializer);
-            return result;
-        }
-
         public void CompileVariableDeclaration(Function function, Context context, Assembler assembler, DeclarationStatement statement)
         {
             AbstractType type = statement.Type;
@@ -3202,87 +3175,6 @@ namespace compiler
             }
         }
 
-        public void ParseFunctionDeclaration()
-        {
-            Identifier id = lexer.NextIdentifier();
-            Function f = DeclareFunction(id.Name);
-            if (f == null)
-                throw new CompilerException(id.Interval, "Função '" + id.Name + "' já declarada.");
-
-            lexer.NextSymbol("(");
-            if (lexer.NextSymbol(")", false) == null)
-            {
-                ParseParamsDeclaration(f);
-                lexer.NextSymbol(")");
-            }
-
-            if (lexer.NextSymbol(":", false) != null)
-            {
-                AbstractType type = ParseType();
-                f.ReturnType = type;
-            }
-
-            lexer.NextSymbol("{");
-
-            f.CreateEntryLabel();
-            f.CreateReturnLabel();
-            f.Block = ParseBlock();
-        }
-
-        public void ParseStructDeclaration()
-        {
-            Identifier id = lexer.NextIdentifier();
-            StructType st = DeclareStruct(id.Name);
-            if (st == null)
-                throw new CompilerException(id.Interval, "Estrutura '" + id.Name + "' já declarada.");
-
-            lexer.NextSymbol("{");
-            if (lexer.NextSymbol("}", false) == null)
-                ParseFieldsDeclaration(st);
-        }
-
-        public bool ParseDeclaration()
-        {
-            Keyword kw = lexer.NextKeyword(false);
-            if (kw != null)
-            {
-                switch (kw.Value)
-                {
-                    case "var":
-                    {
-                        DeclarationStatement declaration = ParseVariableDeclaration();
-                        CompileVariableDeclaration(null, null, null, declaration);
-                        lexer.NextSymbol(";");
-                        return true;
-                    }
-
-                    case "função":
-                        ParseFunctionDeclaration();
-                        return true;
-
-                    case "estrutura":
-                        ParseStructDeclaration();
-                        return true;
-                }
-
-                lexer.PreviusToken();
-            }
-
-            Symbol start = lexer.NextSymbol("{");
-
-            Function f = DeclareFunction("@main");
-            if (f == null)
-                throw new CompilerException(start.Interval, "Ponto de entrada já declarado.");
-
-            entryPoint = f;
-
-            f.CreateEntryLabel();
-            f.CreateReturnLabel();
-            f.Block = ParseBlock();
-
-            return false;
-        }
-
         public void CompileFunction(Function function, Assembler assembler)
         {
             Context context = new Context(function);
@@ -3295,23 +3187,6 @@ namespace compiler
             function.BeginBlock(assembler);
             assembler.Emit(tempAssembler);
             function.EndBlock(assembler);
-        }
-
-        public void ParseProgram()
-        {
-            lexer.NextKeyword("programa");
-            lexer.NextIdentifier();
-            lexer.NextSymbol("{");
-           
-            while (ParseDeclaration())
-            {
-            }
-
-            lexer.NextSymbol("}");
-
-            Token token = lexer.NextToken();
-            if (token != null)
-                throw new CompilerException(token.Interval, "Fim do programa esperado mas " + token + " encontrado.");
         }
 
         public AbstractType CompileAdditiveExpression(string expression, Assembler assembler)
