@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace compiler
+namespace compiler.types
 {
     public enum Primitive
     {
@@ -222,7 +222,7 @@ namespace compiler
                     return "real";
             }
 
-            return "?";
+            throw new Exception("Unknow primitive type.");
         }
 
         public override int Size()
@@ -233,31 +233,31 @@ namespace compiler
                     return 0;
 
                 case Primitive.BOOL:
-                    return 1;
+                    return sizeof(bool);
 
                 case Primitive.BYTE:
-                    return 1;
+                    return sizeof(byte);
 
                 case Primitive.CHAR:
-                    return 2;
+                    return sizeof(char);
 
                 case Primitive.SHORT:
-                    return 2;
+                    return sizeof(short);
 
                 case Primitive.INT:
-                    return 4;
+                    return sizeof(int);
 
                 case Primitive.LONG:
-                    return 8;
+                    return sizeof(long);
 
                 case Primitive.FLOAT:
-                    return 4;
+                    return sizeof(float);
 
                 case Primitive.DOUBLE:
-                    return 8;
+                    return sizeof(double);
             }
 
-            return -1;
+            throw new Exception("Unknow primitive type.");
         }
 
         public override bool CoerceWith(AbstractType other, bool isExplicit)

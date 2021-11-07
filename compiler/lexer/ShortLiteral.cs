@@ -4,15 +4,15 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace compiler
+namespace compiler.lexer
 {
-    public class ByteLiteral : NumericLiteral
+    public class ShortLiteral : NumericLiteral
     {
-        private byte value;
+        private short value;
 
-        public byte Value => value;
+        public short Value => value;
 
-        public ByteLiteral(SourceInterval interval, byte value) : base(interval)
+        public ShortLiteral(SourceInterval interval, short value) : base(interval)
         {
             this.value = value;
         }
@@ -24,7 +24,7 @@ namespace compiler
 
         public override byte AsByte()
         {
-            return value;
+            return (byte)value;
         }
 
         public override short AsShort()
@@ -39,7 +39,7 @@ namespace compiler
 
         public override long AsLong()
         {
-            return value;
+            return (long)value;
         }
 
         public override float AsFloat()

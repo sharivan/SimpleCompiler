@@ -7,7 +7,7 @@ programa TesteQuickSort
 		b = temp;
 	}
 	
-	função Particiona(arr:*int, inicio:int, fim:int):int
+	função Particiona(arr:int[], inicio:int, fim:int):int
 	{
 		var pivo:int = inicio; // selecione o elemento pivô
 		var i:int = inicio;
@@ -34,7 +34,7 @@ programa TesteQuickSort
 		retorne j;
 	}
 
-	função QuickSort(arr:*int, inicio:int, fim:int)
+	função QuickSort(arr:int[], inicio:int, fim:int)
 	{
 		se (inicio < fim)
 		{
@@ -53,7 +53,7 @@ programa TesteQuickSort
 		para (i = 0; i < 4; i++)
 			leia a[i];
 		
-		QuickSort(&a, 0, 3);
+		QuickSort(a, 0, 3);
 		
 		escreva "{", a[0];
 		para (i = 1; i < 4; i++)

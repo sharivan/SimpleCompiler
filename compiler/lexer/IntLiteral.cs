@@ -1,26 +1,25 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace compiler
+namespace compiler.lexer
 {
-    public class FloatLiteral : NumericLiteral
+    public class IntLiteral : NumericLiteral
     {
-        private float value;
+        private int value;
 
-        public float Value => value;
+        public int Value => value;
 
-        public FloatLiteral(SourceInterval interval, float value) : base(interval)
+        public IntLiteral(SourceInterval interval, int value) : base(interval)
         {
             this.value = value;
         }
 
         public override string ToString()
         {
-            return value.ToString(CultureInfo.InvariantCulture);
+            return value.ToString();
         }
 
         public override byte AsByte()
@@ -35,12 +34,12 @@ namespace compiler
 
         public override int AsInt()
         {
-            return (int) value;
+            return value;
         }
 
         public override long AsLong()
         {
-            return (long) value;
+            return value;
         }
 
         public override float AsFloat()

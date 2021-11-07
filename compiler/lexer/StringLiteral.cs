@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace compiler
+namespace compiler.lexer
 {
     public class StringLiteral : Literal
     {

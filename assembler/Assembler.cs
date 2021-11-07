@@ -6,7 +6,9 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace compiler
+using vm;
+
+namespace assembler
 {
     public class Assembler
     {
@@ -310,6 +312,16 @@ namespace compiler
             writer.Write(BitConverter.ToInt64(BitConverter.GetBytes(number), 0));
         }
 
+        public void EmitLoadConst(IntPtr ptr)
+        {
+            writer.Write((byte) Opcode.LC64);
+
+            if (IntPtr.Size == sizeof(int))
+                writer.Write((int) ptr);
+            else
+                writer.Write((long) ptr);
+        }
+
         public void EmitLoadIP()
         {
             writer.Write((byte) Opcode.LIP);
@@ -352,10 +364,37 @@ namespace compiler
             writer.Write(offset);
         }
 
-        public void EmitLoadLocalAddress(int offset)
+        public void EmitLoadHostAddress()
         {
-            writer.Write((byte) Opcode.LLA);
+            writer.Write((byte) Opcode.LHA);
+        }
+
+        public void EmitLoadGlobalHostAddress(int offset)
+        {
+            writer.Write((byte) Opcode.LGHA);
             writer.Write(offset);
+        }
+
+        public void EmitLoadLocalHostAddress(int offset)
+        {
+            writer.Write((byte) Opcode.LLHA);
+            writer.Write(offset);
+        }
+
+        public void EmitLoadLocalResidentAddress(int offset)
+        {
+            writer.Write((byte) Opcode.LLRA);
+            writer.Write(offset);
+        }
+
+        public void EmitResidentToHostAddress()
+        {
+            writer.Write((byte) Opcode.RHA);
+        }
+
+        public void EmitHostToResidentAddress()
+        {
+            writer.Write((byte) Opcode.HRA);
         }
 
         public void EmitLoadStack8()
@@ -378,6 +417,11 @@ namespace compiler
             writer.Write((byte) Opcode.LS64);
         }
 
+        public void EmitLoadStackPtr()
+        {
+            writer.Write((byte) Opcode.LSPTR);
+        }
+
         public void EmitStoreStack8()
         {
             writer.Write((byte) Opcode.SS8);
@@ -396,6 +440,11 @@ namespace compiler
         public void EmitStoreStack64()
         {
             writer.Write((byte) Opcode.SS64);
+        }
+
+        public void EmitStoreStackPtr()
+        {
+            writer.Write((byte) Opcode.SSPTR);
         }
 
         public void EmitLoadGlobal8(int offset)
@@ -419,6 +468,12 @@ namespace compiler
         public void EmitLoadGlobal64(int offset)
         {
             writer.Write((byte) Opcode.LG64);
+            writer.Write(offset);
+        }
+
+        public void EmitLoadGlobalPtr(int offset)
+        {
+            writer.Write((byte) Opcode.LGPTR);
             writer.Write(offset);
         }
 
@@ -446,6 +501,12 @@ namespace compiler
             writer.Write(offset);
         }
 
+        public void EmitLoadLocalPtr(int offset)
+        {
+            writer.Write((byte) Opcode.LLPTR);
+            writer.Write(offset);
+        }
+
         public void EmitStoreGlobal8(int offset)
         {
             writer.Write((byte) Opcode.SG8);
@@ -467,6 +528,12 @@ namespace compiler
         public void EmitStoreGlobal64(int offset)
         {
             writer.Write((byte) Opcode.SG64);
+            writer.Write(offset);
+        }
+
+        public void EmitStoreGlobalPtr(int offset)
+        {
+            writer.Write((byte) Opcode.SGPTR);
             writer.Write(offset);
         }
 
@@ -492,6 +559,63 @@ namespace compiler
         {
             writer.Write((byte) Opcode.SL64);
             writer.Write(offset);
+        }
+
+        public void EmitStoreLocalPtr(int offset)
+        {
+            writer.Write((byte) Opcode.SLPTR);
+            writer.Write(offset);
+        }
+
+        public void EmitLoadPointer8()
+        {
+            writer.Write((byte) Opcode.LPTR8);
+        }
+
+        public void EmitLoadPointer16()
+        {
+            writer.Write((byte) Opcode.LPTR16);
+        }
+
+        public void EmitLoadPointer32()
+        {
+            writer.Write((byte) Opcode.LPTR32);
+        }
+
+        public void EmitLoadPointer64()
+        {
+            writer.Write((byte) Opcode.LPTR64);
+
+        }
+
+        public void EmitLoadPointerPtr()
+        {
+            writer.Write((byte) Opcode.LPTRPTR);
+        }
+
+        public void EmitStorePointer8()
+        {
+            writer.Write((byte) Opcode.SPTR8);
+        }
+
+        public void EmitStorePointer16()
+        {
+            writer.Write((byte) Opcode.SPTR16);
+        }
+
+        public void EmitStorePointer32()
+        {
+            writer.Write((byte) Opcode.SPTR32);
+        }
+
+        public void EmitStorePointer64()
+        {
+            writer.Write((byte) Opcode.SPTR64);
+        }
+
+        public void EmitStorePointerPtr()
+        {
+            writer.Write((byte) Opcode.SPTRPTR);
         }
 
         public void EmitAdd()
@@ -674,6 +798,26 @@ namespace compiler
             writer.Write((byte) Opcode.FNEG64);
         }
 
+        public void EmitPtrAdd()
+        {
+            writer.Write((byte) Opcode.PTRADD);
+        }
+
+        public void EmitPtrAdd64()
+        {
+            writer.Write((byte) Opcode.PTRADD64);
+        }
+
+        public void EmitPtrSub()
+        {
+            writer.Write((byte) Opcode.PTRSUB);
+        }
+
+        public void EmitPtrSub64()
+        {
+            writer.Write((byte) Opcode.PTRSUB64);
+        }
+
         public void EmitInt32ToInt64()
         {
             writer.Write((byte) Opcode.I32I64);
@@ -722,6 +866,26 @@ namespace compiler
         public void EmitFloat64ToFloat32()
         {
             writer.Write((byte) Opcode.F64F32);
+        }
+
+        public void EmitInt32ToPointer()
+        {
+            writer.Write((byte) Opcode.I32PTR);
+        }
+
+        public void EmitInt64ToPointer()
+        {
+            writer.Write((byte) Opcode.I64PTR);
+        }
+
+        public void EmitPointerToInt32()
+        {
+            writer.Write((byte) Opcode.PTRI32);
+        }
+
+        public void EmitPointerToInt64()
+        {
+            writer.Write((byte) Opcode.PTRI64);
         }
 
         public void EmitCompareEquals()
@@ -842,6 +1006,36 @@ namespace compiler
         public void EmitFCompareLessOrEquals64()
         {
             writer.Write((byte) Opcode.FCMPLE64);
+        }
+
+        public void EmitComparePointerEquals()
+        {
+            writer.Write((byte) Opcode.CMPEPTR);
+        }
+
+        public void EmitComparePointerNotEquals()
+        {
+            writer.Write((byte) Opcode.CMPNEPTR);
+        }
+
+        public void EmitComparePointerGreater()
+        {
+            writer.Write((byte) Opcode.CMPGPTR);
+        }
+
+        public void EmitComparePointerGreaterOrEquals()
+        {
+            writer.Write((byte) Opcode.CMPGEPTR);
+        }
+
+        public void EmitComparePointerLess()
+        {
+            writer.Write((byte) Opcode.CMPLPTR);
+        }
+
+        public void EmitComparePointerLessOrEquals()
+        {
+            writer.Write((byte) Opcode.CMPLEPTR);
         }
 
         public void EmitJump(int offset)
@@ -986,9 +1180,9 @@ namespace compiler
             writer.Write((byte) Opcode.FSCAN64);
         }
 
-        public void EmitPScan()
+        public void EmitScanString()
         {
-            writer.Write((byte) Opcode.PSCAN);
+            writer.Write((byte) Opcode.SCANSTR);
         }
 
         public void EmitPrint32()
@@ -1011,9 +1205,9 @@ namespace compiler
             writer.Write((byte) Opcode.FPRINT64);
         }
 
-        public void EmitPPrint()
+        public void EmitPrintString()
         {
-            writer.Write((byte) Opcode.PPRINT);
+            writer.Write((byte) Opcode.PRINTSTR);
         }
 
         public void EmitHalt()

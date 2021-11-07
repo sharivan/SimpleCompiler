@@ -4,6 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using compiler.types;
+using assembler;
+
 namespace compiler
 {
     public class Context

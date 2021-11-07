@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace compiler
+﻿namespace vm
 {
     public enum Opcode
     {
@@ -13,6 +7,7 @@ namespace compiler
 		LC16, // carrega uma constante de 16 bits para o topo da pilha
 		LC32, // carrega uma constante de 32 bits para o topo da pilha
 		LC64, // carrega uma constante de 64 bits para o topo da pilha
+		LCPTR, // carrega uma constante do tipo ponteiro para o topo da pilha
 		LIP, // carrega o ip para o topo da pilha
 		LSP, // carrega o sp para o topo da pilha
 		LBP, // carrega o bp para o topo da pilha
@@ -21,31 +16,52 @@ namespace compiler
 		SBP, // altera o bp
 		ADDSP, // adiciona o sp
 		SUBSP, // subtrai o sp
-		LLA, // carrega o endereço de uma variável local (load local address)
+		LHA, // carrega o endereço efetivo de um endereço residente armazenado no topo da pilha (load host address)
+		LGHA, // carrega o endereço efetivo de uma variável global no topo da pilha (load global host address)
+		LLRA, // carrega o endereço de uma variável local no topo da pilha (load local resident address)
+		LLHA, // carrega o endereço efetivo de uma variável local no topo da pilha (load local host address)
+		RHA, // converte o endereço residente armazenado no topo da pilha para o endereço efetivo (resident to host address)
+		HRA, // converte o endereço efetivo armazenado no topo da pilha para o endereço residente (host to residente address)
 		LS8, // carrega da pilha (8 bits)
 		LS16, // carrega da pilha (16 bits)
 		LS32, // carrega da pilha (32 bits)
 		LS64, // carrega da pilha (64 bits)
+		LSPTR, // carrega da pilha (ponteiro)
 		SS8, // store to stack (8 bits)
 		SS16, // store to stack (16 bits)
 		SS32, // store to stack (32 bits)
 		SS64, // store to stack (64 bits)
+		SSPTR, // store to stack (ponteiro)
 		LG8, // carrega uma variável global (8 bits)
 		LG16, // carrega uma variável global (16 bits)
 		LG32, // carrega uma variável global (32 bits)
 		LG64, // carrega uma variável global (64 bits)
+		LGPTR, // carrega uma variável global (ponteiro)
 		LL8, // carrega uma variável local (8 bits)
 		LL16, // carrega uma variável local (16 bits)
 		LL32, // carrega uma variável local (32 bits)
 		LL64, // carrega uma variável local (64 bits)
+		LLPTR, // carrega uma variável local (ponteiro)
 		SG8, // altera uma variável global (8 bits)
 		SG16, // altera uma variável global (16 bits)
 		SG32, // altera uma variável global (32 bits)
 		SG64, // altera uma variável global (64 bits)
+		SGPTR, // altera uma variável global (ponteiro)
 		SL8, // altera uma variável local (8 bits)
 		SL16, // altera uma variável local (16 bits)
 		SL32, // altera uma variável local (32 bits)
 		SL64, // altera uma variável local (64 bits)
+		SLPTR, // altera uma variável local (ponteiro)
+		LPTR8, // carrega o valor de um ponteiro de byte
+		LPTR16, // carrega o valor de um ponteiro de short
+		LPTR32, // carrega o valor de um ponteiro de int
+		LPTR64, // carrega o valor de um ponteiro de long
+		LPTRPTR, // carrega o valor de um ponteiro de ponteiro
+		SPTR8, // altera o conteúdo de um ponteiro de byte
+		SPTR16, // altera o conteúdo de um ponteiro de short
+		SPTR32, // altera o conteúdo de um ponteiro de int
+		SPTR64, // altera o conteúdo de um ponteiro de long
+		SPTRPTR, // altera o conteúdo de um ponteiro de ponteiro
 		ADD, // soma
 		ADD64, // soma (64 bits)
 		SUB, // subtração
@@ -78,6 +94,10 @@ namespace compiler
 		F32I64, // conveersão de float para long
 		F64I64, // conversão de double para long
 		F64F32, // conversão de double para float
+		I32PTR, // conversão de int para ponteiro
+		I64PTR, // conversão de long para ponteiro
+		PTRI32, // conversão de ponteiro para int
+		PTRI64, // conversão de ponteiro para long
 		AND, // operação and bit a bit com operandos do tipo int
 		AND64, // operação and bit a bit com operandos do tipo long
 		OR, // operação or bit a bit com operandos do tipo int
@@ -92,6 +112,10 @@ namespace compiler
 		SHR64, // deslocalmento de bits para a direita (preservando o sinal) (64 bits)
 		USHR, // deslocalmento de bits para a direita (não preservando o sinal) (unsigned shift right)
 		USHR64, // deslocalmento de bits para a direita (não preservando o sinal) (64 bits)
+		PTRADD, // adiciona um ponteiro a um int
+		PTRADD64, // adiciona um ponteiro a um long
+		PTRSUB, // subtrai um ponteiro de um int
+		PTRSUB64, // subtrai um ponteiro de um long
 		CMPE, // compare se dois inteiros são iguais
 		CMPNE, // compare se dois inteiros são diferentes
 		CMPG, // compare se um inteiro é maior que outro inteiro
@@ -104,6 +128,12 @@ namespace compiler
 		CMPGE64, // compare se um inteiro de 64 bits é maior ou igual a outro inteiro de 64 bits
 		CMPL64, // compare se um inteiro de 64 bits é menor que outro inteiro de 64 bits
 		CMPLE64, // compare se um inteiro de 64 bits é menor ou igual a outro inteiro de 64 bits
+		CMPEPTR, // compare se dois ponteiros são iguais
+		CMPNEPTR, // compare se dois ponteiros são diferentes
+		CMPGPTR, // compare se um ponteiros é maior que outro ponteiros
+		CMPGEPTR, // compare se um ponteiros é maior ou igual a outro ponteiros
+		CMPLPTR, // compare se um ponteiros é menor que outro ponteiros
+		CMPLEPTR, // compare se um ponteiros é menor ou igual a outro ponteiros
 		FCMPE, // compare se dois floats são iguais
 		FCMPNE, // compare se dois floats são diferentes
 		FCMPG, // compare se um float é maior que outro float
@@ -136,15 +166,15 @@ namespace compiler
 		SCANC, // escaneia um char da entrada externa
 		SCAN16, // escaneia um short da entrada externa
 		SCAN32, // escaneia um inteiro da entrada externa
-		SCAN64, // escaneia um long da entrada externa
-		PSCAN, // escaneia uma string na entrada externa
+		SCAN64, // escaneia um long da entrada externa		
 		FSCAN, // escaneia um float da entrada externa
 		FSCAN64, // escaneia um double da entrada externa
+		SCANSTR, // escaneia uma string na entrada externa
 		PRINT32, // imprime um inteiro na saída externa
 		PRINT64, // imprime um long na saída externa
 		FPRINT, // imprime um float na saída externa
 		FPRINT64, // imprime um double na saída externa
-		PPRINT, // imprime uma string na saída externa
+		PRINTSTR, // imprime uma string na saída externa
 		HALT // encerra o programa
 	}
 }

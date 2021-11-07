@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace compiler
+namespace compiler.types
 {
     public class PointerType : AbstractType
     {
@@ -12,15 +12,19 @@ namespace compiler
         public static readonly PointerType STRING = new PointerType(PrimitiveType.CHAR);
 
         private AbstractType type;
+        private bool isArray;
 
         public AbstractType Type => type;
 
+        public bool IsArray => isArray;
+
         public bool IsString => type == null || PrimitiveType.IsPrimitiveChar(type);
 
-        public PointerType(AbstractType type = null)
+        public PointerType(AbstractType type = null, bool isArray = false)
         {
             this.type = type;
-        }
+            this.isArray = isArray;
+    }
 
         public override bool Equals(object obj)
         {
@@ -38,12 +42,18 @@ namespace compiler
 
         public override string ToString()
         {
-            return (type != null ? "*" + type.ToString() : "null");
+            if (type == null)
+                return "nulo";
+
+            if (isArray)
+                return type + "[]";
+
+            return "*" + type;
         }
 
         public override int Size()
         {
-            return 4;
+            return IntPtr.Size;
         }
 
         public override bool CoerceWith(AbstractType other, bool isExplicit)

@@ -22,6 +22,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -31,6 +32,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -46,43 +48,46 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="compiler\ArrayType.cs" />
-    <Compile Include="compiler\Assembler.cs" />
-    <Compile Include="compiler\ByteLiteral.cs" />
-    <Compile Include="compiler\CharLiteral.cs" />
+    <Compile Include="compiler\CompilerLoad.cs" />
+    <Compile Include="compiler\CompilerParser.cs" />
+    <Compile Include="compiler\CompilerStore.cs" />
+    <Compile Include="compiler\types\ArrayType.cs" />
+    <Compile Include="assembler\Assembler.cs" />
+    <Compile Include="compiler\lexer\ByteLiteral.cs" />
+    <Compile Include="compiler\lexer\CharLiteral.cs" />
     <Compile Include="compiler\Context.cs" />
-    <Compile Include="compiler\DoubleLiteral.cs" />
+    <Compile Include="compiler\lexer\DoubleLiteral.cs" />
     <Compile Include="compiler\Expression.cs" />
     <Compile Include="compiler\Field.cs" />
     <Compile Include="compiler\Function.cs" />
     <Compile Include="compiler\GlobalVariable.cs" />
-    <Compile Include="compiler\Label.cs" />
-    <Compile Include="compiler\Literal.cs" />
+    <Compile Include="assembler\Label.cs" />
+    <Compile Include="compiler\lexer\Literal.cs" />
     <Compile Include="compiler\LocalVariable.cs" />
-    <Compile Include="compiler\Opcode.cs" />
+    <Compile Include="vm\Opcode.cs" />
     <Compile Include="compiler\Compiler.cs" />
-    <Compile Include="compiler\FloatLiteral.cs" />
-    <Compile Include="compiler\IntLiteral.cs" />
-    <Compile Include="compiler\Keyword.cs" />
-    <Compile Include="compiler\LongLiteral.cs" />
-    <Compile Include="compiler\NumericLiteral.cs" />
-    <Compile Include="compiler\Lexer.cs" />
+    <Compile Include="compiler\lexer\FloatLiteral.cs" />
+    <Compile Include="compiler\lexer\IntLiteral.cs" />
+    <Compile Include="compiler\lexer\Keyword.cs" />
+    <Compile Include="compiler\lexer\LongLiteral.cs" />
+    <Compile Include="compiler\lexer\NumericLiteral.cs" />
+    <Compile Include="compiler\lexer\Lexer.cs" />
     <Compile Include="compiler\Parameter.cs" />
     <Compile Include="compiler\CompilerException.cs" />
     <Compile Include="compiler\SourceInterval.cs" />
-    <Compile Include="compiler\PointerType.cs" />
-    <Compile Include="compiler\PrimitiveType.cs" />
-    <Compile Include="compiler\ShortLiteral.cs" />
+    <Compile Include="compiler\types\PointerType.cs" />
+    <Compile Include="compiler\types\PrimitiveType.cs" />
+    <Compile Include="compiler\lexer\ShortLiteral.cs" />
     <Compile Include="compiler\Statement.cs" />
-    <Compile Include="compiler\StringLiteral.cs" />
-    <Compile Include="compiler\StructType.cs" />
-    <Compile Include="compiler\Symbol.cs" />
-    <Compile Include="compiler\Token.cs" />
-    <Compile Include="compiler\Identifier.cs" />
-    <Compile Include="compiler\AbstractType.cs" />
-    <Compile Include="compiler\UnitySystem.cs" />
+    <Compile Include="compiler\lexer\StringLiteral.cs" />
+    <Compile Include="compiler\types\StructType.cs" />
+    <Compile Include="compiler\lexer\Symbol.cs" />
+    <Compile Include="compiler\lexer\Token.cs" />
+    <Compile Include="compiler\lexer\Identifier.cs" />
+    <Compile Include="compiler\types\AbstractType.cs" />
+    <Compile Include="units\UnitySystem.cs" />
     <Compile Include="compiler\Variable.cs" />
-    <Compile Include="compiler\VM.cs" />
+    <Compile Include="vm\VM.cs" />
     <Compile Include="FrmSimpleCompiler.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -117,5 +122,6 @@
   <ItemGroup>
     <None Include="App.config" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

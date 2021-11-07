@@ -6,7 +6,10 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace compiler
+using assembler;
+using units;
+
+namespace vm
 {
     public class VM
     {
@@ -187,6 +190,14 @@ namespace compiler
             return result;
         }
 
+        public IntPtr ReadCodePtr(ref int ip)
+        {
+            if (IntPtr.Size == sizeof(int))
+                return (IntPtr) ReadCodeInt(ref ip);
+
+            return (IntPtr) ReadCodeLong(ref ip);
+        }
+
         public float ReadCodeFloat(ref int ip)
         {
             int value = ReadCodeInt(ref ip);
@@ -234,6 +245,14 @@ namespace compiler
             return result;
         }
 
+        public IntPtr ReadStackPtr(int addr)
+        {
+            if (IntPtr.Size == sizeof(int))
+                return (IntPtr) ReadStackInt(addr);
+
+            return (IntPtr) ReadStackLong(addr);
+        }
+
         public float ReadStackFloat(int addr)
         {
             int value = ReadStackInt(addr);
@@ -252,7 +271,7 @@ namespace compiler
             while (true)
             {
                 char c = (char) ReadStackShort(addr);
-                addr += 2;
+                addr += sizeof(short);
                 if (c == '\0')
                     break;
 
@@ -291,6 +310,14 @@ namespace compiler
             stack[addr++] = (byte) (value >> 40);
             stack[addr++] = (byte) (value >> 48);
             stack[addr] = (byte) (value >> 56);
+        }
+
+        public void WriteStack(int addr, IntPtr ptr)
+        {
+            if (IntPtr.Size == sizeof(int))
+                WriteStack(addr, (int) ptr);
+            else
+                WriteStack(addr, (long) ptr);
         }
 
         public void WriteStack(int addr, float value)
@@ -339,34 +366,45 @@ namespace compiler
 
         public int ReadStackTop()
         {
-            return ReadStackInt(SP - 4);
+            return ReadStackInt(SP - sizeof(int));
         }
 
         public long ReadStackTop64()
         {
-            return ReadStackLong(SP - 8);
+            return ReadStackLong(SP - sizeof(long));
+        }
+
+        public IntPtr ReadStackTopPtr()
+        {
+            return ReadStackPtr(SP - IntPtr.Size);
         }
 
         public float ReadStackTopFloat()
         {
-            return ReadStackFloat(SP - 4);
+            return ReadStackFloat(SP - sizeof(float));
         }
 
         public double ReadStackTopDouble()
         {
-            return ReadStackDouble(SP - 8);
+            return ReadStackDouble(SP - sizeof(double));
         }
 
         public void Push(int value)
         {
             WriteStack(sp, value);
-            sp += 4;
+            sp += sizeof(int);
         }
 
         public void Push(long value)
         {
             WriteStack(sp, value);
-            sp += 8;
+            sp += sizeof(long);
+        }
+
+        public void Push(IntPtr value)
+        {
+            WriteStack(sp, value);
+            sp += IntPtr.Size;
         }
 
         public void Push(float value)
@@ -392,15 +430,22 @@ namespace compiler
 
         public int Pop()
         {
-            sp -= 4;
+            sp -= sizeof(int);
             int result = ReadStackInt(sp);
             return result;
         }
 
         public long PopLong()
         {
-            sp -= 8;
+            sp -= sizeof(long);
             long result = ReadStackLong(sp);
+            return result;
+        }
+
+        public IntPtr PopPtr()
+        {
+            sp -= IntPtr.Size;
+            IntPtr result = ReadStackPtr(sp);
             return result;
         }
 
@@ -416,49 +461,74 @@ namespace compiler
             return BitConverter.ToDouble(BitConverter.GetBytes(value), 0);
         }
 
-        public IntPtr LoadParamAddr(int offset)
+        public IntPtr ResidentToHostAddr(int addr)
         {
-            return Marshal.UnsafeAddrOfPinnedArrayElement(stack, bp - (offset - 3) * 4);
+            return Marshal.UnsafeAddrOfPinnedArrayElement(stack, addr);
         }
 
-        public int LoadParam(int offset)
+        public int HostToResidentAddr(IntPtr addr)
         {
-            return ReadStackInt(bp - (offset - 3) * 4);
+            return (int) ((long) addr - (long) Marshal.UnsafeAddrOfPinnedArrayElement(stack, 0));
         }
 
-        public long LoadParamLong(int offset)
+        private int GetParamAbsoluteOffset(int paramsSize, int index, int paramSize)
         {
-            return ReadStackLong(bp - (offset - 3) * 4);
+            return bp - 2 * sizeof(int) - paramsSize + (index + 1) * paramSize;
         }
 
-        public float LoadParamFloat(int offset)
+        public IntPtr LoadParamAddr(int paramsSize, int index, int paramSize)
         {
-            return ReadStackFloat(bp - (offset - 3) * 4);
+            return Marshal.UnsafeAddrOfPinnedArrayElement(stack, GetParamAbsoluteOffset(paramsSize, index, paramSize));
         }
 
-        public double LoadParamDouble(int offset)
+        public int LoadParam(int paramsSize, int index)
         {
-            return ReadStackDouble(bp - (offset - 3) * 4);
+            return ReadStackInt(GetParamAbsoluteOffset(paramsSize, index, sizeof(int)));
         }
 
-        public void SetParam(int offset, int value)
+        public long LoadParamLong(int paramsSize, int index)
         {
-            WriteStack(bp - (offset - 3) * 4, value);
+            return ReadStackLong(GetParamAbsoluteOffset(paramsSize, index, sizeof(long)));
         }
 
-        public void SetParam(int offset, long value)
+        public IntPtr LoadParamPtr(int paramsSize, int index)
         {
-            WriteStack(bp - (offset - 3) * 4, value);
+            return ReadStackPtr(GetParamAbsoluteOffset(paramsSize, index, IntPtr.Size));
         }
 
-        public void SetParam(int offset, float value)
+        public float LoadParamFloat(int paramsSize, int index)
         {
-            WriteStack(bp - (offset - 3) * 4, value);
+            return ReadStackFloat(GetParamAbsoluteOffset(paramsSize, index, sizeof(float)));
         }
 
-        public void SetParam(int offset, double value)
+        public double LoadParamDouble(int paramsSize, int index)
         {
-            WriteStack(bp - (offset - 3) * 4, value);
+            return ReadStackDouble(GetParamAbsoluteOffset(paramsSize, index, sizeof(double)));
+        }
+
+        public void SetParam(int paramsSize, int index, int value)
+        {
+            WriteStack(GetParamAbsoluteOffset(paramsSize, index, sizeof(int)), value);
+        }
+
+        public void SetParam(int paramsSize, int index, long value)
+        {
+            WriteStack(GetParamAbsoluteOffset(paramsSize, index, sizeof(long)), value);
+        }
+
+        public void SetParam(int paramsSize, int index, IntPtr value)
+        {
+            WriteStack(GetParamAbsoluteOffset(paramsSize, index, IntPtr.Size), value);
+        }
+
+        public void SetParam(int paramsSize, int index, float value)
+        {
+            WriteStack(GetParamAbsoluteOffset(paramsSize, index, sizeof(float)), value);
+        }
+
+        public void SetParam(int paramsSize, int index, double value)
+        {
+            WriteStack(GetParamAbsoluteOffset(paramsSize, index, sizeof(double)), value);
         }
 
         public void Run()
@@ -501,6 +571,13 @@ namespace compiler
                     case Opcode.LC64:
                     {
                         long value = ReadCodeLong(ref ip);
+                        Push(value);
+                        break;
+                    }
+
+                    case Opcode.LCPTR:
+                    {
+                        IntPtr value = ReadCodePtr(ref ip);
                         Push(value);
                         break;
                     }
@@ -555,10 +632,45 @@ namespace compiler
                         break;
                     }
 
-                    case Opcode.LLA:
+                    case Opcode.LHA:
+                    {
+                        int offset = Pop();
+                        Push(ResidentToHostAddr(offset));
+                        break;
+                    }
+
+                    case Opcode.LGHA:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        Push(ResidentToHostAddr(offset));
+                        break;
+                    }
+
+                    case Opcode.LLHA:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        Push(ResidentToHostAddr(bp + offset));
+                        break;
+                    }
+
+                    case Opcode.LLRA:
                     {
                         int offset = ReadCodeInt(ref ip);
                         Push(bp + offset);
+                        break;
+                    }
+
+                    case Opcode.RHA:
+                    {
+                        int offset = Pop();
+                        Push(ResidentToHostAddr(offset));
+                        break;
+                    }
+
+                    case Opcode.HRA:
+                    {
+                        IntPtr addr = PopPtr();
+                        Push(HostToResidentAddr(addr));
                         break;
                     }
 
@@ -594,6 +706,14 @@ namespace compiler
                         break;
                     }
 
+                    case Opcode.LSPTR:
+                    {
+                        int addr = Pop();
+                        IntPtr value = ReadStackPtr(addr);
+                        Push(value);
+                        break;
+                    }
+
                     case Opcode.SS8:
                     {
                         int value = Pop();
@@ -621,6 +741,14 @@ namespace compiler
                     case Opcode.SS64:
                     {
                         long value = PopLong();
+                        int addr = Pop();
+                        WriteStack(addr, value);
+                        break;
+                    }
+
+                    case Opcode.SSPTR:
+                    {
+                        IntPtr value = PopPtr();
                         int addr = Pop();
                         WriteStack(addr, value);
                         break;
@@ -658,6 +786,14 @@ namespace compiler
                         break;
                     }
 
+                    case Opcode.LGPTR:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        IntPtr value = ReadStackPtr(offset);
+                        Push(value);
+                        break;
+                    }
+
                     case Opcode.LL8:
                     {
                         int offset = ReadCodeInt(ref ip);
@@ -686,6 +822,14 @@ namespace compiler
                     {
                         int offset = ReadCodeInt(ref ip);
                         long value = ReadStackLong(bp + offset);
+                        Push(value);
+                        break;
+                    }
+
+                    case Opcode.LLPTR:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        IntPtr value = ReadStackPtr(bp + offset);
                         Push(value);
                         break;
                     }
@@ -722,6 +866,14 @@ namespace compiler
                         break;
                     }
 
+                    case Opcode.SGPTR:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        IntPtr value = PopPtr();
+                        WriteStack(offset, value);
+                        break;
+                    }
+
                     case Opcode.SL8:
                     {
                         int offset = ReadCodeInt(ref ip);
@@ -751,6 +903,144 @@ namespace compiler
                         int offset = ReadCodeInt(ref ip);
                         long value = PopLong();
                         WriteStack(bp + offset, value);
+                        break;
+                    }
+
+                    case Opcode.SLPTR:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        IntPtr value = PopPtr();
+                        WriteStack(bp + offset, value);
+                        break;
+                    }
+
+                    case Opcode.LPTR8:
+                    {
+                        IntPtr addr = PopPtr();
+
+                        unsafe
+                        {
+                            byte result = *(byte*) addr;
+                            Push(result);
+                        }
+
+                        break;
+                    }
+
+                    case Opcode.LPTR16:
+                    {
+                        IntPtr addr = PopPtr();
+
+                        unsafe
+                        {
+                            short result = *(short*) addr;
+                            Push(result);
+                        }
+
+                        break;
+                    }
+
+                    case Opcode.LPTR32:
+                    {
+                        IntPtr addr = PopPtr();
+
+                        unsafe
+                        {
+                            int result = *(int*) addr;
+                            Push(result);
+                        }
+
+                        break;
+                    }
+
+                    case Opcode.LPTR64:
+                    {
+                        IntPtr addr = PopPtr();
+
+                        unsafe
+                        {
+                            long result = *(long*) addr;
+                            Push(result);
+                        }
+
+                        break;
+                    }
+
+                    case Opcode.LPTRPTR:
+                    {
+                        IntPtr addr = PopPtr();
+
+                        unsafe
+                        {
+                            IntPtr result = *(IntPtr *) addr;
+                            Push(result);
+                        }
+
+                        break;
+                    }
+
+                    case Opcode.SPTR8:
+                    {
+                        int value = Pop();
+                        IntPtr addr = PopPtr();
+
+                        unsafe
+                        {
+                            *((byte *) addr) = (byte) value;
+                        }
+
+                        break;
+                    }
+
+                    case Opcode.SPTR16:
+                    {
+                        int value = Pop();
+                        IntPtr addr = PopPtr();
+
+                        unsafe
+                        {
+                            *((short*) addr) = (short) value;
+                        }
+
+                        break;
+                    }
+
+                    case Opcode.SPTR32:
+                    {
+                        int value = Pop();
+                        IntPtr addr = PopPtr();
+
+                        unsafe
+                        {
+                            *((int*) addr) = value;
+                        }
+
+                        break;
+                    }
+
+                    case Opcode.SPTR64:
+                    {
+                        long value = PopLong();
+                        IntPtr addr = PopPtr();
+
+                        unsafe
+                        {
+                            *((long*) addr) = value;
+                        }
+
+                        break;
+                    }
+
+                    case Opcode.SPTRPTR:
+                    {
+                        IntPtr value = PopPtr();
+                        IntPtr addr = PopPtr();
+
+                        unsafe
+                        {
+                            *((IntPtr*) addr) = value;
+                        }
+
                         break;
                     }
 
@@ -1072,6 +1362,24 @@ namespace compiler
                         break;
                     }
 
+                    case Opcode.PTRADD:
+                    {
+                        int operand2 = Pop();
+                        IntPtr operand1 = PopPtr();
+                        IntPtr result = operand1 + operand2;
+                        Push(result);
+                        break;
+                    }
+
+                    case Opcode.PTRSUB:
+                    {
+                        int operand2 = Pop();
+                        IntPtr operand1 = PopPtr();
+                        IntPtr result = operand1 - operand2;
+                        Push(result);
+                        break;
+                    }
+
                     case Opcode.I32I64:
                     {
                         int operand = Pop();
@@ -1148,6 +1456,38 @@ namespace compiler
                     {
                         double operand = PopDouble();
                         float result = (float) operand;
+                        Push(result);
+                        break;
+                    }
+
+                    case Opcode.I32PTR:
+                    {
+                        int operand = Pop();
+                        IntPtr result = (IntPtr) operand;
+                        Push(result);
+                        break;
+                    }
+
+                    case Opcode.I64PTR:
+                    {
+                        long operand = PopLong();
+                        IntPtr result = (IntPtr) operand;
+                        Push(result);
+                        break;
+                    }
+
+                    case Opcode.PTRI32:
+                    {
+                        IntPtr operand = PopPtr();
+                        int result = (int) operand;
+                        Push(result);
+                        break;
+                    }
+
+                    case Opcode.PTRI64:
+                    {
+                        IntPtr operand = PopPtr();
+                        long result = (long) operand;
                         Push(result);
                         break;
                     }
@@ -1364,6 +1704,84 @@ namespace compiler
                         double operand2 = PopDouble();
                         double operand1 = PopDouble();
                         bool result = operand1 <= operand2;
+                        Push(result ? 1 : 0);
+                        break;
+                    }
+
+                    case Opcode.CMPEPTR:
+                    {
+                        IntPtr operand2 = PopPtr();
+                        IntPtr operand1 = PopPtr();
+                        bool result = operand1 == operand2;
+                        Push(result ? 1 : 0);
+                        break;
+                    }
+
+                    case Opcode.CMPNEPTR:
+                    {
+                        IntPtr operand2 = PopPtr();
+                        IntPtr operand1 = PopPtr();
+                        bool result = operand1 != operand2;
+                        Push(result ? 1 : 0);
+                        break;
+                    }
+
+                    case Opcode.CMPGPTR:
+                    {
+                        IntPtr operand2 = PopPtr();
+                        IntPtr operand1 = PopPtr();
+
+                        bool result;
+                        if (IntPtr.Size == sizeof(int))
+                            result = (int) operand1 > (int) operand2;
+                        else
+                            result = (long) operand1 > (long) operand2;
+
+                        Push(result ? 1 : 0);
+                        break;
+                    }
+
+                    case Opcode.CMPGEPTR:
+                    {
+                        IntPtr operand2 = PopPtr();
+                        IntPtr operand1 = PopPtr();
+
+                        bool result;
+                        if (IntPtr.Size == sizeof(int))
+                            result = (int) operand1 >= (int) operand2;
+                        else
+                            result = (long) operand1 >= (long) operand2;
+
+                        Push(result ? 1 : 0);
+                        break;
+                    }
+
+                    case Opcode.CMPLPTR:
+                    {
+                        IntPtr operand2 = PopPtr();
+                        IntPtr operand1 = PopPtr();
+
+                        bool result;
+                        if (IntPtr.Size == sizeof(int))
+                            result = (int) operand1 < (int) operand2;
+                        else
+                            result = (long) operand1 < (long) operand2;
+
+                        Push(result ? 1 : 0);
+                        break;
+                    }
+
+                    case Opcode.CMPLEPTR:
+                    {
+                        IntPtr operand2 = PopPtr();
+                        IntPtr operand1 = PopPtr();
+
+                        bool result;
+                        if (IntPtr.Size == sizeof(int))
+                            result = (int) operand1 <= (int) operand2;
+                        else
+                            result = (long) operand1 <= (long) operand2;
+
                         Push(result ? 1 : 0);
                         break;
                     }
@@ -1639,7 +2057,7 @@ namespace compiler
                         break;
                     }
 
-                    case Opcode.PSCAN:
+                    case Opcode.SCANSTR:
                     {
                         int addr = Pop();
                         string value = OnConsoleRead();
@@ -1675,7 +2093,7 @@ namespace compiler
                         break;
                     }
 
-                    case Opcode.PPRINT:
+                    case Opcode.PRINTSTR:
                     {
                         int addr = Pop();
                         string value = addr != 0 ? ReadStackString(addr) : "nulo";
@@ -1788,6 +2206,13 @@ namespace compiler
                         break;
                     }
 
+                    case Opcode.LCPTR:
+                    {
+                        long value = ReadCodeLong(ref ip);
+                        PrintLine(lastIP, op, "LCPTR " + value + " //" + BitConverter.ToDouble(BitConverter.GetBytes(value), 0).ToString(CultureInfo.InvariantCulture));
+                        break;
+                    }
+
                     case Opcode.LIP:
                     {
                         PrintLine(lastIP, op, "LIP");
@@ -1838,10 +2263,29 @@ namespace compiler
                         break;
                     }
 
-                    case Opcode.LLA:
+                    case Opcode.LLHA:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintLine(lastIP, op, "LLA " + offset + (offset < 0 ? " // param" : ""));
+                        PrintLine(lastIP, op, "LLHA " + offset + (offset < 0 ? " // param" : ""));
+                        break;
+                    }
+
+                    case Opcode.LLRA:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "LLRA " + offset + (offset < 0 ? " // param" : ""));
+                        break;
+                    }
+
+                    case Opcode.RHA:
+                    {
+                        PrintLine(lastIP, op, "RHA");
+                        break;
+                    }
+
+                    case Opcode.HRA:
+                    {
+                        PrintLine(lastIP, op, "RHA");
                         break;
                     }
 
@@ -1850,12 +2294,12 @@ namespace compiler
                         PrintLine(lastIP, op, "LS8");
                         break;
                     }
+
                     case Opcode.LS16:
                     {
                         PrintLine(lastIP, op, "LS16");
                         break;
                     }
-
 
                     case Opcode.LS32:
                     {
@@ -1866,6 +2310,12 @@ namespace compiler
                     case Opcode.LS64:
                     {
                         PrintLine(lastIP, op, "LS64");
+                        break;
+                    }
+
+                    case Opcode.LSPTR:
+                    {
+                        PrintLine(lastIP, op, "LSPTR");
                         break;
                     }
 
@@ -1890,6 +2340,12 @@ namespace compiler
                     case Opcode.SS64:
                     {
                         PrintLine(lastIP, op, "SS64");
+                        break;
+                    }
+
+                    case Opcode.SSPTR:
+                    {
+                        PrintLine(lastIP, op, "SSPTR");
                         break;
                     }
 
@@ -1921,6 +2377,13 @@ namespace compiler
                         break;
                     }
 
+                    case Opcode.LGPTR:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "LGPTR " + offset);
+                        break;
+                    }
+
                     case Opcode.LL8:
                     {
                         int offset = ReadCodeInt(ref ip);
@@ -1946,6 +2409,13 @@ namespace compiler
                     {
                         int offset = ReadCodeInt(ref ip);
                         PrintLine(lastIP, op, "LL64 " + offset + (offset < 0 ? " // param" : ""));
+                        break;
+                    }
+
+                    case Opcode.LLPTR:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "LLPTR " + offset + (offset < 0 ? " // param" : ""));
                         break;
                     }
 
@@ -1977,6 +2447,13 @@ namespace compiler
                         break;
                     }
 
+                    case Opcode.SGPTR:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "SGPTR " + offset);
+                        break;
+                    }
+
                     case Opcode.SL8:
                     {
                         int offset = ReadCodeInt(ref ip);
@@ -2002,6 +2479,73 @@ namespace compiler
                     {
                         int offset = ReadCodeInt(ref ip);
                         PrintLine(lastIP, op, "SL64 " + offset + (offset < 0 ? " // param" : ""));
+                        break;
+                    }
+
+                    case Opcode.SLPTR:
+                    {
+                        int offset = ReadCodeInt(ref ip);
+                        PrintLine(lastIP, op, "SLPTR " + offset + (offset < 0 ? " // param" : ""));
+                        break;
+                    }
+
+                    case Opcode.LPTR8:
+                    {
+                        PrintLine(lastIP, op, "LPTR8");
+                        break;
+                    }
+
+                    case Opcode.LPTR16:
+                    {
+                        PrintLine(lastIP, op, "LPTR16");
+                        break;
+                    }
+
+                    case Opcode.LPTR32:
+                    {
+                        PrintLine(lastIP, op, "LPTR32");
+                        break;
+                    }
+
+                    case Opcode.LPTR64:
+                    {
+                        PrintLine(lastIP, op, "LPTR64");
+                        break;
+                    }
+
+                    case Opcode.LPTRPTR:
+                    {
+                        PrintLine(lastIP, op, "LPTRPTR");
+                        break;
+                    }
+
+                    case Opcode.SPTR8:
+                    {
+                        PrintLine(lastIP, op, "SPTR8");
+                        break;
+                    }
+
+                    case Opcode.SPTR16:
+                    {
+                        PrintLine(lastIP, op, "SPTR16");
+                        break;
+                    }
+
+                    case Opcode.SPTR32:
+                    {
+                        PrintLine(lastIP, op, "SPTR32");
+                        break;
+                    }
+
+                    case Opcode.SPTR64:
+                    {
+                        PrintLine(lastIP, op, "SPTR64");
+                        break;
+                    }
+
+                    case Opcode.SPTRPTR:
+                    {
+                        PrintLine(lastIP, op, "SPTRPTR");
                         break;
                     }
 
@@ -2221,6 +2765,18 @@ namespace compiler
                         break;
                     }
 
+                    case Opcode.PTRADD:
+                    {
+                        PrintLine(lastIP, op, "PTRADD");
+                        break;
+                    }
+
+                    case Opcode.PTRADD64:
+                    {
+                        PrintLine(lastIP, op, "PTRADD64");
+                        break;
+                    }
+
                     case Opcode.I32I64:
                     {
                         PrintLine(lastIP, op, "I32I64");
@@ -2278,6 +2834,30 @@ namespace compiler
                     case Opcode.F64F32:
                     {
                         PrintLine(lastIP, op, "F64F32");
+                        break;
+                    }
+
+                    case Opcode.I32PTR:
+                    {
+                        PrintLine(lastIP, op, "I32PTR");
+                        break;
+                    }
+
+                    case Opcode.I64PTR:
+                    {
+                        PrintLine(lastIP, op, "I64PTR");
+                        break;
+                    }
+
+                    case Opcode.PTRI32:
+                    {
+                        PrintLine(lastIP, op, "PTRI32");
+                        break;
+                    }
+
+                    case Opcode.PTRI64:
+                    {
+                        PrintLine(lastIP, op, "PTRI64");
                         break;
                     }
 
@@ -2425,6 +3005,42 @@ namespace compiler
                         break;
                     }
 
+                    case Opcode.CMPEPTR:
+                    {
+                        PrintLine(lastIP, op, "CMPEPTR");
+                        break;
+                    }
+
+                    case Opcode.CMPNEPTR:
+                    {
+                        PrintLine(lastIP, op, "CMPNEPTR");
+                        break;
+                    }
+
+                    case Opcode.CMPGPTR:
+                    {
+                        PrintLine(lastIP, op, "CMPGPTR");
+                        break;
+                    }
+
+                    case Opcode.CMPGEPTR:
+                    {
+                        PrintLine(lastIP, op, "CMPGEPTR");
+                        break;
+                    }
+
+                    case Opcode.CMPLPTR:
+                    {
+                        PrintLine(lastIP, op, "CMPLPTR");
+                        break;
+                    }
+
+                    case Opcode.CMPLEPTR:
+                    {
+                        PrintLine(lastIP, op, "CMPLEPTR");
+                        break;
+                    }
+
                     case Opcode.JMP:
                     {
                         int offset = ReadCodeInt(ref ip);
@@ -2561,9 +3177,9 @@ namespace compiler
                         break;
                     }
 
-                    case Opcode.PSCAN:
+                    case Opcode.SCANSTR:
                     {
-                        PrintLine(lastIP, op, "PSCAN");
+                        PrintLine(lastIP, op, "SCANSTR");
                         break;
                     }
 
@@ -2591,9 +3207,9 @@ namespace compiler
                         break;
                     }
 
-                    case Opcode.PPRINT:
+                    case Opcode.PRINTSTR:
                     {
-                        PrintLine(lastIP, op, "PPRINT");
+                        PrintLine(lastIP, op, "PRINTSTR");
                         break;
                     }
 

@@ -4,6 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using compiler.types;
+using assembler;
+
 namespace compiler
 {
     public class Function
@@ -67,9 +70,9 @@ namespace compiler
 
             parameters = new List<Parameter>();
             returnType = PrimitiveType.VOID;
-            parameterOffset = -8;
+            parameterOffset = -2 * sizeof(int);
             localVariableOffset = 0;
-            returnOffset = -8;
+            returnOffset = -2 * sizeof(int);
         }
 
         internal void CreateEntryLabel()
@@ -103,7 +106,7 @@ namespace compiler
             if (localVariableOffset > 0)
                 assembler.EmitSubSP(localVariableOffset);
 
-            int count = -parameterOffset - 8;
+            int count = -parameterOffset - 2 * sizeof(int);
             if (count > 0)
                 assembler.EmitRetN(count);
             else
@@ -128,7 +131,7 @@ namespace compiler
             if (result != null)
                 return null;
 
-            parameterOffset -= byRef ? 4 : type.Size();
+            parameterOffset -= byRef ? IntPtr.Size : type.Size();
             result = new Parameter(this, name, type, parameterOffset, byRef);            
             parameters.Add(result);
 
@@ -141,11 +144,11 @@ namespace compiler
 
         public void ComputeParametersOffsets()
         {
-            int offset = -8;
+            int offset = -2 * sizeof(int);
             for (int i = parameters.Count - 1; i >= 0; i--)
             {
                 Parameter parameter = parameters[i];
-                offset -= parameter.ByRef ? 4 : parameter.Type.Size();
+                offset -= parameter.ByRef ? IntPtr.Size : parameter.Type.Size();
                 parameter.Offset = offset;
             }
         }

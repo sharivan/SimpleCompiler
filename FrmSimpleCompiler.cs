@@ -11,6 +11,9 @@ using System.Windows.Forms;
 using System.Threading;
 
 using compiler;
+using compiler.types;
+using assembler;
+using vm;
 
 namespace SimpleCompiler
 {
@@ -22,7 +25,7 @@ namespace SimpleCompiler
         private bool vmRunning = false;
         private VM vm;
         private Thread vmThread;
-        private object inputLock = new object ();
+        private object inputLock = new object();
         private bool waitingForInput = false;
         private string input = null;
 

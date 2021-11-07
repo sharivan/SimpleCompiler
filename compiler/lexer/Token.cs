@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace compiler
+namespace compiler.lexer
 {
     public abstract class Token
     {
