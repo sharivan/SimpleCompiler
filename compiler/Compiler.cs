@@ -3081,11 +3081,13 @@ namespace compiler
             }
             else if (statement is ForStatement f)
             {
+                Context forContext = new Context(function, context);
+
                 // inicializadores
                 for (int j = 0; j < f.InitializerCount; j++)
                 {
                     InitializerStatement initializer = f.GetInitializer(j);
-                    CompileStatement(function, context, assembler, initializer);
+                    CompileStatement(function, forContext, assembler, initializer);
                 }
 
                 Label lblLoop = CreateLabel();
@@ -3095,7 +3097,7 @@ namespace compiler
                 Expression expression = f.Expression;
                 if (expression != null)
                 {
-                    AbstractType expressionType = CompileExpression(function, context, assembler, expression);
+                    AbstractType expressionType = CompileExpression(function, forContext, assembler, expression);
                     if (!PrimitiveType.IsPrimitiveBool(expressionType))
                         throw new CompilerException(expression.Interval, "Expressão do tipo bool esperada.");
                 }
@@ -3103,33 +3105,33 @@ namespace compiler
                     assembler.EmitLoadConst(true);
 
                 Label lblEnd = CreateLabel();
-                context.PushBreakLabel(lblEnd);
+                forContext.PushBreakLabel(lblEnd);
 
                 assembler.EmitJumpIfFalse(lblEnd);
 
                 Statement stm = f.Statement;
-                CompileStatement(function, context, assembler, stm);
+                CompileStatement(function, forContext, assembler, stm);
 
                 // atualizadores
                 for (int j = 0; j < f.UpdaterCount; j++)
                 {
                     Expression updater = f.GetUpdater(j);
-                    AbstractType updaterType = CompileExpression(function, context, assembler, updater);
+                    AbstractType updaterType = CompileExpression(function, forContext, assembler, updater);
                     CompilePop(assembler, updaterType);
                 }
 
                 assembler.EmitJump(lblLoop);
                 assembler.BindLabel(lblEnd);
 
-                context.DropBreakLabel();
+                forContext.DropBreakLabel();
             }
             else if (statement is BlockStatement bl)
             {
-                Context newContext = new Context(function, context);
+                Context blockContext = new Context(function, context);
                 for (int j = 0; j < bl.StatementCount; j++)
                 {
                     Statement stm = bl[j];
-                    CompileStatement(function, newContext, assembler, stm);
+                    CompileStatement(function, blockContext, assembler, stm);
                 }
             }
             else
