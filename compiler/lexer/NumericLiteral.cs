@@ -6,7 +6,7 @@ namespace compiler.lexer
 {
     public abstract class NumericLiteral : Literal
     {
-        public NumericLiteral(SourceInterval interval) : base(interval)
+        protected NumericLiteral(SourceInterval interval) : base(interval)
         {
         }
 

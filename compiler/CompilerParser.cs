@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -488,7 +489,7 @@ namespace compiler
             return leftOperand;
         }
 
-        public AbstractType ParseType(bool allowVoid = false)
+        private AbstractType ParseType(bool allowVoid = false)
         {
             AbstractType result = null;
 
@@ -551,7 +552,7 @@ namespace compiler
             if (result == null)
             {
                 Identifier id = lexer.NextIdentifier();
-                result = FindStruct(id.Name);
+                result = unity.FindStruct(id.Name);
                 if (result == null)
                     throw new CompilerException(id.Interval, "Tipo não declarado: '" + id.Name + "'");
             }
@@ -605,7 +606,7 @@ namespace compiler
             }
         }
 
-        public void ParseParamsDeclaration(Function function)
+        private void ParseParamsDeclaration(Function function)
         {
             while (true)
             {
@@ -626,7 +627,7 @@ namespace compiler
             function.ComputeParametersOffsets();
         }
 
-        public void ParseFieldsDeclaration(StructType st)
+        private void ParseFieldsDeclaration(StructType st)
         {
             while (true)
             {
@@ -799,7 +800,12 @@ namespace compiler
                         PrintStatement result = new PrintStatement(kw.Interval, kw.Value == "escrevaln");
 
                         if (lexer.NextSymbol(";", false) != null)
+                        {
+                            if (result.LineBreak)
+                                return result;
+
                             throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos), "Expressão esperada.");
+                        }
 
                         Expression expression = ParseExpression();
                         result.AddExpression(expression);
@@ -845,7 +851,7 @@ namespace compiler
             return new ExpressionStatement(expr.Interval, expr);
         }
 
-        public BlockStatement ParseBlock()
+        private BlockStatement ParseBlock()
         {
             BlockStatement result = new BlockStatement(lexer.CurrentInterval(lexer.CurrentPos));
             while (lexer.NextSymbol("}", false) == null)
@@ -872,10 +878,12 @@ namespace compiler
             return result;
         }
 
-        public void ParseFunctionDeclaration()
+        private void ParseFunctionDeclaration()
         {
+            bool isExtern = lexer.NextKeyword("externa", false) != null;
+
             Identifier id = lexer.NextIdentifier();
-            Function f = DeclareFunction(id.Name);
+            Function f = unity.DeclareFunction(id.Name, isExtern);
             if (f == null)
                 throw new CompilerException(id.Interval, "Função '" + id.Name + "' já declarada.");
 
@@ -892,17 +900,22 @@ namespace compiler
                 f.ReturnType = type;
             }
 
-            lexer.NextSymbol("{");
+            if (isExtern)
+                lexer.NextSymbol(";");
+            else
+            {
+                lexer.NextSymbol("{");
 
-            f.CreateEntryLabel();
-            f.CreateReturnLabel();
-            f.Block = ParseBlock();
+                f.CreateEntryLabel();
+                f.CreateReturnLabel();
+                f.Block = ParseBlock();
+            }
         }
 
-        public void ParseStructDeclaration()
+        private void ParseStructDeclaration()
         {
             Identifier id = lexer.NextIdentifier();
-            StructType st = DeclareStruct(id.Name);
+            StructType st = unity.DeclareStruct(id.Name);
             if (st == null)
                 throw new CompilerException(id.Interval, "Estrutura '" + id.Name + "' já declarada.");
 
@@ -911,17 +924,52 @@ namespace compiler
                 ParseFieldsDeclaration(st);
         }
 
-        public bool ParseDeclaration()
+        private void AddImport(SourceInterval interval, string unityName)
+        {
+            CompilationUnity.ImportResult r = unity.AddImport(unityName, out CompilationUnity importedUnity);
+            switch (r)
+            {
+                case CompilationUnity.ImportResult.SELF_REFERENCE_UNITY:
+                    throw new CompilerException(interval, "Não se pode usar uma unidade dentro dela própria.");
+
+                case CompilationUnity.ImportResult.UNITY_ALREADY_IMPORTED:
+                    throw new CompilerException(interval, "Unidade '" + unityName + "' já está sendo usada.");
+
+                case CompilationUnity.ImportResult.UNITY_IS_PROGRAM:
+                    throw new CompilerException(interval, "Não se pode usar um programa dentro de uma unidade ou programa.");
+
+                case CompilationUnity.ImportResult.UNITY_NOT_FOUND:
+                    throw new CompilerException(interval, "Unidade '" + unityName + "' não encontrada.");
+            }
+        }
+
+        private bool ParseDeclaration()
         {
             Keyword kw = lexer.NextKeyword(false);
             if (kw != null)
             {
                 switch (kw.Value)
                 {
+                    case "usando":
+                    {
+                        Identifier id = lexer.NextIdentifier();
+                        AddImport(id.Interval, id.Name);
+
+                        while (lexer.NextSymbol(",", false) != null)
+                        {
+                            id = lexer.NextIdentifier();
+                            AddImport(id.Interval, id.Name);
+                        }
+
+                        lexer.NextSymbol(";");
+
+                        return true;
+                    }
+
                     case "var":
                     {
                         DeclarationStatement declaration = ParseVariableDeclaration();
-                        CompileVariableDeclaration(null, null, null, declaration);
+                        CompileVariableDeclaration(null, null, declaration);
                         lexer.NextSymbol(";");
                         return true;
                     }
@@ -938,36 +986,122 @@ namespace compiler
                 lexer.PreviusToken();
             }
 
-            Symbol start = lexer.NextSymbol("{");
+            Symbol start = lexer.NextSymbol("{", false);
+            if (start != null)
+            {
+                Function f = unity.DeclareFunction("@main", false);
+                if (f == null)
+                    throw new CompilerException(start.Interval, "Ponto de entrada já declarado.");
 
-            Function f = DeclareFunction("@main");
-            if (f == null)
-                throw new CompilerException(start.Interval, "Ponto de entrada já declarado.");
+                unity.EntryPoint = f;
 
-            entryPoint = f;
+                f.CreateEntryLabel();
+                f.CreateReturnLabel();
+                f.Block = ParseBlock();
 
-            f.CreateEntryLabel();
-            f.CreateReturnLabel();
-            f.Block = ParseBlock();
+                return true;
+            }
 
+            lexer.NextSymbol("}", true, "Declaração ou '}' esperados.");
             return false;
         }
 
-        public void ParseProgram()
+        private CompilationUnity ParseCompilationUnityFromFile(string fileName, bool programOnly = false)
         {
-            lexer.NextKeyword("programa");
-            lexer.NextIdentifier();
-            lexer.NextSymbol("{");
+            return ParseCompilationUnity(fileName, File.OpenText(fileName), programOnly);
+        }
 
-            while (ParseDeclaration())
+        private CompilationUnity ParseCompilationUnityFromSource(int sourceID, string source, bool programOnly = false)
+        {
+            return ParseCompilationUnity("#" + sourceID, new StringReader(source), programOnly);
+        }
+
+        private CompilationUnity ParseCompilationUnity(string fileName, TextReader input, bool programOnly = false)
+        {
+            CompilationUnity oldUnity = unity;
+            Lexer oldLexer = lexer;
+            
+            using (lexer = Lexer.CreateFromReader(fileName, input))
             {
+                bool isUnity = false;
+                if (lexer.NextKeyword("programa", false) == null)
+                {
+                    if (programOnly)
+                        throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos), "'programa' esperado.");
+
+                    if (lexer.NextKeyword("unidade", false) == null)
+                        throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos), "'programa' ou 'unidade' esperado.");
+
+                    isUnity = true;
+                }
+                else if (program != null)
+                    throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos), "Não pode haver mais que um programa.");
+
+                Identifier id = lexer.NextIdentifier();
+                string name = id.Name;
+ 
+                unity = new CompilationUnity(this, name, fileName, isUnity);
+                unity.parsed = true;
+
+                if (unity.Name != "System")
+                    unity.AddImport(unitySystem, out _);
+
+                if (!isUnity)
+                    program = unity;
+
+                lexer.NextSymbol("{");
+
+                while (ParseDeclaration())
+                {
+                }
+
+                Token token = lexer.NextToken();
+                if (token != null)
+                    throw new CompilerException(token.Interval, "Fim do arquivo esperado mas " + token + " encontrado.");
+
+                globalVariableOffset += unity.GlobalVariableSize;  
             }
 
-            lexer.NextSymbol("}");
+            CompilationUnity result = unity;
+            lexer = oldLexer;
+            unity = oldUnity;
+            return result;
+        }
 
-            Token token = lexer.NextToken();
-            if (token != null)
-                throw new CompilerException(token.Interval, "Fim do programa esperado mas " + token + " encontrado.");
+        private void ParseCompilationUnity(CompilationUnity unity)
+        {
+            CompilationUnity oldUnity = unity;
+            Lexer oldLexer = lexer;
+            unity.parsed = true;
+
+            using (lexer = Lexer.CreateFromFile(unity.FileName))
+            {
+                if (lexer.NextKeyword("unidade", false) == null)
+                    throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos), "'unidade' esperado.");
+
+                Identifier id = lexer.NextIdentifier();
+                string name = id.Name;
+
+                if (unity.Name != name)
+                    throw new CompilerException(id.Interval, "Nome da unidade é diferente do nome do arquivo.");
+
+                this.unity = unity;
+
+                lexer.NextSymbol("{");
+
+                while (ParseDeclaration())
+                {
+                }
+
+                Token token = lexer.NextToken();
+                if (token != null)
+                    throw new CompilerException(token.Interval, "Fim do arquivo esperado mas " + token + " encontrado.");
+
+                globalVariableOffset += unity.GlobalVariableSize;
+            }
+
+            lexer = oldLexer;
+            unity = oldUnity;
         }
     }
 }

@@ -13,7 +13,7 @@ namespace compiler.lexer
 
         public double Value => value;
 
-        public DoubleLiteral(SourceInterval interval, double value) : base(interval)
+        internal DoubleLiteral(SourceInterval interval, double value) : base(interval)
         {
             this.value = value;
         }

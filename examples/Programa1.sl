@@ -25,8 +25,11 @@ programa Programa1
 		var y:int;
 		var z:real;
 		
+		escrevaln "Digite um número inteiro para x:";
 		leia x;
+		escrevaln "Digite um número inteiro para y:";
 		leia y;
+		escrevaln "Digite um número real para z:";
 		leia z;
 		
 		var w:int = g(x, y);
@@ -39,6 +42,6 @@ programa Programa1
 		v.x = 8;
 		v.y = 9.9E4;
 		
-		escreva "a=", a, "\nv.x=", v.x, "\nv.y=", v.y;
+		escrevaln "a=", a, "\nv.x=", v.x, "\nv.y=", v.y;
 	}
 }

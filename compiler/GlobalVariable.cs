@@ -10,15 +10,19 @@ namespace compiler
 {
     public class GlobalVariable : Variable
     {
+        private CompilationUnity unity;
         private bool initialValueSet;
         private object initialValue;
+
+        public CompilationUnity Unity => unity;
 
         public bool HasInitialValue => initialValueSet;
 
         public object InitialValue
         {
             get => initialValue;
-            set => initialValue = value;
+
+            internal set => initialValue = value;
         }
 
         public bool InitialValueBool => (bool) initialValue;
@@ -40,15 +44,18 @@ namespace compiler
         public string InitialValueString => (string) initialValue;
 
 
-        public GlobalVariable(string name, AbstractType type, int offset) :
+        internal GlobalVariable(CompilationUnity unity, string name, AbstractType type, int offset) :
             base(name, type, offset)
         {
+            this.unity = unity;
+
             initialValueSet = false;
         }
 
-        public GlobalVariable(string name, AbstractType type, int offset, object initialValue) : 
+        internal GlobalVariable(CompilationUnity unity, string name, AbstractType type, int offset, object initialValue) : 
             base(name, type, offset)
         {
+            this.unity = unity;
             this.initialValue = initialValue;
 
             initialValueSet = true;

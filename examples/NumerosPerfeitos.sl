@@ -20,10 +20,13 @@ programa NumerosPerfeitos
 
 	{
 		var n:int;
+
+		escrevaln "Digite um número inteiro:";
 		leia n;
+
 		se (É_Perfeito(n))
-			escreva 1;
+			escrevaln n, " é perfeito.";
 		senão
-			escreva 0;
+			escrevaln n, " não é perfeito.";
 	}
 }

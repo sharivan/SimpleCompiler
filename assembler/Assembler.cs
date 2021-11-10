@@ -18,7 +18,7 @@ namespace assembler
         private BinaryWriter constantWritter;
         private List<Label> issuedLabels;
         private List<Label> bindedLabels;
-        private List<string> externalFunctions;
+        private List<Tuple<string, int>> externalFunctions;
 
         public long Position
         {
@@ -41,41 +41,35 @@ namespace assembler
             constantWritter = new BinaryWriter(constantOut);
             issuedLabels = new List<Label>();
             bindedLabels = new List<Label>();
-            externalFunctions = new List<string>();
+            externalFunctions = new List<Tuple<string, int>>();
         }
 
-        public int AddExternalFunction(string name)
+        public void AddExternalFunctionNames(Tuple<string, int>[] entries)
         {
-            if (externalFunctions.Contains(name))
-                throw new Exception("External function '" + name + "' already added.");
-
-            externalFunctions.Add(name);
-            return externalFunctions.Count - 1;
+            externalFunctions.AddRange(entries);
         }
 
-        public int GetExternalFunctionIndex(string name)
-        {
-            return externalFunctions.IndexOf(name);
-        }
-
-        public int GetOrAddExternalFunction(string name)
-        {
-            int index = externalFunctions.IndexOf(name);
-            if (index != -1)
-                return index;
-
-            externalFunctions.Add(name);
-            return externalFunctions.Count - 1;
-        }
-
-        public string GetExternalFunctionName(int index)
+        public Tuple<string, int> GetExternalFunction(int index)
         {
             return externalFunctions[index];
         }
 
-        public byte[] GetCode()
+        public void CopyCode(byte[] output)
         {
-            return output.ToArray();
+            CopyCode(output, 0, output.Length);
+        }
+
+        public void CopyCode(byte[] output, int off, int len)
+        {
+            long count = this.output.Position;
+            this.output.Position = 0;
+            this.output.Read(output, off, len);
+            this.output.Position = count;
+        }
+
+        public void CopyCode(Stream output)
+        {
+            this.output.WriteTo(output);
         }
 
         public byte[] GetConstantBuffer()
@@ -158,9 +152,14 @@ namespace assembler
             constantWritter.Write(value, index, count);
         }
 
-        public void Reset()
+        public void Clear()
         {
             output.Position = 0;
+            constantOut.Position = 0;
+
+            issuedLabels.Clear();
+            bindedLabels.Clear();
+            externalFunctions.Clear();
         }
 
         public void EmitData(byte value)
@@ -229,8 +228,7 @@ namespace assembler
         public void Emit(Assembler other)
         {
             long startPosition = output.Position;
-            byte[] code = other.GetCode();
-            output.Write(code, 0, code.Length);
+            other.CopyCode(output);
 
             for (int i = 0; i < other.issuedLabels.Count; i++)
             {
@@ -1129,6 +1127,12 @@ namespace assembler
             writer.Write((byte) Opcode.ICALL);
         }
 
+        public void EmitExternCall(int index)
+        {
+            writer.Write((byte) Opcode.ECALL);
+            writer.Write(index);
+        }
+
         public void EmitRet()
         {
             writer.Write((byte) Opcode.RET);
@@ -1183,6 +1187,16 @@ namespace assembler
         public void EmitScanString()
         {
             writer.Write((byte) Opcode.SCANSTR);
+        }
+
+        public void EmitPrintB()
+        {
+            writer.Write((byte) Opcode.PRINTB);
+        }
+
+        public void EmitPrintC()
+        {
+            writer.Write((byte) Opcode.PRINTC);
         }
 
         public void EmitPrint32()

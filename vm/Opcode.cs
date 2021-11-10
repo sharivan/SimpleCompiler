@@ -170,11 +170,14 @@
 		FSCAN, // escaneia um float da entrada externa
 		FSCAN64, // escaneia um double da entrada externa
 		SCANSTR, // escaneia uma string na entrada externa
+		PRINTB, // imprime um bool na saída externa
+		PRINTC, // imprime um caractere na saída externa
 		PRINT32, // imprime um inteiro na saída externa
 		PRINT64, // imprime um long na saída externa
 		FPRINT, // imprime um float na saída externa
 		FPRINT64, // imprime um double na saída externa
 		PRINTSTR, // imprime uma string na saída externa
-		HALT // encerra o programa
+		HALT, // encerra o programa
+		BREAK // pausa a execução do programa (breakpoint)
 	}
 }

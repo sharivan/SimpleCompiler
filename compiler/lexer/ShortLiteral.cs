@@ -12,7 +12,7 @@ namespace compiler.lexer
 
         public short Value => value;
 
-        public ShortLiteral(SourceInterval interval, short value) : base(interval)
+        internal ShortLiteral(SourceInterval interval, short value) : base(interval)
         {
             this.value = value;
         }

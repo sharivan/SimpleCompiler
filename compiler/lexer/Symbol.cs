@@ -83,7 +83,7 @@ namespace compiler.lexer
 
         public string Value => value;
 
-        public Symbol(SourceInterval interval, string value) : base(interval)
+        internal Symbol(SourceInterval interval, string value) : base(interval)
         {
             this.value = value;
         }

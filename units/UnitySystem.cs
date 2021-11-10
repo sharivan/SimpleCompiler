@@ -13,135 +13,141 @@ namespace units
     {
         public static readonly Dictionary<string, VM.ExternalFunctionHandler> FUNCTIONS;
 
-        [DllImport("kernel32.dll", EntryPoint = "CopyMemory", SetLastError = false)]
-        public static extern void KernelCopyMemory(IntPtr dest, IntPtr src, int count);
+        private static readonly int COPY_MEMORY_PARM_SIZE = 2 * IntPtr.Size + sizeof(int);
+        private static readonly int STRING_LENGTH_PARM_SIZE = IntPtr.Size + sizeof(int);
+        private static readonly int COPY_STRING_PARM_SIZE = 2 * IntPtr.Size;
+        private static readonly int CONCATENATE_STRING_PARM_SIZE = 3 * IntPtr.Size;
+        private static readonly int STRING_TO_LONG_PARM_SIZE = IntPtr.Size + sizeof(long);
+
+        private static readonly int INT_PTR_COUNT = IntPtr.Size / sizeof(int);
 
         public static void CopyMemory(VM vm)
         {
-            int src = vm.LoadParam(3 * sizeof(int), 0);
-            int dst = vm.LoadParam(3 * sizeof(int), 1);
-            int len = vm.LoadParam(3 * sizeof(int), 2);
+            IntPtr src = vm.LoadParamPtr(COPY_MEMORY_PARM_SIZE, 0);
+            IntPtr dst = vm.LoadParamPtr(COPY_MEMORY_PARM_SIZE, INT_PTR_COUNT);
+            int len = vm.LoadParam(COPY_MEMORY_PARM_SIZE, 2 * INT_PTR_COUNT);
 
-            vm.MoveBlock(src, dst, len);
+            vm.MovePointerBlock(src, dst, len);
         }
 
         public static void StringLength(VM vm)
         {
-            int str = vm.LoadParam(2 * sizeof(int), 1);
+            IntPtr str = vm.LoadParamPtr(STRING_LENGTH_PARM_SIZE, 1);
 
-            string s = vm.ReadStackString(str);
+            string s = vm.ReadPointerString(str);
 
-            vm.SetParam(2 * sizeof(int), 0, s.Length);
+            vm.SetParam(STRING_LENGTH_PARM_SIZE, 0, s.Length);
         }
 
         public static void CopyString(VM vm)
         {
-            int dst = vm.LoadParam(2 * sizeof(int), 0);
-            int src = vm.LoadParam(2 * sizeof(int), 1);           
+            IntPtr src = vm.LoadParamPtr(COPY_STRING_PARM_SIZE, 0);
+            IntPtr dst = vm.LoadParamPtr(COPY_STRING_PARM_SIZE, INT_PTR_COUNT);           
 
-            string s = vm.ReadStackString(src);
+            string s = vm.ReadPointerString(src);
 
-            vm.WriteStack(dst, s);
+            vm.WritePointer(dst, s);
         }
 
         public static void ConcatenateStrings(VM vm)
         {
-            int dst = vm.LoadParam(2 * sizeof(int), 0);
-            int src = vm.LoadParam(2 * sizeof(int), 1);
-
-            string s2 = vm.ReadStackString(dst);
-            string s1 = vm.ReadStackString(src);
+            IntPtr dst = vm.LoadParamPtr(CONCATENATE_STRING_PARM_SIZE, 0);
+            IntPtr src1 = vm.LoadParamPtr(CONCATENATE_STRING_PARM_SIZE, INT_PTR_COUNT);
+            IntPtr src2 = vm.LoadParamPtr(CONCATENATE_STRING_PARM_SIZE, 2 * INT_PTR_COUNT);
             
-            vm.WriteStack(dst, s2 + s1);
+            string s1 = vm.ReadPointerString(src1);
+            string s2 = vm.ReadPointerString(src2);
+
+            vm.WritePointer(dst, s1 + s2);
         }
 
         public static void CompareStyrings(VM vm)
         {
-            int str1 = vm.LoadParam(3 * sizeof(int), 1);
-            int str2 = vm.LoadParam(3 * sizeof(int), 2);
+            IntPtr str1 = vm.LoadParamPtr(COPY_MEMORY_PARM_SIZE, 1);
+            IntPtr str2 = vm.LoadParamPtr(COPY_MEMORY_PARM_SIZE, 1 + INT_PTR_COUNT);
 
-            string s1 = vm.ReadStackString(str1);
-            string s2 = vm.ReadStackString(str2);
+            string s1 = vm.ReadPointerString(str1);
+            string s2 = vm.ReadPointerString(str2);
 
-            vm.SetParam(3 * sizeof(int), 0, s1 == s2 ? 1 : 0);
+            vm.SetParam(COPY_MEMORY_PARM_SIZE, 0, s1 == s2 ? 1 : 0);
         }
 
         public static void StringToInt(VM vm)
         {
-            int str = vm.LoadParam(2 * sizeof(int), 1);
+            IntPtr str = vm.LoadParamPtr(STRING_LENGTH_PARM_SIZE, 1);
 
-            string s = vm.ReadStackString(str);
+            string s = vm.ReadPointerString(str);
 
             try
             {
-                vm.SetParam(2 * sizeof(int), 0, int.Parse(s));
+                vm.SetParam(STRING_LENGTH_PARM_SIZE, 0, int.Parse(s));
             }
             catch (Exception)
             {
-                vm.SetParam(2 * sizeof(int), 0, 0);
+                vm.SetParam(STRING_LENGTH_PARM_SIZE, 0, 0);
             }
         }
 
         public static void StringToLong(VM vm)
         {
-            int str = vm.LoadParam(2 * sizeof(int), 1);
+            IntPtr str = vm.LoadParamPtr(STRING_TO_LONG_PARM_SIZE, 2);
 
-            string s = vm.ReadStackString(str);
+            string s = vm.ReadPointerString(str);
 
             try
             {
-                vm.SetParam(2 * sizeof(int), 0, long.Parse(s));
+                vm.SetParam(STRING_TO_LONG_PARM_SIZE, 0, long.Parse(s));
             }
             catch (Exception)
             {
-                vm.SetParam(2 * sizeof(int), 0, 0L);
+                vm.SetParam(STRING_TO_LONG_PARM_SIZE, 0, 0L);
             }
         }
 
         public static void StringToFloat(VM vm)
         {
-            int str = vm.LoadParam(2 * sizeof(int), 1);
+            IntPtr str = vm.LoadParamPtr(STRING_LENGTH_PARM_SIZE, 1);
 
-            string s = vm.ReadStackString(str);
+            string s = vm.ReadPointerString(str);
 
             try
             {
-                vm.SetParam(2 * sizeof(int), 0, float.Parse(s));
+                vm.SetParam(STRING_LENGTH_PARM_SIZE, 0, float.Parse(s));
             }
             catch (Exception)
             {
-                vm.SetParam(2 * sizeof(int), 0, 0F);
+                vm.SetParam(STRING_LENGTH_PARM_SIZE, 0, 0F);
             }
         }
 
         public static void StringToDouble(VM vm)
         {
-            int str = vm.LoadParam(2 * sizeof(int), 1);
+            IntPtr str = vm.LoadParamPtr(STRING_TO_LONG_PARM_SIZE, 2);
 
-            string s = vm.ReadStackString(str);
+            string s = vm.ReadPointerString(str);
 
             try
             {
-                vm.SetParam(2 * sizeof(int), 0, double.Parse(s));
+                vm.SetParam(STRING_TO_LONG_PARM_SIZE, 0, double.Parse(s));
             }
             catch (Exception)
             {
-                vm.SetParam(2 * sizeof(int), 0, 0.0);
+                vm.SetParam(STRING_TO_LONG_PARM_SIZE, 0, 0.0);
             }
         }
 
         static UnitySystem()
         {
             FUNCTIONS = new Dictionary<string, VM.ExternalFunctionHandler>();
-            FUNCTIONS.Add("CopyMemory", CopyMemory);
-            FUNCTIONS.Add("StringLength", StringLength);
-            FUNCTIONS.Add("CopyString", CopyString);
-            FUNCTIONS.Add("ConcatenateStrings", ConcatenateStrings);
-            FUNCTIONS.Add("CompareStyrings", CompareStyrings);
-            FUNCTIONS.Add("StringToInt", StringToInt);
-            FUNCTIONS.Add("StringToLong", StringToLong);
-            FUNCTIONS.Add("StringToFloat", StringToFloat);
-            FUNCTIONS.Add("StringToDouble", StringToDouble);
+            FUNCTIONS.Add("CopiaMemória", CopyMemory);
+            FUNCTIONS.Add("ComprimentoString", StringLength);
+            FUNCTIONS.Add("CopiaString", CopyString);
+            FUNCTIONS.Add("ConcatenaStrings", ConcatenateStrings);
+            FUNCTIONS.Add("CompareStrings", CompareStyrings);
+            FUNCTIONS.Add("StringParaInt", StringToInt);
+            FUNCTIONS.Add("StringParaLong", StringToLong);
+            FUNCTIONS.Add("StringParaFloat", StringToFloat);
+            FUNCTIONS.Add("StringParaReal", StringToDouble);
         }
     }
 }

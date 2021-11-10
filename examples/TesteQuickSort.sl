@@ -50,7 +50,10 @@ programa TesteQuickSort
 		var a:int[4];
 
 		para (var i:int = 0; i < 4; i++)
+		{
+			escrevaln "Digite um númeero inteiro para a[", i, "]";
 			leia a[i];
+		}
 		
 		QuickSort(a, 0, 3);
 		

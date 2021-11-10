@@ -14,36 +14,18 @@ namespace compiler
         private AbstractType type;
         private int offset;
 
-        public string Name
-        {
-            get
-            {
-                return name;
-            }
-        }
+        public string Name => name;
 
-        public AbstractType Type
-        {
-            get
-            {
-                return type;
-            }
-        }
+        public AbstractType Type => type;
 
         public int Offset
         {
-            get
-            {
-                return offset;
-            }
+            get => offset;
 
-            set
-            {
-                offset = value;
-            }
+            internal set => offset = value;
         }
 
-        public Variable(string name, AbstractType type, int offset)
+        protected Variable(string name, AbstractType type, int offset)
         {
             this.name = name;
             this.type = type;

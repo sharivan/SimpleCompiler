@@ -8,39 +8,31 @@ namespace compiler.types
 {
     public class StructType : AbstractType
     {
+        private CompilationUnity unity;
         private string name;
+        private int fieldAlignSize;
+
         private List<Field> fields;
         private int size;
 
-        public string Name
-        {
-            get
-            {
-                return name;
-            }
-        }
+        public CompilationUnity Unity => unity;
 
-        public int FieldCount
-        {
-            get
-            {
-                return fields.Count;
-            }
-        }
+        public string Name => name;
 
-        public Field this[int index]
-        {
-            get
-            {
-                return fields[index];
-            }
-        }
+        public int FieldAlignSize => fieldAlignSize;
 
-        public StructType(string name)
+        public int FieldCount => fields.Count;
+
+        public Field this[int index] => fields[index];
+
+        internal StructType(CompilationUnity unity, string name, int fieldAlignSize = sizeof(byte))
         {
+            this.unity = unity;
             this.name = name;
+            this.fieldAlignSize = fieldAlignSize;
 
             fields = new List<Field>();
+
             size = 0;
         }
 
@@ -56,14 +48,14 @@ namespace compiler.types
             return null;
         }
 
-        public Field DeclareField(string name, AbstractType type)
+        internal Field DeclareField(string name, AbstractType type)
         {
             Field result = FindField(name);
             if (result != null)
                 return null;
 
             result = new Field(this, name, type, size);
-            size += type.Size();
+            size += Compiler.GetAlignedSize(type.Size(), fieldAlignSize);
             fields.Add(result);
             return result;
         }

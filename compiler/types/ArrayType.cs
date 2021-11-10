@@ -11,38 +11,20 @@ namespace compiler.types
         private AbstractType type;
         private List<int> boundaries;
 
-        public AbstractType Type
-        {
-            get
-            {
-                return type;
-            }
-        }
+        public AbstractType Type => type;
 
-        public int Rank
-        {
-            get
-            {
-                return boundaries.Count;
-            }
-        }
+        public int Rank => boundaries.Count;
 
-        public int this[int index]
-        {
-            get
-            {
-                return boundaries[index];
-            }
-        }
+        public int this[int index] => boundaries[index];
 
-        public ArrayType(AbstractType type)
+        internal ArrayType(AbstractType type)
         {
             this.type = type;
 
             boundaries = new List<int>();
         }
 
-        public void AddBoundary(int boundary)
+        internal void AddBoundary(int boundary)
         {
             boundaries.Add(boundary);
         }

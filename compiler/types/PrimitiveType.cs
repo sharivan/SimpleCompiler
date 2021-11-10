@@ -163,15 +163,9 @@ namespace compiler.types
 
         private Primitive primitive;
 
-        public Primitive Primitive
-        {
-            get
-            {
-                return primitive;
-            }
-        }
+        public Primitive Primitive => primitive;
 
-        private PrimitiveType(Primitive primitive)
+        internal PrimitiveType(Primitive primitive)
         {
             this.primitive = primitive;
         }

@@ -5,14 +5,15 @@ programa Programa2
 		var y:real;
 		
 		y = cast<real>(1);
-		escreva y;
+		escrevaln "y=", y;
 		
+		escrevaln "Digite um número inteiro para x:";
 		leia x;
 		y = cast<real>(x);
-		escreva y;
+		escrevaln "y=", y;
 		
 		var z:long;
 		z = 3;
-		escreva z;
+		escrevaln "z=", z;
 	}
 }

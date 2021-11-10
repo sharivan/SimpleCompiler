@@ -1,0 +1,66 @@
+<?xml version="1.0"?>
+<SyntaxDefinition name="Simple Language Highlighting" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+	<Color name="Comment" foreground="#449D4A" />
+	<Color name="String" foreground="#D69D74" />
+	
+	<!-- This is the main ruleset. -->
+	<RuleSet>
+		<Span color="Comment" begin="//" />
+		<Span color="Comment" multiline="true" begin="/\*" end="\*/" />
+		
+		<Span color="String">
+			<Begin>"</Begin>
+			<End>"</End>
+			<RuleSet>
+				<!-- nested span for escape sequences -->
+				<Span begin="\\" end="." />
+			</RuleSet>
+		</Span>
+		
+		<Keywords fontWeight="bold" foreground="#469CD3">
+      <Word>cast</Word>
+			<Word>var</Word>
+			<Word>função</Word>
+			<Word>externa</Word>
+			<Word>estrutura</Word>
+			<Word>programa</Word>
+			<Word>unidade</Word>
+			<Word>usando</Word>
+			<Word>leia</Word>
+			<Word>escreva</Word>
+			<Word>escrevaln</Word>
+			<Word>verdade</Word>
+			<Word>falso</Word>
+			<Word>nulo</Word>
+			<Word>se</Word>
+			<Word>senão</Word>
+			<Word>enquanto</Word>
+			<Word>para</Word>
+			<Word>repita</Word>
+			<Word>retorne</Word>
+			<Word>quebra</Word>
+    </Keywords>
+		
+		<Keywords foreground="#3A88D6">
+			<Word>void</Word>
+			<Word>bool</Word>
+			<Word>byte</Word>
+			<Word>char</Word>
+			<Word>short</Word>
+			<Word>int</Word>
+			<Word>long</Word>
+			<Word>float</Word>
+			<Word>real</Word>
+		</Keywords>
+		
+		<!-- Digits -->
+		<Rule foreground="#71AFA8">
+            \b0[xX][0-9a-fA-F]+  # hex number
+        |    \b
+            (    \d+(\.[0-9]+)?   #number with optional floating point
+            |    \.[0-9]+         #or just starting with floating point
+            )
+            ([eE][+-]?[0-9]+)? # optional exponent
+        </Rule>
+	</RuleSet>
+</SyntaxDefinition>

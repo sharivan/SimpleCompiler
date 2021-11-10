@@ -5,140 +5,105 @@ using System.Text;
 using compiler.lexer;
 using compiler.types;
 using assembler;
+using System.IO;
 
 namespace compiler
 {
     public partial class Compiler
     {
-        public static int GetSizeInDWords(int sizeInBytes)
+        public static int GetAlignedSize(int sizeInBytes, int alignSize = sizeof(int))
         {
-            int r = sizeInBytes % sizeof(int);
-            int d = sizeInBytes / sizeof(int);
+            int r = sizeInBytes % alignSize;
             if (r != 0)
-                return d + 1;
+                return sizeInBytes + alignSize - r;
 
-            return d;
+            return sizeInBytes;
         }
+
+        public delegate void CompileError(SourceInterval interval, string message);
+
+        private string unityPath;
 
         private Lexer lexer;
-        private List<GlobalVariable> globals;
-        private Dictionary<string, GlobalVariable> globalTable;
-        private List<StructType> structs;
-        private Dictionary<string, StructType> structTable;
-        private List<Function> functions;
-        private Dictionary<string, Function> functionTable;
         private List<Label> labels;
-        private Dictionary<string, int> stringTable;
+        private List<CompilationUnity> units;
+        private Dictionary<string, CompilationUnity> unityTable;
+        private CompilationUnity program;
+        private List<Tuple<string, int>> externalFunctions;
+        private Dictionary<string, int> externalFunctionMap;
 
-        private int globalVariableOffset;
-        private Function entryPoint;
+        internal CompilationUnity unity;
+        internal CompilationUnity unitySystem;
+        internal Function function;
 
-        public Compiler()
+        internal int globalVariableOffset;
+
+        public event CompileError OnCompileError;
+
+        public string UnityPath
         {
-            lexer = new Lexer();
-            globals = new List<GlobalVariable>();
-            globalTable = new Dictionary<string, GlobalVariable>();
-            structs = new List<StructType>();
-            structTable = new Dictionary<string, StructType>();
-            functions = new List<Function>();
-            functionTable = new Dictionary<string, Function>();
-            labels = new List<Label>();
-            stringTable = new Dictionary<string, int>();
+            get => unityPath;
 
-            globalVariableOffset = 1;
-            entryPoint = null;
+            set => unityPath = value;
         }
-        
-        public Label CreateLabel()
+
+        public Compiler(string unityPath = null)
+        {
+            if (unityPath == null)
+                unityPath = Directory.GetCurrentDirectory();
+
+            this.unityPath = unityPath;
+
+            labels = new List<Label>();
+            units = new List<CompilationUnity>();
+            unityTable = new Dictionary<string, CompilationUnity>();
+            externalFunctions = new List<Tuple<string, int>>();
+            externalFunctionMap = new Dictionary<string, int>();
+
+            unity = null;
+            function = null;
+        }
+
+        public int AddExternalFunction(string name, int paramSize)
+        {
+            if (externalFunctionMap.ContainsKey(name))
+                throw new Exception("External function '" + name + "' already added.");
+
+            int index = externalFunctions.Count;
+            externalFunctions.Add(new Tuple<string, int>(name, paramSize));
+            externalFunctionMap.Add(name, index);
+            return index;
+        }
+
+        public int GetExternalFunctionIndex(string name)
+        {
+            if (externalFunctionMap.TryGetValue(name, out int index))
+                return index;
+
+            return -1;
+        }
+
+        public int GetOrAddExternalFunction(string name, int paramSize)
+        {
+            int index = GetExternalFunctionIndex(name);
+            if (index != -1)
+                return index;
+
+            index = externalFunctions.Count;
+            externalFunctions.Add(new Tuple<string, int>(name, paramSize));
+            externalFunctionMap.Add(name, index);
+            return index;
+        }
+
+        public string GetExternalFunctionName(int index)
+        {
+            return externalFunctions[index].Item1;
+        }
+
+        internal Label CreateLabel()
         {
             Label result = new Label();
             labels.Add(result);
-            return result;
-        }
-
-        public int GetStringOffset(string value)
-        {
-            if (stringTable.ContainsKey(value))
-                return stringTable[value];
-
-            int size = (value.Length + 1) * sizeof(char);
-            int offset = globalVariableOffset;
-            stringTable.Add(value, offset);
-            globalVariableOffset += size;
-            return offset;
-        }
-
-        public GlobalVariable FindGlobalVariable(string name)
-        {
-            if (globalTable.TryGetValue(name, out GlobalVariable result))
-                return result;
-
-            return null;
-        }
-
-        public GlobalVariable DeclareGlobalVariable(string name, AbstractType type)
-        {
-            GlobalVariable result = FindGlobalVariable(name);
-            if (result != null)
-                return null;
-
-            result = new GlobalVariable(name, type, globalVariableOffset);
-            globalVariableOffset += type.Size();
-            globals.Add(result);
-            globalTable.Add(name, result);
-            return result;
-        }
-
-        public GlobalVariable DeclareGlobalVariable(string name, AbstractType type, object initialValue)
-        {
-            GlobalVariable result = FindGlobalVariable(name);
-            if (result != null)
-                return null;
-
-            result = new GlobalVariable(name, type, globalVariableOffset, initialValue);
-            globalVariableOffset += type.Size();
-            globals.Add(result);
-            globalTable.Add(name, result);
-            return result;
-        }
-
-        public StructType FindStruct(string name)
-        {
-            if (structTable.TryGetValue(name, out StructType result))
-                return result;
-
-            return null;
-        }
-
-        public StructType DeclareStruct(string name)
-        {
-            StructType result = FindStruct(name);
-            if (result != null)
-                return null;
-
-            result = new StructType(name);
-            structs.Add(result);
-            structTable.Add(name, result);
-            return result;
-        }
-
-        public Function FindFunction(string name)
-        {
-            if (functionTable.TryGetValue(name, out Function result))
-                return result;
-
-            return null;
-        }
-
-        public Function DeclareFunction(string name)
-        {
-            Function result = FindFunction(name);
-            if (result != null)
-                return null;
-
-            result = new Function(this, name);
-            functions.Add(result);
-            functionTable.Add(name, result);
             return result;
         }
 
@@ -385,12 +350,12 @@ namespace compiler
         private void CompilePop(Assembler assembler, AbstractType type)
         {
             if (!PrimitiveType.IsPrimitiveVoid(type))
-                assembler.EmitSubSP(type.Size());
+                assembler.EmitSubSP(GetAlignedSize(type.Size()));
         }
 
-        private void CompileArrayIndexer(Function function, Context context, Assembler assembler, Expression indexer)
+        private void CompileArrayIndexer(Context context, Assembler assembler, Expression indexer)
         {
-            AbstractType indexerType = CompileExpression(function, context, assembler, indexer);
+            AbstractType indexerType = CompileExpression(context, assembler, indexer);
 
             if (indexerType is PrimitiveType pt)
             {
@@ -406,12 +371,12 @@ namespace compiler
             }
         }
 
-        private AbstractType CompileAssignableExpression(Function function, Context context, Assembler assembler, Expression expression, out Variable storeVar, out bool isPointerDeference, bool loadHostAddress = false)
+        private AbstractType CompileAssignableExpression(Context context, Assembler assembler, Expression expression, out Variable storeVar, out bool isPointerDeference, bool loadHostAddress = false)
         {
             if (expression is UnaryExpression u)
             {
                 Expression operand = u.Operand;
-                AbstractType operandType = CompileExpression(function, context, assembler, operand);
+                AbstractType operandType = CompileExpression(context, assembler, operand);
                 if (u.Operation != UnaryOperation.POINTER_INDIRECTION)
                     throw new CompilerException(operand.Interval, "A expressão do lado esquerdo não é atribuível.");
 
@@ -428,7 +393,7 @@ namespace compiler
                 Expression operand = f.Operand;
                 string fieldName = f.Field;
 
-                AbstractType operandType = CompileAssignableExpression(function, context, assembler, operand, out _, out _);
+                AbstractType operandType = CompileAssignableExpression(context, assembler, operand, out _, out _);
 
                 if (operandType is StructType s)
                 {
@@ -472,7 +437,7 @@ namespace compiler
             if (expression is ArrayAccessorExpression a)
             {
                 Expression operand = a.Operand;               
-                AbstractType operandType = CompileAssignableExpression(function, context, assembler, operand, out _, out _);
+                AbstractType operandType = CompileAssignableExpression(context, assembler, operand, out _, out _);
 
                 if (operandType is ArrayType at)
                 {
@@ -485,23 +450,20 @@ namespace compiler
                         throw new CompilerException(operand.Interval, "Número de inídices fornecidos é diferente da dimensão do array.");
 
                     Expression indexer = a[0];
-                    CompileArrayIndexer(function, context, assembler, indexer);
+                    CompileArrayIndexer(context, assembler, indexer);
 
                     for (int i = 1; i < rank; i++)
                     {
                         indexer = a[i];
                         assembler.EmitLoadConst(at[i]);
                         assembler.EmitMul();
-                        CompileArrayIndexer(function, context, assembler, indexer);
+                        CompileArrayIndexer(context, assembler, indexer);
                         assembler.EmitAdd();
                     }
 
                     assembler.EmitLoadConst(at.Type.Size());
                     assembler.EmitMul();
                     assembler.EmitAdd();
-
-                    if (loadHostAddress)
-                        assembler.EmitResidentToHostAddress();
 
                     if (loadHostAddress)
                         assembler.EmitResidentToHostAddress();
@@ -525,7 +487,7 @@ namespace compiler
                     assembler.EmitLoadStackPtr();
 
                     Expression indexer = a[0];
-                    CompileArrayIndexer(function, context, assembler, indexer);
+                    CompileArrayIndexer(context, assembler, indexer);
                     assembler.EmitLoadConst(ptr.Type.Size());
                     assembler.EmitMul();
                     assembler.EmitPtrAdd();
@@ -550,7 +512,7 @@ namespace compiler
                 Variable var = context.FindVariable(name);
                 if (var == null)
                 {
-                    var = FindGlobalVariable(name);
+                    var = unity.FindGlobalVariable(name);
                     if (var == null)
                         throw new CompilerException(id.Interval, "Identificador'" + name + "' não declarado.");
 
@@ -558,9 +520,9 @@ namespace compiler
                     int offset = var.Offset;
 
                     if (loadHostAddress)
-                        assembler.EmitLoadGlobalHostAddress(offset);
+                        assembler.EmitLoadGlobalHostAddress(unity.GlobalStartOffset + offset);
                     else
-                        assembler.EmitLoadConst(offset);
+                        assembler.EmitLoadConst(unity.GlobalStartOffset + offset);
                 }
                 else
                 {
@@ -586,7 +548,7 @@ namespace compiler
             throw new CompilerException(expression.Interval, "Tipo de expressão não atribuível.");
         }
 
-        private void CompileStoreExpression(Function function, Context context, Assembler assembler, BinaryOperation operation, Expression leftOperand, Expression rightOperand)
+        private void CompileStoreExpression(Context context, Assembler assembler, BinaryOperation operation, Expression leftOperand, Expression rightOperand)
         {
             AbstractType leftType;
             AbstractType rightType;
@@ -594,11 +556,11 @@ namespace compiler
             if (operation == BinaryOperation.STORE)
             {
                 Assembler leftAssembler = new Assembler();
-                leftType = CompileAssignableExpression(function, context, leftAssembler, leftOperand, out Variable storeVar, out bool isPointerDeference);
+                leftType = CompileAssignableExpression(context, leftAssembler, leftOperand, out Variable storeVar, out bool isPointerDeference);
                 if (storeVar == null)
                     assembler.Emit(leftAssembler);
 
-                rightType = CompileExpression(function, context, assembler, rightOperand);
+                rightType = CompileExpression(context, assembler, rightOperand);
                 CompileCast(assembler, rightType, leftType, false, rightOperand.Interval);
 
                 if (storeVar != null)
@@ -612,7 +574,7 @@ namespace compiler
             }
 
             Assembler tempAssembler = new Assembler();
-            leftType = CompileAssignableExpression(function, context, tempAssembler, leftOperand, out Variable storeVar2, out bool isPointerDeference2);
+            leftType = CompileAssignableExpression(context, tempAssembler, leftOperand, out Variable storeVar2, out bool isPointerDeference2);
 
             if (storeVar2 == null)
             {
@@ -630,7 +592,7 @@ namespace compiler
             else
                 CompileLoad(assembler, storeVar2, leftOperand.Interval);
 
-            rightType = CompileExpression(function, context, assembler, rightOperand);
+            rightType = CompileExpression(context, assembler, rightOperand);
             CompileCast(assembler, rightType, leftType, false, rightOperand.Interval);
 
             switch (operation)
@@ -772,7 +734,7 @@ namespace compiler
             }
         }
 
-        private AbstractType CompileExpression(Function function, Context context, Assembler assembler, Expression expression, bool getArrayAddress = false)
+        private AbstractType CompileExpression(Context context, Assembler assembler, Expression expression, bool getArrayAddress = false)
         {
             if (expression is UnaryExpression u)
             {
@@ -781,7 +743,7 @@ namespace compiler
                 {
                     case UnaryOperation.NEGATION:
                     {
-                        AbstractType operandType = CompileExpression(function, context, assembler, operand);
+                        AbstractType operandType = CompileExpression(context, assembler, operand);
                         if (operandType is PrimitiveType pt)
                         {
                             switch (pt.Primitive)
@@ -817,7 +779,7 @@ namespace compiler
 
                     case UnaryOperation.BITWISE_NOT:
                     {
-                        AbstractType operandType = CompileExpression(function, context, assembler, operand);
+                        AbstractType operandType = CompileExpression(context, assembler, operand);
                         if (operandType is PrimitiveType pt)
                         {
                             switch (pt.Primitive)
@@ -847,7 +809,7 @@ namespace compiler
 
                     case UnaryOperation.LOGICAL_NOT:
                     {
-                        AbstractType operandType = CompileExpression(function, context, assembler, operand);
+                        AbstractType operandType = CompileExpression(context, assembler, operand);
                         if (operandType is PrimitiveType pt)
                         {
                             switch (pt.Primitive)
@@ -868,7 +830,7 @@ namespace compiler
 
                     case UnaryOperation.POINTER_INDIRECTION:
                     {
-                        AbstractType operandType = CompileExpression(function, context, assembler, operand);
+                        AbstractType operandType = CompileExpression(context, assembler, operand);
                         if (operandType is PointerType ptr)
                         {
                             AbstractType ptrType = ptr.Type;
@@ -923,7 +885,7 @@ namespace compiler
                     case UnaryOperation.PRE_INCREMENT: // ++x <=> x = x + 1
                     {
                         Assembler tempAssembler = new Assembler();
-                        AbstractType operandType = CompileAssignableExpression(function, context, tempAssembler, operand, out Variable storeVar, out bool isPointerDeference);
+                        AbstractType operandType = CompileAssignableExpression(context, tempAssembler, operand, out Variable storeVar, out bool isPointerDeference);
 
                         if (storeVar == null)
                         {
@@ -1096,7 +1058,7 @@ namespace compiler
                     case UnaryOperation.PRE_DECREMENT:
                     {
                         Assembler tempAssembler = new Assembler();
-                        AbstractType operandType = CompileAssignableExpression(function, context, tempAssembler, operand, out Variable storeVar, out bool isPointerDeference);
+                        AbstractType operandType = CompileAssignableExpression(context, tempAssembler, operand, out Variable storeVar, out bool isPointerDeference);
                         
                         if (storeVar == null)
                         {
@@ -1269,7 +1231,7 @@ namespace compiler
                     case UnaryOperation.POST_INCREMENT:
                     {
                         Assembler tempAssembler = new Assembler();
-                        AbstractType operandType = CompileAssignableExpression(function, context, tempAssembler, operand, out Variable storeVar, out bool isPointerDeference);
+                        AbstractType operandType = CompileAssignableExpression(context, tempAssembler, operand, out Variable storeVar, out bool isPointerDeference);
 
                         if (storeVar == null)
                         {
@@ -1441,7 +1403,7 @@ namespace compiler
                     case UnaryOperation.POST_DECREMENT:
                     {
                         Assembler tempAssembler = new Assembler();
-                        AbstractType operandType = CompileAssignableExpression(function, context, tempAssembler, operand, out Variable storeVar, out bool isPointerDeference);
+                        AbstractType operandType = CompileAssignableExpression(context, tempAssembler, operand, out Variable storeVar, out bool isPointerDeference);
 
                         if (storeVar == null)
                         {
@@ -1613,10 +1575,9 @@ namespace compiler
 
                     case UnaryOperation.POINTER_TO:
                     {
-                        Assembler tempAssembler = new Assembler();
-                        AbstractType operandType = CompileAssignableExpression(function, context, assembler, operand, out _, out _, true);
+                        AbstractType operandType = CompileAssignableExpression(context, assembler, operand, out _, out _, true);
 
-                        if (getArrayAddress && operandType is ArrayType at)
+                        if (operandType is ArrayType at)
                             return new PointerType(at.Type, true);
 
                         return new PointerType(operandType);
@@ -1634,15 +1595,15 @@ namespace compiler
 
                 if (b.Operation <= BinaryOperation.STORE_MOD)
                 {
-                    CompileStoreExpression(function, context, assembler, b.Operation, leftOperand, rightOperand);
+                    CompileStoreExpression(context, assembler, b.Operation, leftOperand, rightOperand);
                     return PrimitiveType.VOID;
                 }
 
                 Assembler leftAssembler = new Assembler();
-                AbstractType leftType = CompileExpression(function, context, leftAssembler, leftOperand);
+                AbstractType leftType = CompileExpression(context, leftAssembler, leftOperand);
 
                 Assembler rightAssembler = new Assembler();
-                AbstractType rightType = CompileExpression(function, context, rightAssembler, rightOperand);
+                AbstractType rightType = CompileExpression(context, rightAssembler, rightOperand);
 
                 switch (b.Operation)
                 {
@@ -2553,7 +2514,7 @@ namespace compiler
                 Expression operand = f.Operand;
                 string fieldName = f.Field;
 
-                AbstractType operandType = CompileAssignableExpression(function, context, assembler, operand, out _, out _);
+                AbstractType operandType = CompileAssignableExpression(context, assembler, operand, out _, out _);
 
                 if (operandType is StructType s)
                 {
@@ -2606,7 +2567,7 @@ namespace compiler
             if (expression is ArrayAccessorExpression a)
             {
                 Expression operand = a.Operand;
-                AbstractType operandType = CompileAssignableExpression(function, context, assembler, operand, out _, out _);
+                AbstractType operandType = CompileAssignableExpression(context, assembler, operand, out _, out _);
 
                 if (operandType is ArrayType at)
                 {
@@ -2619,14 +2580,14 @@ namespace compiler
                         throw new CompilerException(operand.Interval, "Número de inídices fornecidos é diferente da dimensão do array.");
 
                     Expression indexer = a[0];
-                    CompileArrayIndexer(function, context, assembler, indexer);
+                    CompileArrayIndexer(context, assembler, indexer);
 
                     for (int i = 1; i < rank; i++)
                     {
                         indexer = a[i];
                         assembler.EmitLoadConst(at[i]);
                         assembler.EmitMul();
-                        CompileArrayIndexer(function, context, assembler, indexer);
+                        CompileArrayIndexer(context, assembler, indexer);
                         assembler.EmitAdd();
                     }
 
@@ -2659,7 +2620,7 @@ namespace compiler
                     assembler.EmitLoadStackPtr();
 
                     Expression indexer = a[0];
-                    CompileArrayIndexer(function, context, assembler, indexer);
+                    CompileArrayIndexer(context, assembler, indexer);
                     assembler.EmitLoadConst(ptr.Type.Size());
                     assembler.EmitMul();
                     assembler.EmitPtrAdd();
@@ -2713,8 +2674,8 @@ namespace compiler
 
                     case StringLiteralExpression l:
                     {
-                        int offset = GetStringOffset(l.Value);
-                        assembler.EmitLoadConst(offset);
+                        int offset = unity.GetStringOffset(l.Value);
+                        assembler.EmitLoadGlobalHostAddress(unity.GlobalStartOffset + offset);
                         return PointerType.STRING;
                     }
 
@@ -2730,7 +2691,7 @@ namespace compiler
                         Variable var = context.FindVariable(name);
                         if (var == null)
                         {
-                            var = FindGlobalVariable(name);
+                            var = unity.FindGlobalVariable(name);
                             if (var == null)
                                 throw new CompilerException(id.Interval, "Identificador'" + name + "' não declarado.");
                         }
@@ -2738,7 +2699,7 @@ namespace compiler
                         if (getArrayAddress && var.Type is ArrayType at2)
                         {
                             if (var is GlobalVariable)
-                                assembler.EmitLoadGlobalHostAddress(var.Offset);
+                                assembler.EmitLoadGlobalHostAddress(unity.GlobalStartOffset + var.Offset);
                             else
                                 assembler.EmitLoadLocalHostAddress(var.Offset);
 
@@ -2760,13 +2721,13 @@ namespace compiler
                 if (operand is IdentifierExpression id)
                 {
                     string functionName = id.Name;
-                    Function func = FindFunction(id.Name);
+                    Function func = unity.FindFunction(functionName);
                     if (func == null)
-                        throw new CompilerException(id.Interval, "Função '" + id.Name + "' não declarada.");
+                        throw new CompilerException(id.Interval, "Função '" + functionName + "' não declarada.");
 
                     AbstractType returnType = func.ReturnType;
                     if (!PrimitiveType.IsPrimitiveVoid(returnType))
-                        assembler.EmitAddSP(returnType.Size());
+                        assembler.EmitAddSP(GetAlignedSize(returnType.Size()));
 
                     if (func.ParamCount != c.ParameterCount)
                         throw new CompilerException(id.Interval, "A quantidade de parâmetros fornecido é diferente da quantidade total de parâmetros esperada.");
@@ -2778,7 +2739,7 @@ namespace compiler
 
                         if (parameter.ByRef)
                         {
-                            AbstractType paramType = CompileAssignableExpression(function, context, assembler, expressionParameter, out _, out _, true);
+                            AbstractType paramType = CompileAssignableExpression(context, assembler, expressionParameter, out _, out _, true);
                             if (paramType != parameter.Type)
                             {
                                 if (paramType is ArrayType at)
@@ -2790,12 +2751,18 @@ namespace compiler
                         }
                         else
                         {
-                            AbstractType paramType = CompileExpression(function, context, assembler, expressionParameter, parameter.Type is PointerType ptr && ptr.IsArray);
+                            AbstractType paramType = CompileExpression(context, assembler, expressionParameter, parameter.Type is PointerType ptr && ptr.IsArray);
                             CompileCast(assembler, paramType, parameter.Type, false, expressionParameter.Interval);
                         }
                     }
 
-                    assembler.EmitCall(func.EntryLabel);
+                    if (func.IsExtern)
+                    {
+                        int index = GetOrAddExternalFunction(functionName, func.ParameterSize);
+                        assembler.EmitExternCall(index);
+                    }
+                    else
+                        assembler.EmitCall(func.EntryLabel);
 
                     return func.ReturnType;
                 }
@@ -2808,7 +2775,7 @@ namespace compiler
                 Expression operand = cs.Operand;
                 AbstractType type = cs.Type;
 
-                AbstractType operandType = CompileExpression(function, context, assembler, operand);
+                AbstractType operandType = CompileExpression(context, assembler, operand);
                 CompileCast(assembler, operandType, type, true, operand.Interval);
                 return type;
             }
@@ -2816,12 +2783,12 @@ namespace compiler
             throw new CompilerException(expression.Interval, "Tipo desconhecido de expressão: " + expression);
         }
 
-        public Variable CheckVariable(Context context, string name, SourceInterval interval)
+        private Variable CheckVariable(Context context, string name, SourceInterval interval)
         {
             Variable var = context.FindVariable(name);
             if (var == null)
             {
-                var = FindGlobalVariable(name);
+                var = unity.FindGlobalVariable(name);
                 if (var == null)
                     throw new CompilerException(interval, "Variável '" + name + "' não declarada.");
             }
@@ -2829,16 +2796,16 @@ namespace compiler
             return var;
         }
 
-        public void CompileStatement(Function function, Context context, Assembler assembler, Statement statement)
+        private void CompileStatement(Context context, Assembler assembler, Statement statement)
         {
             if (statement is ExpressionStatement e)
             {
                 Expression expression = e.Expression;
-                AbstractType type = CompileExpression(function, context, assembler, expression);
+                AbstractType type = CompileExpression(context, assembler, expression);
                 CompilePop(assembler, type);
            }
             else if (statement is DeclarationStatement decl)
-                CompileVariableDeclaration(function, context, assembler, decl);
+                CompileVariableDeclaration(context, assembler, decl);
             else if (statement is ReturnStatement r)
             {
                 Expression expr = r.Expression;
@@ -2853,14 +2820,14 @@ namespace compiler
                 {
                     if (function.ReturnType is PrimitiveType || function.ReturnType is PointerType)
                     {
-                        AbstractType returnType = CompileExpression(function, context, assembler, expr);
+                        AbstractType returnType = CompileExpression(context, assembler, expr);
                         CompileCast(assembler, returnType, function.ReturnType, false, expr.Interval);
                         CompileStoreLocal(assembler, function.ReturnType, function.ReturnOffset, expr.Interval);
                     }
                     else
                     {
                         assembler.EmitLoadLocalResidentAddress(function.ReturnOffset);
-                        AbstractType returnType = CompileExpression(function, context, assembler, expr);
+                        AbstractType returnType = CompileExpression(context, assembler, expr);
                         CompileCast(assembler, returnType, function.ReturnType, false, expr.Interval);
                         CompileStoreStack(assembler, function.ReturnType, expr.Interval);
                     }
@@ -2874,8 +2841,6 @@ namespace compiler
                 if (breakLabel == null)
                     throw new CompilerException(b.Interval, "Instrução 'quebra' deve estar dentro de um loop.");
 
-                lexer.NextSymbol(";");
-
                 assembler.EmitJump(breakLabel);
             }
             else if (statement is ReadStatement rd)
@@ -2883,8 +2848,7 @@ namespace compiler
                 for (int j = 0; j < rd.ExpressionCount; j++)
                 {
                     Expression expr = rd[j];
-                    AbstractType exprType = CompileAssignableExpression(function, context, assembler, expr, out _, out _);
-
+                    AbstractType exprType = CompileAssignableExpression(context, assembler, expr, out _, out _, true);
                     if (exprType is PrimitiveType p)
                     {
                         switch (p.Primitive)
@@ -2937,40 +2901,21 @@ namespace compiler
                 {
                     Expression expr = p[j];
 
-                    AbstractType exprType = CompileExpression(function, context, assembler, expr);
-
+                    AbstractType exprType = CompileExpression(context, assembler, expr);
                     if (exprType is PrimitiveType pt)
                     {
                         switch (pt.Primitive)
                         {
                             case Primitive.BOOL:
-                            {
-                                int falseOffset = GetStringOffset("falso");
-                                int trueOffset = GetStringOffset("verdadeiro");
-
-                                Label lblFalse = CreateLabel();
-                                Label lblEnd = CreateLabel();
-                                assembler.EmitJumpIfFalse(lblFalse);
-                                assembler.EmitLoadConst(trueOffset);
-                                assembler.EmitJump(lblEnd);
-                                assembler.BindLabel(lblFalse);
-                                assembler.EmitLoadConst(falseOffset);
-                                assembler.BindLabel(lblEnd);
-                                assembler.EmitPrintString();
+                                assembler.EmitPrintB();
                                 break;
-                            }    
 
                             case Primitive.BYTE:
                                 assembler.EmitPrint32();
                                 break;
 
                             case Primitive.CHAR:
-                                assembler.EmitLoadConst((short) 0);
-                                assembler.EmitLoadSP();
-                                assembler.EmitLoadConst(2 * sizeof(int));
-                                assembler.EmitSub();
-                                assembler.EmitPrintString();
-                                assembler.EmitSubSP(sizeof(int));
+                                assembler.EmitPrintC();
                                 break;
 
                             case Primitive.SHORT:
@@ -3002,8 +2947,8 @@ namespace compiler
 
                 if (p.LineBreak)
                 {
-                    int lineBreakOffset = GetStringOffset("\n");
-                    assembler.EmitLoadConst(lineBreakOffset);
+                    int lineBreakOffset = unity.GetStringOffset("\n");
+                    assembler.EmitLoadGlobalHostAddress(unity.GlobalStartOffset + lineBreakOffset);
                     assembler.EmitPrintString();
                 }
             }
@@ -3013,7 +2958,7 @@ namespace compiler
                 Statement thenStatement = i.ThenStatement;
                 Statement elseStatement = i.ElseStatement;
 
-                AbstractType exprType = CompileExpression(function, context, assembler, expression);
+                AbstractType exprType = CompileExpression(context, assembler, expression);
   
                 if (!PrimitiveType.IsPrimitiveBool(exprType))
                     throw new CompilerException(expression.Interval, "Expressão do tipo bool experada.");
@@ -3021,14 +2966,14 @@ namespace compiler
                 Label lblElse = CreateLabel();
                 assembler.EmitJumpIfFalse(lblElse);
 
-                CompileStatement(function, context, assembler, thenStatement);
+                CompileStatement(context, assembler, thenStatement);
 
                 Label lblEnd = CreateLabel();
                 assembler.EmitJump(lblEnd);
 
                 assembler.BindLabel(lblElse);
                 if (elseStatement != null)
-                    CompileStatement(function, context, assembler, elseStatement);
+                    CompileStatement(context, assembler, elseStatement);
 
                 assembler.BindLabel(lblEnd);
             }
@@ -3040,7 +2985,7 @@ namespace compiler
                 Label lblLoop = CreateLabel();
                 assembler.BindLabel(lblLoop);
 
-                AbstractType exprType = CompileExpression(function, context, assembler, expression);
+                AbstractType exprType = CompileExpression(context, assembler, expression);
 
                 Label lblEnd = CreateLabel();
                 context.PushBreakLabel(lblEnd);
@@ -3050,7 +2995,7 @@ namespace compiler
                 if (!PrimitiveType.IsPrimitiveBool(exprType))
                     throw new CompilerException(expression.Interval, "Expressão do tipo bool experada.");
 
-                CompileStatement(function, context, assembler, stm);
+                CompileStatement(context, assembler, stm);
 
                 assembler.EmitJump(lblLoop);
                 assembler.BindLabel(lblEnd);
@@ -3068,9 +3013,9 @@ namespace compiler
                 Label lblEnd = CreateLabel();
                 context.PushBreakLabel(lblEnd);
 
-                CompileStatement(function, context, assembler, stm);
+                CompileStatement(context, assembler, stm);
 
-                AbstractType exprType = CompileExpression(function, context, assembler, expr);
+                AbstractType exprType = CompileExpression(context, assembler, expr);
                 if (!PrimitiveType.IsPrimitiveBool(exprType))
                     throw new CompilerException(expr.Interval, "Expressão do tipo bool experada.");
 
@@ -3087,7 +3032,7 @@ namespace compiler
                 for (int j = 0; j < f.InitializerCount; j++)
                 {
                     InitializerStatement initializer = f.GetInitializer(j);
-                    CompileStatement(function, forContext, assembler, initializer);
+                    CompileStatement(forContext, assembler, initializer);
                 }
 
                 Label lblLoop = CreateLabel();
@@ -3097,7 +3042,7 @@ namespace compiler
                 Expression expression = f.Expression;
                 if (expression != null)
                 {
-                    AbstractType expressionType = CompileExpression(function, forContext, assembler, expression);
+                    AbstractType expressionType = CompileExpression(forContext, assembler, expression);
                     if (!PrimitiveType.IsPrimitiveBool(expressionType))
                         throw new CompilerException(expression.Interval, "Expressão do tipo bool esperada.");
                 }
@@ -3110,13 +3055,13 @@ namespace compiler
                 assembler.EmitJumpIfFalse(lblEnd);
 
                 Statement stm = f.Statement;
-                CompileStatement(function, forContext, assembler, stm);
+                CompileStatement(forContext, assembler, stm);
 
                 // atualizadores
                 for (int j = 0; j < f.UpdaterCount; j++)
                 {
                     Expression updater = f.GetUpdater(j);
-                    AbstractType updaterType = CompileExpression(function, forContext, assembler, updater);
+                    AbstractType updaterType = CompileExpression(forContext, assembler, updater);
                     CompilePop(assembler, updaterType);
                 }
 
@@ -3131,14 +3076,14 @@ namespace compiler
                 for (int j = 0; j < bl.StatementCount; j++)
                 {
                     Statement stm = bl[j];
-                    CompileStatement(function, blockContext, assembler, stm);
+                    CompileStatement(blockContext, assembler, stm);
                 }
             }
             else
                 throw new CompilerException(statement.Interval, "Tipo desconhecido de statement: " + statement);
         }
 
-        public void CompileVariableDeclaration(Function function, Context context, Assembler assembler, DeclarationStatement statement)
+        private void CompileVariableDeclaration(Context context, Assembler assembler, DeclarationStatement statement)
         {
             AbstractType type = statement.Type;
             for (int i = 0; i < statement.VariableCount; i++)
@@ -3147,7 +3092,7 @@ namespace compiler
                 string name = tuple.Item1;
                 Expression initializer = tuple.Item2;
 
-                Variable var = function == null ? DeclareGlobalVariable(name, type) : context.DeclareLocalVariable(function, name, type);
+                Variable var = function == null ? unity.DeclareGlobalVariable(name, type) : context.DeclareLocalVariable(function, name, type);
                 if (var == null)
                     throw new CompilerException(statement.Interval, "Variável '" + name + "' já declarada.");
 
@@ -3166,7 +3111,7 @@ namespace compiler
                             assembler.EmitLoadLocalResidentAddress(var.Offset);
                     }
 
-                    AbstractType initializerType = CompileExpression(function, context, assembler, initializer);
+                    AbstractType initializerType = CompileExpression(context, assembler, initializer);
                     CompileCast(assembler, initializerType, type, false, initializer.Interval);
 
                     if (useVar)
@@ -3177,12 +3122,15 @@ namespace compiler
             }
         }
 
-        public void CompileFunction(Function function, Assembler assembler)
+        internal void CompileFunction(Assembler assembler)
         {
+            if (function.IsExtern)
+                return;
+
             Context context = new Context(function);
             Assembler tempAssembler = new Assembler();
 
-            CompileStatement(function, context, tempAssembler, function.Block);
+            CompileStatement(context, tempAssembler, function.Block);
             function.BindReturnLabel(tempAssembler);
 
             function.BindEntryLabel(assembler);
@@ -3191,73 +3139,180 @@ namespace compiler
             function.EndBlock(assembler);
         }
 
-        public AbstractType CompileAdditiveExpression(string expression, Assembler assembler)
+        internal CompilationUnity OpenUnity(string name)
         {
-            globalVariableOffset = 1;
-            entryPoint = null;
+            if (unityTable.TryGetValue(name, out CompilationUnity result))
+                return result;
 
-            globals.Clear();
-            globalTable.Clear();
-            structs.Clear();
-            structTable.Clear();
-            functions.Clear();
-            functionTable.Clear();
-            labels.Clear();
-            stringTable.Clear();
+            string path = unityPath + '\\' + name + ".sl";
+            if (!File.Exists(path))
+                return null;
 
-            lexer.Input = expression;
-
-            Context context = new Context(null);
-            Expression expr = ParseAdditiveExpression();
-
-            Token token = lexer.NextToken();
-            if (token != null)
-                throw new CompilerException(token.Interval, "Fim da expressão esperado mas " + token + " encontrado.");
-
-            AbstractType type = CompileExpression(null, context, assembler, expr);
-
-            return type;
+            CompilationUnity unity = ParseCompilationUnityFromFile(path, false);
+            units.Add(unity);
+            unityTable.Add(name, unity);
+            return unity;
         }
 
-        public void CompileProgram(string source, Assembler assembler)
+        public bool CompileFromSource(int sourceID, string source, Assembler assembler)
         {
-            globalVariableOffset = 1;
-            entryPoint = null;
+            using (var input = new StringReader(source))
+            {
+                return Compile ("#" + sourceID, input, assembler);
+            }
+        }
 
-            globals.Clear();
-            globalTable.Clear();
-            structs.Clear();
-            structTable.Clear();
-            functions.Clear();
-            functionTable.Clear();
+        public bool CompileFromSources(Tuple<int, string>[] sources, Assembler assembler)
+        {
+            try
+            {
+                Initialize();
+
+                foreach (Tuple<int, string> source in sources)
+                {
+                    int sourceID = source.Item1;
+                    string sourceText = source.Item2;
+                    string fileName = "#" + sourceID;
+
+                    using (var input = new StringReader(sourceText))
+                    {
+                        Parse(fileName, input);
+                    }
+                }
+
+                Compile(assembler);
+
+                return true;
+            }
+            catch (CompilerException e)
+            {
+                OnCompileError?.Invoke(e.Interval, e.Message);
+            }
+
+            return false;
+        }
+
+        public bool CompileFromFile(string fileName, Assembler assembler)
+        {
+            using (var input = File.OpenText(fileName))
+            {
+                return Compile(fileName, input, assembler);
+            }
+        }
+
+        public bool CompileFromFiles(string[] fileNames, Assembler assembler)
+        {
+            try
+            {
+                Initialize();
+
+                foreach (string fileName in fileNames)
+                {
+                    using (var input = File.OpenText(fileName))
+                    {
+                        Parse(fileName, input);
+                    }
+                }
+
+                Compile(assembler);
+
+                return true;
+            }
+            catch (CompilerException e)
+            {
+                OnCompileError?.Invoke(e.Interval, e.Message);
+            }
+
+            return false;
+        }
+
+        public bool CompileFromReader(int sourceID, TextReader input, Assembler assembler)
+        {
+            return Compile("#" + sourceID, input, assembler);
+        }
+
+        private void Initialize()
+        {
+            globalVariableOffset = sizeof(int);
+            function = null;
+            unity = null;
+            program = null;
+            lexer = null;
+
             labels.Clear();
-            stringTable.Clear();
+            units.Clear();
+            unityTable.Clear();
+            externalFunctions.Clear();
+            externalFunctionMap.Clear();
 
-            lexer.Input = source;
+            unitySystem = OpenUnity("System");
+        }
 
-            ParseProgram();
+        private void Parse(string fileName, TextReader input)
+        {
+            if (fileName == unitySystem.FileName)
+                return;
 
-            if (entryPoint != null)
-                assembler.EmitCall(entryPoint.EntryLabel);
+            lexer = null;
 
+            ParseCompilationUnity(fileName, input);
+
+            globalVariableOffset = sizeof(int);
+        }
+
+        private void Compile(Assembler assembler)
+        {
+            if (program == null)
+                throw new CompilerException("Não foi encontrado nenhum programa.");
+
+            globalVariableOffset = sizeof(int);
+
+            Assembler tempAssembler = new Assembler();
+            foreach (CompilationUnity u in units)
+                u.Compile(tempAssembler);
+
+            program.Compile(tempAssembler);
+
+            foreach (CompilationUnity u in units)
+                if (u.EntryPoint != null)
+                    assembler.EmitCall(u.EntryPoint.EntryLabel);
+
+            if (program.EntryPoint != null)
+                assembler.EmitCall(program.EntryPoint.EntryLabel);
+                
             assembler.EmitHalt();
 
-            for (int i = 0; i < functions.Count; i++)
-            {
-                Function f = functions[i];
-                CompileFunction(f, assembler);
-            }
+            assembler.Emit(tempAssembler);
 
             assembler.ReserveConstantBuffer(globalVariableOffset);
-            foreach (var kv in stringTable)
-                assembler.WriteConstant(kv.Value, kv.Key);
 
-            for (int i = 0; i < labels.Count; i++)
-            {
-                Label label = labels[i];
+            foreach (CompilationUnity u in units)
+                u.WriteConstants(assembler);
+
+            program.WriteConstants(assembler);
+
+            foreach (Label label in labels)
                 if (label.BindedIP != -1)
                     label.UpdateReferences(assembler);
+
+            assembler.AddExternalFunctionNames(externalFunctions.ToArray());
+        }
+
+        private bool Compile(string fileName, TextReader input, Assembler assembler)
+        {
+            try
+            {
+                Initialize();
+                Parse(fileName, input);
+                Compile(assembler);
+                return true;
             }
+            catch (CompilerException e)
+            {
+                OnCompileError?.Invoke(e.Interval, e.Message);
+            }
+
+            return false;
         }
     }
 }

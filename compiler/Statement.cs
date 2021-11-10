@@ -22,7 +22,7 @@ namespace compiler
 
     public class EmptyStatement : Statement
     {
-        public EmptyStatement(SourceInterval interval) : base(interval)
+        internal EmptyStatement(SourceInterval interval) : base(interval)
         {
         }
     }
@@ -43,7 +43,7 @@ namespace compiler
         {
             get => type;
 
-            set => type = value;
+            internal set => type = value;
         }
 
         public int VariableCount => vars.Count;
@@ -52,17 +52,17 @@ namespace compiler
         {
             get => vars[index];
 
-            set => vars[index] = value;
+            internal set => vars[index] = value;
         }
 
-        public DeclarationStatement(SourceInterval interval, AbstractType type) : base(interval)
+        internal DeclarationStatement(SourceInterval interval, AbstractType type) : base(interval)
         {
             this.type = type;
 
             vars = new List<Tuple<string, Expression>>();
         }
 
-        public void AddVariable(string name, Expression initializer = null)
+        internal void AddVariable(string name, Expression initializer = null)
         {
             vars.Add(new Tuple<string, Expression>(name, initializer));
         }
@@ -76,10 +76,10 @@ namespace compiler
         {
             get => expression;
 
-            set => expression = value;
+            internal set => expression = value;
         }
 
-        public ExpressionStatement(SourceInterval interval, Expression expression) : base(interval)
+        internal ExpressionStatement(SourceInterval interval, Expression expression) : base(interval)
         {
             this.expression = expression;
         }
@@ -93,10 +93,10 @@ namespace compiler
         {
             get => expression;
 
-            set => expression = value;
+            internal set => expression = value;
         }
 
-        public ReturnStatement(SourceInterval interval, Expression expression = null) : base(interval)
+        internal ReturnStatement(SourceInterval interval, Expression expression = null) : base(interval)
         {
             this.expression = expression;
         }
@@ -104,7 +104,7 @@ namespace compiler
 
     public class BreakStatement : Statement
     {
-        public BreakStatement(SourceInterval interval) : base(interval)
+        internal BreakStatement(SourceInterval interval) : base(interval)
         {
         }
     }
@@ -119,15 +119,15 @@ namespace compiler
         {
             get => expressions[index];
 
-            set => expressions[index] = value;
+            internal set => expressions[index] = value;
         }
 
-        public ReadStatement(SourceInterval interval) : base(interval)
+        internal ReadStatement(SourceInterval interval) : base(interval)
         {
             expressions = new List<Expression>();
         }
 
-        public void AddExpression(Expression expression)
+        internal void AddExpression(Expression expression)
         {
             expressions.Add(expression);
         }
@@ -146,17 +146,17 @@ namespace compiler
         {
             get => expressions[index];
 
-            set => expressions[index] = value;
+            internal set => expressions[index] = value;
         }
 
-        public PrintStatement(SourceInterval interval, bool lineBreak) : base(interval)
+        internal PrintStatement(SourceInterval interval, bool lineBreak) : base(interval)
         {
             this.lineBreak = lineBreak;
 
             expressions = new List<Expression>();
         }
 
-        public void AddExpression(Expression expression)
+        internal void AddExpression(Expression expression)
         {
             expressions.Add(expression);
         }
@@ -172,24 +172,24 @@ namespace compiler
         {
             get => expression;
 
-            set => expression = value;
+            internal set => expression = value;
         }
 
         public Statement ThenStatement
         {
             get => thenStatement;
 
-            set => thenStatement = value;
+            internal set => thenStatement = value;
         }
 
         public Statement ElseStatement
         {
             get => elseStatement;
 
-            set => elseStatement = value;
+            internal set => elseStatement = value;
         }
 
-        public IfStatement(SourceInterval interval, Expression expression, Statement thenStatement, Statement elseStatement = null) : base(interval)
+        internal IfStatement(SourceInterval interval, Expression expression, Statement thenStatement, Statement elseStatement = null) : base(interval)
         {
             this.expression = expression;
             this.thenStatement = thenStatement;
@@ -206,17 +206,17 @@ namespace compiler
         {
             get => expression;
 
-            set => expression = value;
+            internal set => expression = value;
         }
 
         public Statement Statement
         {
             get => statement;
 
-            set => statement = value;
+            internal set => statement = value;
         }
 
-        public WhileStatement(SourceInterval interval, Expression expression, Statement statement) : base(interval)
+        internal WhileStatement(SourceInterval interval, Expression expression, Statement statement) : base(interval)
         {
             this.expression = expression;
             this.statement = statement;
@@ -232,17 +232,17 @@ namespace compiler
         {
             get => expression;
 
-            set => expression = value;
+            internal set => expression = value;
         }
 
         public Statement Statement
         {
             get => statement;
 
-            set => statement = value;
+            internal set => statement = value;
         }
 
-        public DoStatement(SourceInterval interval, Expression expression, Statement statement) : base(interval)
+        internal DoStatement(SourceInterval interval, Expression expression, Statement statement) : base(interval)
         {
             this.expression = expression;
             this.statement = statement;
@@ -262,7 +262,7 @@ namespace compiler
         {
             get => expression;
 
-            set => expression = value;
+            internal set => expression = value;
         }
 
         public int UpdaterCount => updaters.Count;
@@ -271,10 +271,10 @@ namespace compiler
         {
             get => statement;
 
-            set => statement = value;
+            internal set => statement = value;
         }
 
-        public ForStatement(SourceInterval interval, Expression expression = null) : base(interval)
+        internal ForStatement(SourceInterval interval, Expression expression = null) : base(interval)
         {
             this.expression = expression;
 
@@ -282,7 +282,7 @@ namespace compiler
             updaters = new List<Expression>();
         }
 
-        public void AddInitializer(InitializerStatement initializer)
+        internal void AddInitializer(InitializerStatement initializer)
         {
             initializers.Add(initializer);
         }
@@ -292,12 +292,12 @@ namespace compiler
             return initializers[index];
         }
 
-        public void SetInitializer(int index, InitializerStatement value)
+        internal void SetInitializer(int index, InitializerStatement value)
         {
             initializers[index] = value;
         }
 
-        public void AddUpdater(Expression updater)
+        internal void AddUpdater(Expression updater)
         {
             updaters.Add(updater);
         }
@@ -307,7 +307,7 @@ namespace compiler
             return updaters[index];
         }
 
-        public void SetUpdater(int index, Expression value)
+        internal void SetUpdater(int index, Expression value)
         {
             updaters[index] = value;
         }
@@ -323,15 +323,15 @@ namespace compiler
         {
             get => statements[index];
 
-            set => statements[index] = value;
+            internal set => statements[index] = value;
         }
 
-        public BlockStatement(SourceInterval interval) : base(interval)
+        internal BlockStatement(SourceInterval interval) : base(interval)
         {
             statements = new List<Statement>();
         }
 
-        public void AddStatement(Statement statement)
+        internal void AddStatement(Statement statement)
         {
             statements.Add(statement);
         }

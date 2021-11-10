@@ -8,7 +8,7 @@ namespace compiler.lexer
 {
     public abstract class Literal : Token
     {
-        public Literal(SourceInterval interval) : base(interval)
+        protected Literal(SourceInterval interval) : base(interval)
         {
         }
     }

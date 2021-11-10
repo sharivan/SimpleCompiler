@@ -12,15 +12,9 @@ namespace compiler
     {
         private StructType container;
 
-        public StructType Container
-        {
-            get
-            {
-                return container;
-            }
-        }
+        public StructType Container => container;
 
-        public Field(StructType container, string name, AbstractType type, int offset) : base(name, type, offset)
+        internal Field(StructType container, string name, AbstractType type, int offset) : base(name, type, offset)
         {           
             this.container = container;
         }

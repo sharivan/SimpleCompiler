@@ -12,7 +12,7 @@ namespace compiler.lexer
 
         public char Value => value;
 
-        public CharLiteral(SourceInterval interval, char value) : base(interval)
+        internal CharLiteral(SourceInterval interval, char value) : base(interval)
         {
             this.value = value;
         }

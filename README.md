@@ -16,53 +16,57 @@ Uma nova gramática foi criada para ser aceita por este compilador, a sintaxe de
 A seguir, temos um exemplo simples de um programa escrito nessa linguagem:
 
 ```c++
-programa Programa1
+programa TesteUnidades
 {
-	var a:long;
+	usando Sorts;
+	
+	{
+		// Teste da unidade padrão System:
+		
+		var str:char[256];
+		CopiaString("abcdefgh", &str);
+		ConcatenaStrings(&str, &str, "1234567890");
+		escrevaln "\"abcdefgh\"+\"1234567890\"=\"", &str, '"';
+		
+		escrevaln "ComprimentoString(\"", &str, "\")=", ComprimentoString(&str);
+		
+		var str2:char[16];
+		CopiaString("4567", &str2);
+		escrevaln "StringParaInt(\"", &str2, "\")=", StringParaInt(&str2);
+		
+		// saída esperada:
+		// "abcdefgh"+"1234567890"="abcdefgh1234567890"
+		// ComprimentoString("abcdefgh1234567890")=18;
+		// StringParaInt("4567")=4567
+		
+		// Teste da unidade Sorts:
+		// teste de entrada: {9, -2, 6, 3)
+		
+		var a:int[4];
 
-	estrutura Vetor
-	{
-		x:real;
-		y:real;
-	}
-	
-	var v:Vetor;
-
-	função f(x:real):real
-	{
-		retorne x * x;
-	}
-	
-	função g(x:int, y:int):int
-	{
-		retorne x + y;
-	}
-	
-	{
-		var x:int;
-		var y:int;
-		var z:real;
+		para (var i:int = 0; i < 4; i++)
+		{
+			escrevaln "Digite um númeero inteiro para a[", i, "]";
+			leia a[i];
+		}
 		
-		leia x;
-		leia y;
-		leia z;
+		QuickSort(a, 0, 3);
 		
-		var w:int = g(x, y);
-		var t:real = f(z);
+		escreva "{", a[0];
+		para (var i:int = 1; i < 4; i++)
+			escreva ", ", a[i];
+			
+		escrevaln "}";
 		
-		escrevaln "w=", w;
-		escrevaln "t=", t;
-		
-		a = 9L;
-		v.x = 8;
-		v.y = 9.9E4;
-		
-		escreva "a=", a, "\nv.x=", v.x, "\nv.y=", v.y;
+		// saída esperada:
+		// {-2, 3, 6, 9)
 	}
 }
 ```
 
 A compilação desse código utilizando o compilador simples deste projeto irá gerar um código intermediário que utiliza um conjunto de instruções do tipo bytecode, no qual cada opcode possui apenas um byte. Estas instruções por sua vez são interpretadas por uma máquina virtual quando o programa compilado é executado.
+
+A depuração pode ser feita pelo próprio programa, mas somente sobre o código intermediário. Futuramente será adicionado suporte total para a depuração do código fonte.
 
 Alguns recursos ainda serão inseridos em breve à linguagem:
 
@@ -72,4 +76,4 @@ Alguns recursos ainda serão inseridos em breve à linguagem:
 
 - Suporte a strings com contagem por referência, da mesma forma como no Delphi.
 
-- Suporte a bibliotecas, incluindo uma biblioteca padrão contendo todas as funções essenciais.
+- Depurador completo.

@@ -1,129 +1,217 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 
 namespace compiler.lexer
 {
-    public class Lexer
+    public class Lexer : IDisposable
     {
-        private string input;
-        private int pos;
-        private int line;
-
-        private List<Token> tokens;
-        private int tokenIndex;
-
-        public string Input
+        private class LocalBuffer : IDisposable
         {
-            get => input;
+            private const int BUFFER_SIZE = 16;
 
-            set
+            private TextReader input;
+
+            private char[] buffer;
+            private int pos;
+            private int len;
+
+            public LocalBuffer(TextReader input)
             {
-                tokens.Clear();
+                this.input = input;
 
-                pos = 0;
-                line = 1;
-                tokenIndex = -1;
+                buffer = new char[BUFFER_SIZE];
+                pos = -1;
+                len = 0;
+            }
 
-                input = value + '\0';
+            public char NextChar()
+            {
+                if (pos < len - 1)
+                    return buffer[++pos];
+
+                int current = input.Read();
+                char c = current == -1 ? '\0' : (char) current;
+
+                if (pos == buffer.Length - 1)
+                {
+                    int len = buffer.Length - 1;
+                    Array.Copy(buffer, 1, buffer, 0, len);
+                    buffer[len] = c;
+                }
+                else
+                {
+                    buffer[++pos] = c;
+                    len++;
+                }
+
+                return c;
+            }
+
+            public int Undo(int count = 1)
+            {
+                if (pos - count < -1)
+                    throw new Exception("Invalid undo position: " + (pos - count));
+
+                pos -= count;
+                int lines = 0;
+                for (int i = pos + 1; i < pos + count + 1; i++)
+                    if (buffer[i] == '\n')
+                        lines++;
+
+                return lines;
+            }
+
+            public void Dispose()
+            {
+                input.Close();
             }
         }
+
+        public static Lexer CreateFromSource(string source)
+        {
+            return new Lexer(null, new StringReader(source));
+        }
+
+        public static Lexer CreateFromFile(string fileName)
+        {
+            return new Lexer(fileName, File.OpenText(fileName));
+        }
+
+        public static Lexer CreateFromReader(TextReader reader)
+        {
+            return new Lexer(null, reader);
+        }
+
+        public static Lexer CreateFromReader(string fileName, TextReader reader)
+        {
+            return new Lexer(fileName, reader);
+        }
+
+        private const int MAX_CACHED_TOKENS = 16;
+
+        private string fileName;
+        private LocalBuffer input;
+
+        private int pos;
+        private int line;
+        private bool disposed;
+
+        private Token[] tokens;
+        private int tokenIndex;
+        private int tokenCount;
+
+        public string FileName => fileName;
 
         public int CurrentPos => pos;
 
         public int CurrentLine => line;
 
-        public Lexer() : this("")
+        public SourceInterval CurrentInterval(int startPos) => new SourceInterval(fileName, startPos, pos, line);
+
+        private Lexer(string fileName, TextReader input)
         {
+            this.fileName = fileName;
+            this.input = new LocalBuffer(input);
+
+            tokens = new Token[MAX_CACHED_TOKENS];
+
+            pos = 0;
+            line = 1;
+            disposed = false;
+            tokenIndex = -1;
+            tokenCount = 0;
         }
 
-        public SourceInterval CurrentInterval(int startPos) => new SourceInterval(startPos, pos, line);
-
-        public Lexer(string input)
+        public void Dispose()
         {
-            tokens = new List<Token>();
-
-            Input = input;
+            if (!disposed)
+            {
+                input.Dispose();
+                disposed = true;
+            }
         }
 
         public Token CurrentToken()
         {
-            if (tokens.Count == 0)
+            if (tokenIndex == -1)
                 return null;
 
             return tokens[tokenIndex];
         }
 
+        private char NextChar()
+        {
+            char result = input.NextChar();
+            if (result == '\0')
+                return '\0';
+
+            pos++;
+
+            if (result == '\n')
+                line++;
+
+            return result;
+        }
+
+        private void Undo(int count = 1)
+        {
+            int lines = input.Undo(count);
+            pos -= count;
+            line -= lines;
+        }
+
         private void SkipBlanks()
         {
-            char c = input[pos++];
+            char c = NextChar();
             if (c == '\0')
-            {
-                pos--;
                 return;
-            }
 
             while (c == ' ' || c == '\t' || c == '\n' || c == '\r')
-            {
-                if (c == '\n')
-                    line++;
+                c = NextChar();
 
-                c = input[pos++];
-            }
-
-            pos--;
+            Undo();
         }
 
         private void SkipComments()
         {
             int startPos = pos;
-            char c = input[pos++];
+            char c = NextChar();
             if (c == '\0')
-            {
-                pos--;
                 return;
-            }
-
+            
             if (c == '/')
             {
-                c = input[pos++];
+                c = NextChar();
                 if (c == '/')
                 {
                     while (true)
                     {
-                        c = input[pos++];
+                        c = NextChar();
                         if (c == '\0')
-                        {
-                            pos--;
                             return;
-                        }
 
                         if (c == '\n')
-                        {
-                            line++;
                             return;
-                        }
                     }
                 }
                 else if (c == '*')
                 {
                     while (true)
                     {
-                        c = input[pos++];
+                        c = NextChar();
 
                         if (c == '\0')
-                        {
-                            pos--;
                             throw new CompilerException(CurrentInterval(startPos), "Fim do comentário esperado mas fim do arquivo encontrado.");
-                        }
 
                         if (c == '*')
                         {
-                            c = input[pos++];
+                            c = NextChar();
 
                             if (c == '\0')
                             {
-                                pos--;
+                                Undo();
                                 throw new CompilerException(CurrentInterval(startPos), "Fim do comentário esperado mas fim do arquivo encontrado.");
                             }
 
@@ -133,40 +221,34 @@ namespace compiler.lexer
                     }
                 }
                 else
-                    pos -= 2;
+                    Undo(2);
             }
             else
-                pos--;
+                Undo();
         }
 
         private char ParseChar(int startPos, bool fromString)
         {
             int charStartPos = pos;
-            char c = input[pos++];
+            char c = NextChar();
             if (c == '\0')
-            {
-                pos--;
                 throw new CompilerException(CurrentInterval(startPos), "Caractere esperado mas fim do arquivo encontrado.");
-            }
 
             if (c == '\n' || c == '\r')
             {
-                pos--;
+                Undo();
                 throw new CompilerException(CurrentInterval(startPos), "Delimitador de " + (fromString ? "string" : "caractere") + " esperado mas quebra de linha encontrada.");
             }
 
             if (c == '\\')
             {
-                c = input[pos++];
+                c = NextChar();
                 if (c == '\0')
-                {
-                    pos--;
                     throw new CompilerException(CurrentInterval(charStartPos), "Código de escape esperado mas fim do arquivo encontrado.");
-                }
 
                 if (c == '\n' || c == '\r')
                 {
-                    pos--;
+                    Undo();
                     throw new CompilerException(CurrentInterval(charStartPos), "Delimitador de " + (fromString ? "string" : "caractere") + " esperado mas quebra de linha encontrada.");
                 }
 
@@ -186,22 +268,19 @@ namespace compiler.lexer
                         string str = "";
                         while (true)
                         {
-                            c = input[pos++];
+                            c = NextChar();
                             if (c == '\0')
-                            {
-                                pos--;
                                 throw new CompilerException(CurrentInterval(charStartPos), "Código unicode esperado mas fim do arquivo encontrado.");
-                            }
 
                             if (c == '\n' || c == '\r')
                             {
-                                pos--;
+                                Undo();
                                 throw new CompilerException(CurrentInterval(charStartPos), "Delimitador de " + (fromString ? "string" : "caractere") + " esperado mas quebra de linha encontrada.");
                             }
 
                             if (!(c >= '0' && c <= '9' || c >= 'A' && c <= 'F' || c >= 'a' && c <= 'f'))
                             {
-                                pos--;
+                                Undo();
                                 break;
                             }
                         }
@@ -234,22 +313,19 @@ namespace compiler.lexer
                         string str = "";
                         while (true)
                         {
-                            c = input[pos++];
+                            c = NextChar();
                             if (c == '\0')
-                            {
-                                pos--;
                                 throw new CompilerException(CurrentInterval(charStartPos), "Código octal esperado mas fim do arquivo encontrado.");
-                            }
 
                             if (c == '\n' || c == '\r')
                             {
-                                pos--;
+                                Undo();
                                 throw new CompilerException(CurrentInterval(charStartPos), "Delimitador de " + (fromString ? "string" : "caractere") + " esperado mas quebra de linha encontrada.");
                             }
 
                             if (!(c >= '0' && c <= '7'))
                             {
-                                pos--;
+                                Undo();
                                 break;
                             }
                         }
@@ -291,7 +367,7 @@ namespace compiler.lexer
                         return '"';
                 }
 
-                pos--;
+                Undo();
                 throw new CompilerException(CurrentInterval(charStartPos), "Código de escape inválido.");
             }
 
@@ -299,7 +375,7 @@ namespace compiler.lexer
             {
                 if (!fromString)
                 {
-                    pos--;
+                    Undo();
                     throw new CompilerException(CurrentInterval(charStartPos), "Caractere esperado.");
                 }
 
@@ -413,11 +489,8 @@ namespace compiler.lexer
 
         public Token NextToken()
         {
-            if (tokenIndex < tokens.Count - 1)
+            if (tokenIndex < tokenCount - 1)
                 return tokens[++tokenIndex];
-
-            if (pos >= input.Length)
-                return null;
 
             int lastPos;
             while (true)
@@ -434,7 +507,7 @@ namespace compiler.lexer
             }
 
             lastPos = pos;
-            char c = input[pos++];
+            char c = NextChar();
 
             Token result = null;
 
@@ -443,14 +516,11 @@ namespace compiler.lexer
                 if (c >= '0' && c <= '9') // é um digito numérico?
                 {
                     string number = c + "";
-                    c = input[pos++];
+                    c = NextChar();
                     while (c >= '0' && c <= '9') // enquanto for um digito numérico
                     {
                         number += c;
-                        if (pos >= input.Length)
-                            break;
-
-                        c = input[pos++];
+                        c = NextChar();
                     }
 
                     if (c == 'B' || c == 'b')
@@ -465,27 +535,24 @@ namespace compiler.lexer
                     {
                         number += 'E';
 
-                        c = input[pos++];
+                        c = NextChar();
                         if (c == '+' || c == '-')
                             number += c;
                         else
-                            pos--;
+                            Undo();
 
-                        c = input[pos++];
+                        c = NextChar();
                         while (c >= '0' && c <= '9') // enquanto for um digito numérico
                         {
                             number += c;
-                            if (pos >= input.Length)
-                                break;
-
-                            c = input[pos++];
+                            c = NextChar();
                         }
 
                         if (c == 'F' || c == 'f')
                             result = ParseFloat(lastPos, number);
                         else
                         {
-                            pos--;
+                            Undo();
 
                             result = ParseDouble(lastPos, number);
                         }
@@ -493,11 +560,11 @@ namespace compiler.lexer
                     else if (c == '.')
                     {
                         number += '.';
-                        c = input[pos++];
+                        c = NextChar();
                         while (c >= '0' && c <= '9') // enquanto for um digito numérico
                         {
                             number += c;
-                            c = input[pos++];
+                            c = NextChar();
                         }
 
                         if (c == 'F' || c == 'f')
@@ -506,62 +573,59 @@ namespace compiler.lexer
                         {
                             number += 'E';
 
-                            c = input[pos++];
+                            c = NextChar();
                             if (c == '+' || c == '-')
                                 number += c;
                             else
-                                pos--;
+                                Undo();
 
-                            c = input[pos++];
+                            c = NextChar();
                             while (c >= '0' && c <= '9') // enquanto for um digito numérico
                             {
                                 number += c;
-                                if (pos >= input.Length)
-                                    break;
-
-                                c = input[pos++];
+                                c = NextChar();
                             }
 
                             if (c == 'F' || c == 'f')
                                 result = ParseFloat(lastPos, number);
                             else
                             {
-                                pos--;
+                                Undo();
 
                                 result = ParseDouble(lastPos, number);
                             }
                         }
                         else
                         {
-                            pos--;
+                            Undo();
 
                             result = ParseDouble(lastPos, number);
                         }
                     }
                     else
                     {
-                        pos--;
+                        Undo();
 
                         result = ParseInt(lastPos, number);
                     }
                 }
                 else if (c == '\'')
                 {
-                    c = input[pos++];
+                    c = NextChar();
                     if (c == '\0')
                     {
-                        pos--;
+                        Undo();
                         throw new CompilerException(CurrentInterval(lastPos), "Caractere esperado mas fim do arquivo encontrado.");
                     }
                     else
-                        pos--;
+                        Undo();
 
                     char ch = ParseChar(lastPos, false);
 
-                    c = input[pos++];
+                    c = NextChar();
                     if (c != '\'')
                     {
-                        pos--;
+                        Undo();
                         throw new CompilerException(CurrentInterval(lastPos), "Delimitador de caractere esperado.");
                     }
 
@@ -572,11 +636,11 @@ namespace compiler.lexer
                     string str = "";
                     while (true)
                     {
-                        c = input[pos++];
+                        c = NextChar();
                         if (c == '"')
                             break;
-                        else
-                            pos--;
+
+                        Undo();
 
                         char ch = ParseChar(lastPos, true);
                         str += ch;
@@ -589,7 +653,7 @@ namespace compiler.lexer
                     string lastSymbol = c.ToString();
                     while (c != '\0')
                     {
-                        c = input[pos++];
+                        c = NextChar();
                         string symbol = lastSymbol + c;
                         if (!Symbol.IsSymbol(symbol))
                             break;
@@ -597,21 +661,21 @@ namespace compiler.lexer
                         lastSymbol = symbol;
                     }
 
-                    pos--;
+                    Undo();
 
                     result = new Symbol(CurrentInterval(lastPos), lastSymbol);
                 }
                 else if (Identifier.IsLetter(c)) // pode ser uma variável, uma constante ou uma função
                 {
                     string name = c + "";
-                    c = input[pos++];
+                    c = NextChar();
                     while (c == '_' || Identifier.IsLetter(c) || c >= '0' && c <= '9') // uma variável, constante ou função pode conter somente letras ou _ (mas não iniciar com _)
                     {
                         name += c;
-                        c = input[pos++];
+                        c = NextChar();
                     }
 
-                    pos--;
+                    Undo();
 
                     if (Keyword.IsKeyword(name))
                         result = new Keyword(CurrentInterval(lastPos), name);
@@ -622,8 +686,16 @@ namespace compiler.lexer
                     throw new CompilerException(CurrentInterval(lastPos), "Caractere inválido: " + c);
             }
 
-            tokens.Add(result);
-            tokenIndex = tokens.Count - 1;
+            if (tokenCount < MAX_CACHED_TOKENS)
+            {
+                tokens[++tokenIndex] = result;
+                tokenCount++;
+            }
+            else
+            {
+                Array.Copy(tokens, 1, tokens, 0, tokens.Length - 1);
+                tokens[tokens.Length - 1] = result;
+            }
 
             return result;
         }

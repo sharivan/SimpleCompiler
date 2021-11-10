@@ -20,7 +20,7 @@ namespace compiler.types
 
         public bool IsString => type == null || PrimitiveType.IsPrimitiveChar(type);
 
-        public PointerType(AbstractType type = null, bool isArray = false)
+        internal PointerType(AbstractType type = null, bool isArray = false)
         {
             this.type = type;
             this.isArray = isArray;

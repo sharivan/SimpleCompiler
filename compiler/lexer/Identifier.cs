@@ -36,7 +36,7 @@ namespace compiler.lexer
 
         public string Name => name;
 
-        public Identifier(SourceInterval interval, string name) : base(interval)
+        internal Identifier(SourceInterval interval, string name) : base(interval)
         {
             this.name = name;
         }

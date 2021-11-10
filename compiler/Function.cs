@@ -11,21 +11,25 @@ namespace compiler
 {
     public class Function
     {
-        private Compiler compiler;
+        private CompilationUnity unity;
         private string name;
+        private bool isExtern;
         private List<Parameter> parameters;
         private AbstractType returnType;
 
         private BlockStatement block;
         private int parameterOffset;
+        private int parameterSize;
         private int localVariableOffset;
         private int returnOffset;
         private Label entryLabel;
         private Label returnLabel;
 
-        public Compiler Compiler => compiler;
+        public CompilationUnity Unity => unity;
 
         public string Name => name;
+
+        public bool IsExtern => isExtern;
 
         public Parameter this[int index] => parameters[index];
 
@@ -35,13 +39,13 @@ namespace compiler
         {
             get => returnType;
 
-            set
+            internal set
             {
                 returnType = value;
 
                 returnOffset = parameterOffset;
                 if (!PrimitiveType.IsPrimitiveVoid(returnType))
-                    returnOffset -= returnType.Size();
+                    returnOffset -= Compiler.GetAlignedSize(returnType.Size());
             }
         }
 
@@ -49,10 +53,12 @@ namespace compiler
         {
             get => block;
 
-            set => block = value;
+            internal set => block = value;
         }
 
         public int ParameterOffset => parameterOffset;
+
+        public int ParameterSize => parameterSize;
 
         public int LocalVariableOffset => localVariableOffset;
 
@@ -63,26 +69,28 @@ namespace compiler
         public Label ReturnLabel => returnLabel;
 
 
-        public Function(Compiler compiler, string name)
+        internal Function(CompilationUnity unity, string name, bool isExtern = false)
         {
-            this.compiler = compiler;
+            this.unity = unity;
             this.name = name;
+            this.isExtern = isExtern;
 
             parameters = new List<Parameter>();
             returnType = PrimitiveType.VOID;
             parameterOffset = -2 * sizeof(int);
+            parameterSize = 0;
             localVariableOffset = 0;
             returnOffset = -2 * sizeof(int);
         }
 
         internal void CreateEntryLabel()
         {
-            entryLabel = compiler.CreateLabel();
+            entryLabel = unity.Compiler.CreateLabel();
         }
 
         internal void CreateReturnLabel()
         {
-            returnLabel = compiler.CreateLabel();
+            returnLabel = unity.Compiler.CreateLabel();
         }
 
         internal void BindEntryLabel(Assembler assembler)
@@ -125,30 +133,32 @@ namespace compiler
             return null;
         }
 
-        public Parameter DeclareParameter(string name, AbstractType type, bool byRef)
+        internal Parameter DeclareParameter(string name, AbstractType type, bool byRef)
         {
             Parameter result = FindParameter(name);
             if (result != null)
                 return null;
 
-            parameterOffset -= byRef ? IntPtr.Size : type.Size();
+            int size = byRef ? IntPtr.Size : Compiler.GetAlignedSize(type.Size());
+            parameterOffset -= size;
+            parameterSize += size;
             result = new Parameter(this, name, type, parameterOffset, byRef);            
             parameters.Add(result);
 
             returnOffset = parameterOffset;
             if (!PrimitiveType.IsPrimitiveVoid(returnType))
-                returnOffset -= returnType.Size();
+                returnOffset -= Compiler.GetAlignedSize(returnType.Size());
 
             return result;
         }
 
-        public void ComputeParametersOffsets()
+        internal void ComputeParametersOffsets()
         {
             int offset = -2 * sizeof(int);
             for (int i = parameters.Count - 1; i >= 0; i--)
             {
                 Parameter parameter = parameters[i];
-                offset -= parameter.ByRef ? IntPtr.Size : parameter.Type.Size();
+                offset -= parameter.ByRef ? IntPtr.Size : Compiler.GetAlignedSize(parameter.Type.Size());
                 parameter.Offset = offset;
             }
         }

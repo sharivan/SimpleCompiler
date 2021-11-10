@@ -13,7 +13,7 @@ namespace compiler.lexer
 
         public float Value => value;
 
-        public FloatLiteral(SourceInterval interval, float value) : base(interval)
+        internal FloatLiteral(SourceInterval interval, float value) : base(interval)
         {
             this.value = value;
         }

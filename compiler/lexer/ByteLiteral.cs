@@ -12,7 +12,7 @@ namespace compiler.lexer
 
         public byte Value => value;
 
-        public ByteLiteral(SourceInterval interval, byte value) : base(interval)
+        internal ByteLiteral(SourceInterval interval, byte value) : base(interval)
         {
             this.value = value;
         }

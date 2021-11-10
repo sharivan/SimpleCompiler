@@ -2,7 +2,11 @@ programa Binario
 {
 	{
 		var n:int;
+
+		escrevaln "Digite um número inteiro:";
 		leia n;
+
+		escreva "Seu valor em binário é ";
 		
 		var i:int;
 		var b:bool = falso;
@@ -19,5 +23,7 @@ programa Binario
 		
 		se (!b)
 			escreva 0;
+
+		escrevaln;
 	}
 }

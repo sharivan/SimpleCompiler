@@ -34,7 +34,7 @@ namespace compiler
             }
         }
 
-        public Context(Function function, Context parent = null)
+        internal Context(Function function, Context parent = null)
         {
             this.function = function;
             this.parent = parent;
@@ -42,6 +42,8 @@ namespace compiler
             variables = new List<Variable>();
             variableTable = new Dictionary<string, Variable>();
             breakLabels = new Stack<Label>();
+
+            offset = 0;
 
             if (parent == null)
                 AddParams(function);
@@ -52,7 +54,7 @@ namespace compiler
             return parent == null;
         }
 
-        public Variable DeclareLocalVariable(Function function, string name, AbstractType type, bool recursive = true)
+        internal Variable DeclareLocalVariable(Function function, string name, AbstractType type, bool recursive = true)
         {
             if (variableTable.TryGetValue(name, out Variable result))
                 return result;
@@ -61,14 +63,14 @@ namespace compiler
                 return null;
 
             result = new LocalVariable(function, name, type, RealOffset);
-            offset += type.Size();
-            function.CheckLocalVariableOffset(offset);
+            offset += Compiler.GetAlignedSize(type.Size());
+            function.CheckLocalVariableOffset(RealOffset);
             variables.Add(result);
             variableTable.Add(name, result);
             return result;
         }
 
-        public void AddParams(Function function)
+        internal void AddParams(Function function)
         {
             for (int i = 0; i < function.ParamCount; i++)
             {
@@ -89,12 +91,12 @@ namespace compiler
             return null;
         }
 
-        public void PushBreakLabel(Label label)
+        internal void PushBreakLabel(Label label)
         {
             breakLabels.Push(label);
         }
 
-        public void DropBreakLabel()
+        internal void DropBreakLabel()
         {
             breakLabels.Pop();
         }

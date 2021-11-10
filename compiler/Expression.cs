@@ -42,7 +42,7 @@ namespace compiler
 
         public Expression Operand => operand;
 
-        public UnaryExpression(SourceInterval interval, UnaryOperation operation, Expression operand) : base(interval)
+        internal UnaryExpression(SourceInterval interval, UnaryOperation operation, Expression operand) : base(interval)
         {
             this.operation = operation;
             this.operand = operand;
@@ -97,7 +97,7 @@ namespace compiler
 
         public Expression RightOperand => rightOperand;
 
-        public BinaryExpression(SourceInterval interval, BinaryOperation operation, Expression leftOperand, Expression rightOperand) : base(interval)
+        internal BinaryExpression(SourceInterval interval, BinaryOperation operation, Expression leftOperand, Expression rightOperand) : base(interval)
         {
             this.operation = operation;
             this.leftOperand = leftOperand;
@@ -114,7 +114,7 @@ namespace compiler
 
         public string Field => field;
 
-        public FieldAcessorExpression(SourceInterval interval, Expression operand, string field) : base(interval)
+        internal FieldAcessorExpression(SourceInterval interval, Expression operand, string field) : base(interval)
         {
             this.operand = operand;
             this.field = field;
@@ -132,14 +132,14 @@ namespace compiler
 
         public Expression this[int index] => indexers[index];
 
-        public ArrayAccessorExpression(SourceInterval interval, Expression operand) : base(interval)
+        internal ArrayAccessorExpression(SourceInterval interval, Expression operand) : base(interval)
         {
             this.operand = operand;
 
             indexers = new List<Expression>();
         }
 
-        public void AddIndexer(Expression indexer)
+        internal void AddIndexer(Expression indexer)
         {
             indexers.Add(indexer);
         }
@@ -156,14 +156,14 @@ namespace compiler
 
         public Expression this[int index] => parameters[index];
 
-        public CallExpression(SourceInterval interval, Expression operand) : base(interval)
+        internal CallExpression(SourceInterval interval, Expression operand) : base(interval)
         {
             this.operand = operand;
 
             parameters = new List<Expression>();
         }
 
-        public void AddParameter(Expression parameter)
+        internal void AddParameter(Expression parameter)
         {
             parameters.Add(parameter);
         }
@@ -178,7 +178,7 @@ namespace compiler
 
         public Expression Operand => operand;
 
-        public CastExpression(SourceInterval interval, AbstractType type, Expression operand) : base(interval)
+        internal CastExpression(SourceInterval interval, AbstractType type, Expression operand) : base(interval)
         {
             this.type = type;
             this.operand = operand;
@@ -223,7 +223,7 @@ namespace compiler
 
         public bool Value => value;
 
-        public BoolLiteralExpression(SourceInterval interval, bool value) : base(interval, PrimaryType.BOOL_LITERAL)
+        internal BoolLiteralExpression(SourceInterval interval, bool value) : base(interval, PrimaryType.BOOL_LITERAL)
         {
             this.value = value;
         }
@@ -240,7 +240,7 @@ namespace compiler
 
         public byte Value => value;
 
-        public ByteLiteralExpression(SourceInterval interval, byte value) : base(interval, PrimaryType.BYTE_LITERAL)
+        internal ByteLiteralExpression(SourceInterval interval, byte value) : base(interval, PrimaryType.BYTE_LITERAL)
         {
             this.value = value;
         }
@@ -257,7 +257,7 @@ namespace compiler
 
         public char Value => value;
 
-        public CharLiteralExpression(SourceInterval interval, char value) : base(interval, PrimaryType.CHAR_LITERAL)
+        internal CharLiteralExpression(SourceInterval interval, char value) : base(interval, PrimaryType.CHAR_LITERAL)
         {
             this.value = value;
         }
@@ -274,7 +274,7 @@ namespace compiler
 
         public short Value => value;
 
-        public ShortLiteralExpression(SourceInterval interval, short value) : base(interval, PrimaryType.SHORT_LITERAL)
+        internal ShortLiteralExpression(SourceInterval interval, short value) : base(interval, PrimaryType.SHORT_LITERAL)
         {
             this.value = value;
         }
@@ -291,7 +291,7 @@ namespace compiler
 
         public int Value => value;
 
-        public IntLiteralExpression(SourceInterval interval, int value) : base(interval, PrimaryType.INT_LITERAL)
+        internal IntLiteralExpression(SourceInterval interval, int value) : base(interval, PrimaryType.INT_LITERAL)
         {
             this.value = value;
         }
@@ -308,7 +308,7 @@ namespace compiler
 
         public long Value => value;
 
-        public LongLiteralExpression(SourceInterval interval, long value) : base(interval, PrimaryType.LONG_LITERAL)
+        internal LongLiteralExpression(SourceInterval interval, long value) : base(interval, PrimaryType.LONG_LITERAL)
         {
             this.value = value;
         }
@@ -325,7 +325,7 @@ namespace compiler
 
         public float Value => value;
 
-        public FloatLiteralExpression(SourceInterval interval, float value) : base(interval, PrimaryType.FLOAT_LITERAL)
+        internal FloatLiteralExpression(SourceInterval interval, float value) : base(interval, PrimaryType.FLOAT_LITERAL)
         {
             this.value = value;
         }
@@ -342,7 +342,7 @@ namespace compiler
 
         public double Value => value;
 
-        public DoubleLiteralExpression(SourceInterval interval, double value) : base(interval, PrimaryType.DOUBLE_LITERAL)
+        internal DoubleLiteralExpression(SourceInterval interval, double value) : base(interval, PrimaryType.DOUBLE_LITERAL)
         {
             this.value = value;
         }
@@ -359,7 +359,7 @@ namespace compiler
 
         public string Value => value;
 
-        public StringLiteralExpression(SourceInterval interval, string value) : base(interval, PrimaryType.STRING_LITERAL)
+        internal StringLiteralExpression(SourceInterval interval, string value) : base(interval, PrimaryType.STRING_LITERAL)
         {
             this.value = value;
         }
@@ -372,7 +372,7 @@ namespace compiler
 
     public class NullLiteralExpression : PrimaryExpression
     {
-        public NullLiteralExpression(SourceInterval interval) : base(interval, PrimaryType.NULL_LITERAL)
+        internal NullLiteralExpression(SourceInterval interval) : base(interval, PrimaryType.NULL_LITERAL)
         {
         }
 
@@ -388,7 +388,7 @@ namespace compiler
 
         public string Name => name;
 
-        public IdentifierExpression(SourceInterval interval, string name) : base(interval, PrimaryType.IDENTIFIER)
+        internal IdentifierExpression(SourceInterval interval, string name) : base(interval, PrimaryType.IDENTIFIER)
         {
             this.name = name;
         }

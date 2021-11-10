@@ -24,8 +24,11 @@ namespace compiler.lexer
             // declarações
             "var",
             "função",
+            "externa",
             "estrutura",
             "programa",
+            "unidade",
+            "usando",
             // leitura e escrita
             "leia",
             "escreva",
@@ -60,7 +63,7 @@ namespace compiler.lexer
 
         public string Value => value;
 
-        public Keyword(SourceInterval interval, string value) : base(interval)
+        internal Keyword(SourceInterval interval, string value) : base(interval)
         {
             this.value = value;
         }

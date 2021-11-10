@@ -9,10 +9,12 @@ programa TesteEstrutura
 	{
 		var e:Estrutura;
 		
+		escrevaln "Digite um número inteiro para e.x:";
 		leia e.x;
+
 		e.y = cast<int>(6.38);
 		
-		escreva e.x;
-		escreva e.y;
+		escrevaln "e.x=", e.x;
+		escrevaln "e.y=", e.y;
 	}
 }

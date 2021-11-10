@@ -17,7 +17,7 @@ namespace compiler
 
         public bool ByRef => byRef;
 
-        public Parameter(Function function, string name, AbstractType type, int offset, bool byRef) : base(name, type, offset)
+        internal Parameter(Function function, string name, AbstractType type, int offset, bool byRef) : base(name, type, offset)
         {
             this.function = function;
             this.byRef = byRef;
