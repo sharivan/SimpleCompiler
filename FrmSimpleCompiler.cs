@@ -862,7 +862,7 @@ namespace SimpleCompiler
         private readonly VM vm;
         private Thread vmThread;
         private readonly object inputLock = new();
-        private bool waitingForInput = false;
+        private bool scanning = false;
         private int inputPos = 0;
         private string input = null;
 
@@ -1003,31 +1003,50 @@ namespace SimpleCompiler
 
             lock (inputLock)
             {
-                while (waitingForInput)
-                    Monitor.Wait(inputLock);
-
-                input = null;
-                waitingForInput = true;
-
-                Invoke((MethodInvoker) delegate
+                try
                 {
-                    inputPos = txtConsole.Text.Length;
-                    consoleForeColor = txtConsole.ForeColor;
-                    consoleBackColor = txtConsole.BackColor;
-                    txtConsole.ForeColor = System.Drawing.Color.White;
-                    txtConsole.BackColor = System.Drawing.Color.Black;
-                    txtConsole.SelectionStart = inputPos;
-                    txtConsole.SelectionLength = 0;
-                    txtConsole.ReadOnly = false;
-                    txtConsole.Focus();
-                });
+                    while (scanning)
+                        Monitor.Wait(inputLock);
 
-                while (input == null)
-                    Monitor.Wait(inputLock);
+                    scanning = true;
 
-                result = input;
-                input = null;
-                waitingForInput = false;
+                    BeginInvoke((MethodInvoker) delegate
+                    {
+                        inputPos = txtConsole.Text.Length;
+                        consoleForeColor = txtConsole.ForeColor;
+                        consoleBackColor = txtConsole.BackColor;
+                        txtConsole.ForeColor = System.Drawing.Color.White;
+                        txtConsole.BackColor = System.Drawing.Color.Black;
+                        txtConsole.SelectionStart = inputPos;
+                        txtConsole.SelectionLength = 0;
+                        txtConsole.ReadOnly = false;
+                        txtConsole.Focus();
+                    });
+
+                    input = null;
+                    while (input == null)
+                        Monitor.Wait(inputLock);
+
+                    result = input;
+                    input = null;
+                    scanning = false;
+                    Monitor.PulseAll(inputLock);
+                }
+                catch (ThreadAbortException e)
+                {
+                    BeginInvoke((MethodInvoker) delegate
+                    {
+                        txtConsole.ForeColor = consoleForeColor;
+                        txtConsole.BackColor = consoleBackColor;
+                        txtConsole.ReadOnly = true;
+                    });
+
+                    input = null;
+                    scanning = false;
+                    Monitor.PulseAll(inputLock);
+
+                    throw e;
+                }
             }
 
             return result;
@@ -1039,9 +1058,12 @@ namespace SimpleCompiler
                 BeginInvoke(new Action(() => ConsolePrint(message)));
             else
             {
-                txtConsole.Text += message;
-                txtConsole.SelectionStart = txtConsole.Text.Length;
-                txtConsole.SelectionLength = 0;
+                lock (inputLock)
+                {
+                    txtConsole.Text += message;
+                    txtConsole.SelectionStart = txtConsole.Text.Length;
+                    txtConsole.SelectionLength = 0;
+                }
             }
         }
 
@@ -1088,9 +1110,11 @@ namespace SimpleCompiler
 
                 statusBar.Items["statusText"].Text = "Executando passo a passo (" + mode switch
                 {
+                    SteppingMode.RUN => "pausado",
                     SteppingMode.INTO => "entrando em funções",
                     SteppingMode.OVER => "pulando funções",
                     SteppingMode.OUT => "saindo da função",
+                    SteppingMode.RUN_TO_IP => "executado até o ip atual",
                     _ => throw new NotImplementedException()
                 } + ")";
 
@@ -1151,15 +1175,22 @@ namespace SimpleCompiler
             txtConsole.Clear();
         }
 
-        public void VMRun(bool stepping, int runToIP)
+        private void PostRun(bool success, bool aborted, Exception exception)
         {
-            vm.Run(stepping, runToIP);
             BeginInvoke((MethodInvoker) delegate
             {
                 vmRunning = false;
                 paused = true;
 
-                statusBar.Items["statusText"].Text = "Programa terminado.";
+                if (success)
+                    statusBar.Items["statusText"].Text = "Programa terminado com sucesso.";
+                else if (aborted)
+                    statusBar.Items["statusText"].Text = "Programa abortado.";
+                else
+                {
+                    statusBar.Items["statusText"].Text = "Programa terminado com falha: " + exception.Message;
+                    ConsolePrintLn(exception.StackTrace);
+                }
 
                 btnCompile.Enabled = true;
                 btnRun.Enabled = true;
@@ -1170,6 +1201,23 @@ namespace SimpleCompiler
                 btnStepReturn.Enabled = false;
                 btnRunToCursor.Enabled = true;
             });
+        }
+
+        public void VMRun(bool stepping, int runToIP)
+        {
+            try
+            {
+                vm.Run(stepping, runToIP);
+                PostRun(true, false, null);
+            }
+            catch (ThreadAbortException)
+            {
+                PostRun(false, true, null);
+            }
+            catch (Exception e)
+            {
+                PostRun(false, false, e);
+            }
         }
 
         private void SetupStackView()
@@ -1340,11 +1388,18 @@ namespace SimpleCompiler
             {
                 lock (inputLock)
                 {
-                    input = txtConsole.Text.Substring(inputPos);
+                    try
+                    {
+                        input = txtConsole.Text.Substring(inputPos, txtConsole.Text.Length - inputPos - 1);
+                    }
+                    catch (ArgumentOutOfRangeException)
+                    {
+                        input = "";
+                    }
+
                     txtConsole.ReadOnly = true;
                     txtConsole.ForeColor = consoleForeColor;
                     txtConsole.BackColor = consoleBackColor;
-                    waitingForInput = false;
                     e.Handled = true;
                     Monitor.PulseAll(inputLock);
                 }

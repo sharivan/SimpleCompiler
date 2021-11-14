@@ -436,7 +436,7 @@ namespace compiler
 
             if (expression is ArrayAccessorExpression a)
             {
-                Expression operand = a.Operand;               
+                Expression operand = a.Operand;
                 AbstractType operandType = CompileAssignableExpression(context, assembler, operand, out _, out _);
 
                 if (operandType is ArrayType at)
@@ -773,7 +773,7 @@ namespace compiler
 
                             return operandType;
                         }
-                        
+
                         throw new CompilerException(operand.Interval, "Operação não definida para o tipo '" + operandType + "'.");
                     }
 
@@ -803,7 +803,7 @@ namespace compiler
 
                             return operandType;
                         }
-                        
+
                         throw new CompilerException(operand.Interval, "Operação não definida para o tipo '" + operandType + "'.");
                     }
 
@@ -813,7 +813,7 @@ namespace compiler
                         if (operandType is PrimitiveType pt)
                         {
                             switch (pt.Primitive)
-                            {      
+                            {
                                 case Primitive.BOOL:
                                     assembler.EmitNot();
                                     break;
@@ -861,7 +861,7 @@ namespace compiler
 
                                     case Primitive.LONG:
                                     case Primitive.DOUBLE:
-                                        assembler.EmitLoadPointer64();                                
+                                        assembler.EmitLoadPointer64();
                                         break;
                                 }
                             }
@@ -878,7 +878,7 @@ namespace compiler
 
                             return ptrType;
                         }
-                        
+
                         throw new CompilerException(operand.Interval, "Operação não definida para o tipo '" + operandType + "'.");
                     }
 
@@ -1051,7 +1051,7 @@ namespace compiler
 
                             return operandType;
                         }
-                        
+
                         throw new CompilerException(operand.Interval, "Operação não definida para o tipo '" + operandType + "'.");
                     }
 
@@ -1059,7 +1059,7 @@ namespace compiler
                     {
                         Assembler tempAssembler = new Assembler();
                         AbstractType operandType = CompileAssignableExpression(context, tempAssembler, operand, out Variable storeVar, out bool isPointerDeference);
-                        
+
                         if (storeVar == null)
                         {
                             assembler.Emit(tempAssembler);
@@ -1379,7 +1379,7 @@ namespace compiler
                                 assembler.EmitLoadConst((byte) 1);
                                 assembler.EmitPtrAdd();
 
-                                if(storeVar == null)
+                                if (storeVar == null)
                                 {
                                     if (isPointerDeference)
                                         assembler.EmitStorePointerPtr();
@@ -1396,8 +1396,8 @@ namespace compiler
 
                             return operandType;
                         }
-                        
-                       throw new CompilerException(operand.Interval, "Operação não definida para o tipo '" + operandType + "'.");
+
+                        throw new CompilerException(operand.Interval, "Operação não definida para o tipo '" + operandType + "'.");
                     }
 
                     case UnaryOperation.POST_DECREMENT:
@@ -2630,7 +2630,7 @@ namespace compiler
 
                     CompileLoadPointer(assembler, ptr.Type, expression.Interval);
 
-                   return ptr.Type;
+                    return ptr.Type;
                 }
 
                 throw new CompilerException(operand.Interval, "Tipo '" + operandType + "' não é um array.");
@@ -2751,7 +2751,7 @@ namespace compiler
                         }
                         else
                         {
-                            AbstractType paramType = CompileExpression(context, assembler, expressionParameter, parameter.Type is PointerType ptr && ptr.IsArray);
+                            AbstractType paramType = CompileExpression(context, assembler, expressionParameter, parameter.Type is PointerType);
                             CompileCast(assembler, paramType, parameter.Type, false, expressionParameter.Interval);
                         }
                     }
@@ -2803,7 +2803,7 @@ namespace compiler
                 Expression expression = e.Expression;
                 AbstractType type = CompileExpression(context, assembler, expression);
                 CompilePop(assembler, type);
-           }
+            }
             else if (statement is DeclarationStatement decl)
                 CompileVariableDeclaration(context, assembler, decl);
             else if (statement is ReturnStatement r)
@@ -2890,7 +2890,13 @@ namespace compiler
                         }
                     }
                     else if (exprType is PointerType ptr && ptr.IsString)
+                    {
                         assembler.EmitScanString();
+                    }
+                    else if (exprType is ArrayType at && PrimitiveType.IsPrimitiveChar(at.Type))
+                    {
+                        assembler.EmitScanString();
+                    }
                     else
                         throw new CompilerException(expr.Interval, "Expressão de tipo primitivo ou string esperada.");
                 }
@@ -2901,7 +2907,7 @@ namespace compiler
                 {
                     Expression expr = p[j];
 
-                    AbstractType exprType = CompileExpression(context, assembler, expr);
+                    AbstractType exprType = CompileExpression(context, assembler, expr, true);
                     if (exprType is PrimitiveType pt)
                     {
                         switch (pt.Primitive)
@@ -2940,7 +2946,9 @@ namespace compiler
                         }
                     }
                     else if (exprType is PointerType ptr && ptr.IsString)
+                    {
                         assembler.EmitPrintString();
+                    }
                     else
                         throw new CompilerException(expr.Interval, "Expressão de tipo primitivo ou string esperada.");
                 }
@@ -2959,7 +2967,7 @@ namespace compiler
                 Statement elseStatement = i.ElseStatement;
 
                 AbstractType exprType = CompileExpression(context, assembler, expression);
-  
+
                 if (!PrimitiveType.IsPrimitiveBool(exprType))
                     throw new CompilerException(expression.Interval, "Expressão do tipo bool experada.");
 
@@ -3158,7 +3166,7 @@ namespace compiler
         {
             using (var input = new StringReader(source))
             {
-                return Compile ("#" + sourceID, input, assembler);
+                return Compile("#" + sourceID, input, assembler);
             }
         }
 
@@ -3279,7 +3287,7 @@ namespace compiler
 
             if (program.EntryPoint != null)
                 assembler.EmitCall(program.EntryPoint.EntryLabel);
-                
+
             assembler.EmitHalt();
 
             assembler.Emit(tempAssembler);

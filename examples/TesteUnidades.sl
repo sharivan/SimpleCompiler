@@ -6,15 +6,17 @@ programa TesteUnidades
 		// Teste da unidade padrão System:
 		
 		var str:char[256];
-		CopiaString("abcdefgh", &str);
-		ConcatenaStrings(&str, &str, "1234567890");
-		escrevaln "\"abcdefgh\"+\"1234567890\"=\"", &str, '"';
+		CopiaString("abcdefgh", str);
+		ConcatenaStrings(str, str, "1234567890");
+		escrevaln "\"abcdefgh\"+\"1234567890\"=\"", str, '"';
 		
-		escrevaln "ComprimentoString(\"", &str, "\")=", ComprimentoString(&str);
+		escrevaln "ComprimentoString(\"", str, "\")=", ComprimentoString(str);
 		
 		var str2:char[16];
-		CopiaString("4567", &str2);
-		escrevaln "StringParaInt(\"", &str2, "\")=", StringParaInt(&str2);
+		CopiaString("4567", str2);
+		var str2Int:int;
+		StringParaInt(str2, str2Int);
+		escrevaln "StringParaInt(\"", str2, "\")=", str2Int;
 		
 		// saída esperada:
 		// "abcdefgh"+"1234567890"="abcdefgh1234567890"

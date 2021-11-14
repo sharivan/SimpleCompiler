@@ -201,14 +201,12 @@ namespace compiler.lexer
                     while (true)
                     {
                         c = NextChar();
-
                         if (c == '\0')
                             throw new CompilerException(CurrentInterval(startPos), "Fim do comentário esperado mas fim do arquivo encontrado.");
 
                         if (c == '*')
                         {
                             c = NextChar();
-
                             if (c == '\0')
                             {
                                 Undo();
@@ -502,8 +500,6 @@ namespace compiler.lexer
 
                 if (lastPos == pos)
                     break;
-
-                lastPos = pos;
             }
 
             lastPos = pos;
@@ -683,7 +679,10 @@ namespace compiler.lexer
                         result = new Identifier(CurrentInterval(lastPos), name);
                 }
                 else
+                {
+                    Undo();
                     throw new CompilerException(CurrentInterval(lastPos), "Caractere inválido: " + c);
+                }
             }
 
             if (tokenCount < MAX_CACHED_TOKENS)

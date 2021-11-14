@@ -72,9 +72,22 @@ namespace assembler
             this.output.WriteTo(output);
         }
 
-        public byte[] GetConstantBuffer()
+        public void CopyConstantBuffer(byte[] output)
         {
-            return constantOut.ToArray();
+            CopyConstantBuffer(output, 0, output.Length);
+        }
+
+        public void CopyConstantBuffer(byte[] output, int off, int len)
+        {
+            long count = constantOut.Position;
+            constantOut.Position = 0;
+            constantOut.Read(output, off, len);
+            constantOut.Position = count;
+        }
+
+        public void CopyConstantBuffer(Stream output)
+        {
+            constantOut.WriteTo(output);
         }
 
         public void ReserveConstantBuffer(int size)

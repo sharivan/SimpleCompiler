@@ -17,7 +17,11 @@ namespace units
         private static readonly int STRING_LENGTH_PARM_SIZE = IntPtr.Size + sizeof(int);
         private static readonly int COPY_STRING_PARM_SIZE = 2 * IntPtr.Size;
         private static readonly int CONCATENATE_STRING_PARM_SIZE = 3 * IntPtr.Size;
-        private static readonly int STRING_TO_LONG_PARM_SIZE = IntPtr.Size + sizeof(long);
+        private static readonly int STRING_TO_INT_PARAM_SIZE = sizeof(int) + 2 * IntPtr.Size;
+        private static readonly int INT_TO_STRING_PARAM_SIZE = sizeof(int) + IntPtr.Size;
+        private static readonly int LONG_TO_STRING_PARAM_SIZE = sizeof(long) + IntPtr.Size;
+        private static readonly int ALLOC_PARAM_SIZE = sizeof(int) + IntPtr.Size;
+        private static readonly int FREE_PARAM_SIZE = IntPtr.Size;
 
         private static readonly int INT_PTR_COUNT = IntPtr.Size / sizeof(int);
 
@@ -74,66 +78,135 @@ namespace units
 
         public static void StringToInt(VM vm)
         {
-            IntPtr str = vm.LoadParamPtr(STRING_LENGTH_PARM_SIZE, 1);
+            IntPtr src = vm.LoadParamPtr(STRING_TO_INT_PARAM_SIZE, 1);
+            IntPtr dst = vm.LoadParamPtr(STRING_TO_INT_PARAM_SIZE, 1 + INT_PTR_COUNT);
 
-            string s = vm.ReadPointerString(str);
+            string s = vm.ReadPointerString(src);
 
             try
             {
-                vm.SetParam(STRING_LENGTH_PARM_SIZE, 0, int.Parse(s));
+                int value = int.Parse(s);
+                vm.WritePointer(dst, value);
+                vm.SetParam(STRING_TO_INT_PARAM_SIZE, 0, 1);
             }
             catch (Exception)
             {
-                vm.SetParam(STRING_LENGTH_PARM_SIZE, 0, 0);
+                vm.SetParam(STRING_TO_INT_PARAM_SIZE, 0, 0);
             }
         }
 
         public static void StringToLong(VM vm)
         {
-            IntPtr str = vm.LoadParamPtr(STRING_TO_LONG_PARM_SIZE, 2);
+            IntPtr src = vm.LoadParamPtr(STRING_TO_INT_PARAM_SIZE, 1);
+            IntPtr dst = vm.LoadParamPtr(STRING_TO_INT_PARAM_SIZE, 1 + INT_PTR_COUNT);
 
-            string s = vm.ReadPointerString(str);
+            string s = vm.ReadPointerString(src);
 
             try
             {
-                vm.SetParam(STRING_TO_LONG_PARM_SIZE, 0, long.Parse(s));
+                long value = long.Parse(s);
+                vm.WritePointer(dst, value);
+                vm.SetParam(STRING_TO_INT_PARAM_SIZE, 0, 1);
             }
             catch (Exception)
             {
-                vm.SetParam(STRING_TO_LONG_PARM_SIZE, 0, 0L);
+                vm.SetParam(STRING_TO_INT_PARAM_SIZE, 0, 0);
             }
         }
 
         public static void StringToFloat(VM vm)
         {
-            IntPtr str = vm.LoadParamPtr(STRING_LENGTH_PARM_SIZE, 1);
+            IntPtr src = vm.LoadParamPtr(STRING_TO_INT_PARAM_SIZE, 1);
+            IntPtr dst = vm.LoadParamPtr(STRING_TO_INT_PARAM_SIZE, 1 + INT_PTR_COUNT);
 
-            string s = vm.ReadPointerString(str);
+            string s = vm.ReadPointerString(src);
 
             try
             {
-                vm.SetParam(STRING_LENGTH_PARM_SIZE, 0, float.Parse(s));
+                float value = float.Parse(s);
+                vm.WritePointer(dst, value);
+                vm.SetParam(STRING_TO_INT_PARAM_SIZE, 0, 1);
             }
             catch (Exception)
             {
-                vm.SetParam(STRING_LENGTH_PARM_SIZE, 0, 0F);
+                vm.SetParam(STRING_TO_INT_PARAM_SIZE, 0, 0);
             }
         }
 
         public static void StringToDouble(VM vm)
         {
-            IntPtr str = vm.LoadParamPtr(STRING_TO_LONG_PARM_SIZE, 2);
+            IntPtr src = vm.LoadParamPtr(STRING_TO_INT_PARAM_SIZE, 1);
+            IntPtr dst = vm.LoadParamPtr(STRING_TO_INT_PARAM_SIZE, 1 + INT_PTR_COUNT);
 
-            string s = vm.ReadPointerString(str);
+            string s = vm.ReadPointerString(src);
 
             try
             {
-                vm.SetParam(STRING_TO_LONG_PARM_SIZE, 0, double.Parse(s));
+                double value = double.Parse(s);
+                vm.WritePointer(dst, value);
+                vm.SetParam(STRING_TO_INT_PARAM_SIZE, 0, 1);
             }
             catch (Exception)
             {
-                vm.SetParam(STRING_TO_LONG_PARM_SIZE, 0, 0.0);
+                vm.SetParam(STRING_TO_INT_PARAM_SIZE, 0, 0);
             }
+        }
+
+        public static void IntToString(VM vm)
+        {
+            int src = vm.LoadParam(INT_TO_STRING_PARAM_SIZE, 0);
+            IntPtr dst = vm.LoadParamPtr(INT_TO_STRING_PARAM_SIZE, 1);
+
+            string s = src.ToString();
+            vm.WritePointer(dst, s);
+        }
+
+        public static void LongToString(VM vm)
+        {
+            long src = vm.LoadParamLong(LONG_TO_STRING_PARAM_SIZE, 0);
+            IntPtr dst = vm.LoadParamPtr(LONG_TO_STRING_PARAM_SIZE, 2);
+
+            string s = src.ToString();
+            vm.WritePointer(dst, s);
+        }
+
+        public static void FloatToString(VM vm)
+        {
+            float src = vm.LoadParamFloat(INT_TO_STRING_PARAM_SIZE, 0);
+            IntPtr dst = vm.LoadParamPtr(INT_TO_STRING_PARAM_SIZE, 1);
+
+            string s = src.ToString();
+            vm.WritePointer(dst, s);
+        }
+
+        public static void DoubleToString(VM vm)
+        {
+            double src = vm.LoadParamDouble(LONG_TO_STRING_PARAM_SIZE, 0);
+            IntPtr dst = vm.LoadParamPtr(LONG_TO_STRING_PARAM_SIZE, 2);
+
+            string s = src.ToString();
+            vm.WritePointer(dst, s);
+        }
+
+        public static void Alloc(VM vm)
+        {
+            int len = vm.LoadParam(ALLOC_PARAM_SIZE, INT_PTR_COUNT);
+
+            try
+            {
+                IntPtr result = Marshal.AllocHGlobal(len);
+                vm.SetParam(ALLOC_PARAM_SIZE, 0, result);
+            }
+            catch (OutOfMemoryException)
+            {
+                vm.SetParam(ALLOC_PARAM_SIZE, 0, IntPtr.Zero);
+            }
+        }
+
+        public static void Free(VM vm)
+        {
+            IntPtr ptr = vm.LoadParamPtr(FREE_PARAM_SIZE, 0);
+            Marshal.FreeHGlobal(ptr);
         }
 
         static UnitySystem()
@@ -148,6 +221,12 @@ namespace units
             FUNCTIONS.Add("StringParaLong", StringToLong);
             FUNCTIONS.Add("StringParaFloat", StringToFloat);
             FUNCTIONS.Add("StringParaReal", StringToDouble);
+            FUNCTIONS.Add("IntParaString", IntToString);
+            FUNCTIONS.Add("LongParaString", LongToString);
+            FUNCTIONS.Add("FloatParaString", FloatToString);
+            FUNCTIONS.Add("RealParaString", DoubleToString);
+            FUNCTIONS.Add("AlocarMemória", Alloc);
+            FUNCTIONS.Add("DesalocarMemória", Free);
         }
     }
 }

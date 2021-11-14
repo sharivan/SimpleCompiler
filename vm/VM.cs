@@ -14,10 +14,11 @@ namespace vm
 {
     public enum SteppingMode
     {
-        NONE,
+        RUN,
         OVER,
         INTO,
-        OUT
+        OUT,
+        RUN_TO_IP
     }
 
     public class VM
@@ -60,8 +61,11 @@ namespace vm
         private int sp; // ponteiro de pilha
         private int bp; // ponteiro de base
 
+        private int lastIP;
+        private int calls;
+
         private bool paused;
-        private SteppingMode steppingMode = SteppingMode.NONE;
+        private SteppingMode steppingMode = SteppingMode.RUN;
         private int runToIP = -1;
 
         private List<Breakpoint> breakpoints;
@@ -117,7 +121,7 @@ namespace vm
             externalFunctionMapByName = new Dictionary<string, Tuple<int, int>>();
             externalFunctionMapByIndex = new Dictionary<int, string>();
 
-            steppingMode = SteppingMode.NONE;
+            steppingMode = SteppingMode.RUN;
         }
 
         public void Initialize(Assembler assembler, int stackSize = DEFAULT_STACK_SIZE)
@@ -130,8 +134,9 @@ namespace vm
 
             if (assembler.ConstantSize > 0)
             {
-                byte[] constantBuffer = assembler.GetConstantBuffer();
-                Push(constantBuffer);
+                byte[] constantBuffer = new byte[assembler.ConstantSize];
+                assembler.CopyConstantBuffer(constantBuffer);
+                Push(constantBuffer);                
             }
 
             breakpoints.Clear();
@@ -465,7 +470,7 @@ namespace vm
         {
             unsafe
             {
-                return *((long *) addr);
+                return *((long*) addr);
             }
         }
 
@@ -481,7 +486,7 @@ namespace vm
         {
             unsafe
             {
-                return *((IntPtr *) addr);
+                return *((IntPtr*) addr);
             }
         }
 
@@ -577,7 +582,7 @@ namespace vm
         {
             unsafe
             {
-                *((short *) addr) = value;
+                *((short*) addr) = value;
             }
         }
 
@@ -593,7 +598,7 @@ namespace vm
         {
             unsafe
             {
-                *((int *) addr) = value;
+                *((int*) addr) = value;
             }
         }
 
@@ -730,7 +735,7 @@ namespace vm
         public void StoreStackBlock(int dstAddr, int len)
         {
             sp -= len;
-            MoveStackBlock(sp, dstAddr, len);            
+            MoveStackBlock(sp, dstAddr, len);
         }
 
         public void StorePointerBlock(IntPtr dstAddr, int len)
@@ -918,7 +923,7 @@ namespace vm
         {
             lock (breakpoints)
             {
-                steppingMode = SteppingMode.NONE;
+                steppingMode = SteppingMode.RUN;
                 runToIP = -1;
                 paused = false;
                 Monitor.PulseAll(breakpoints);
@@ -962,21 +967,88 @@ namespace vm
         {
             lock (breakpoints)
             {
-                steppingMode = SteppingMode.NONE;
+                steppingMode = SteppingMode.RUN_TO_IP;
                 runToIP = ip;
                 paused = false;
                 Monitor.PulseAll(breakpoints);
             }
         }
 
-        private void Step(int lastIP)
+        private void Step()
         {
-            paused = true;
+            lock (breakpoints)
+            {
+                paused = true;
 
-            OnStep?.Invoke(lastIP, steppingMode);
+                OnStep?.Invoke(lastIP, steppingMode);
 
-            while (paused)
-                Monitor.Wait(breakpoints);
+                while (paused)
+                    Monitor.Wait(breakpoints);
+            }
+        }
+
+        private bool CheckPaused()
+        {
+            if (paused || runToIP == lastIP)
+            {
+                lock (breakpoints)
+                {
+                    if (paused || runToIP == lastIP)
+                    {
+                        paused = true;
+                        calls = 0;
+                        runToIP = -1;
+                        steppingMode = SteppingMode.RUN;
+
+                        if (paused)
+                            OnPause?.Invoke(lastIP);
+                        else
+                            OnStep?.Invoke(lastIP, SteppingMode.RUN_TO_IP);
+
+                        while (paused)
+                            Monitor.Wait(breakpoints);
+                    }
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool CheckBreak(ref Opcode opcode)
+        {
+            if (opcode == Opcode.BREAK)
+            {
+                lock (breakpoints)
+                {
+                    Breakpoint bp = GetBreakpoint(lastIP);
+                    if (bp == null)
+                        throw new Exception("Breakpoint perdido no ip " + lastIP + ". Abortando a execução do programa.");
+
+                    opcode = bp.opcode;
+
+                    if (OnBreakpoint != null)
+                    {
+                        calls = 0;
+                        steppingMode = SteppingMode.RUN;
+                        runToIP = -1;
+                        paused = true;
+
+                        OnBreakpoint(bp);
+
+                        while (paused)
+                            Monitor.Wait(breakpoints);
+
+                        if (bp.Temporary)
+                            RemoveBreakpoint(bp);
+                    }
+                }
+
+                return true;
+            }
+
+            return false;
         }
 
         public void Run(bool stepOver = false, int runToIP = -1)
@@ -991,12 +1063,12 @@ namespace vm
                 else if (runToIP != -1)
                 {
                     this.runToIP = runToIP;
-                    steppingMode = SteppingMode.NONE;
+                    steppingMode = SteppingMode.RUN_TO_IP;
                 }
                 else
                 {
                     this.runToIP = -1;
-                    steppingMode = SteppingMode.NONE;
+                    steppingMode = SteppingMode.RUN;
                 }
 
                 paused = false;
@@ -1004,1671 +1076,1679 @@ namespace vm
 
             ip = 0;
             bp = sp;
-
-            int calls = 0;
+            calls = 0;
 
             while (ip < code.Length)
             {
-                int lastIP = ip;
-
-                bool steped = false;
-                if (paused || this.runToIP == ip)
+                SteppingMode oldSteppingMode = steppingMode;
+                switch (steppingMode)
                 {
-                    lock (breakpoints)
-                    {
-                        if (paused || this.runToIP == ip)
+                    case SteppingMode.RUN:
+                    case SteppingMode.RUN_TO_IP:
+                        while (ip < code.Length)
                         {
-                            paused = true;
-                            calls = 0;
+                            lastIP = ip;
+                            int op = ReadCodeByte(ref ip) & 0xff;
+                            Opcode opcode = (Opcode) op;
+
+                            if (!CheckPaused())
+                                CheckBreak(ref opcode);
+
+                            if (!SingleStep(opcode))
+                                return;
+
+                            if (steppingMode != oldSteppingMode)
+                                break;
+                        }
+
+                        break;
+
+                    case SteppingMode.OVER:
+                        while (ip < code.Length)
+                        {
+                            lastIP = ip;
+                            int op = ReadCodeByte(ref ip) & 0xff;
+                            Opcode opcode = (Opcode) op;
+
+                            if (calls == 0)
+                            {
+                                this.runToIP = -1;
+                                Step();
+                            }
+                            else if (!CheckPaused())
+                                CheckBreak(ref opcode);
+
+                            if (!SingleStep(opcode))
+                                return;
+
+                            if (steppingMode != oldSteppingMode)
+                                break;
+                        }
+
+                        break;
+
+                    case SteppingMode.INTO:
+                        while (ip < code.Length)
+                        {
+                            lastIP = ip;
+                            int op = ReadCodeByte(ref ip) & 0xff;
+                            Opcode opcode = (Opcode) op;
+
                             this.runToIP = -1;
-                            steppingMode = SteppingMode.NONE;
-
-                            OnPause?.Invoke(lastIP);
-
-                            while (paused)
-                                Monitor.Wait(breakpoints);
-
-                            steped = true;
-                        }
-                    }
-                }
-                else if (steppingMode != SteppingMode.NONE)
-                {
-                    lock (breakpoints)
-                    {
-                        if (steppingMode != SteppingMode.NONE)
-                        {
-                            switch (steppingMode)
-                            {
-                                case SteppingMode.OVER:
-                                    if (calls == 0)
-                                        Step(lastIP);
-
-                                    break;
-
-                                case SteppingMode.INTO:
-                                    calls = 0;
-                                    Step(lastIP);
-                                    break;
-
-                                case SteppingMode.OUT:
-                                    if (calls < 0)
-                                    {
-                                        calls = 0;
-                                        Step(lastIP);
-                                    }
-
-                                    break;
-                            }
-
-                            steped = true;
-                        }
-                    }
-                }
-
-                int op = ReadCodeByte(ref ip) & 0xff;
-                Opcode opcode = (Opcode) op;
-
-                if (opcode == Opcode.BREAK)
-                {
-                    lock (breakpoints)
-                    {
-                        Breakpoint bp = GetBreakpoint(lastIP);
-                        if (bp == null)
-                            throw new Exception("Breakpoint perdido no ip " + lastIP + ". Abortando a execução do programa.");
-
-                        opcode = bp.opcode;
-                        
-                        if (!steped && OnBreakpoint != null)
-                        {
                             calls = 0;
-                            steppingMode = SteppingMode.NONE;
-                            paused = true;
+                            Step();
 
-                            OnBreakpoint(bp);
+                            if (!SingleStep(opcode))
+                                return;
 
-                            while (paused)
-                                Monitor.Wait(breakpoints);
-
-                            if (bp.Temporary)
-                                RemoveBreakpoint(bp);
+                            if (steppingMode != oldSteppingMode)
+                                break;
                         }
-                    }
-                }
 
-                switch (opcode)
-                {
-                    case Opcode.NOP:
                         break;
 
-                    case Opcode.LC8:
-                    {
-                        int value = ReadCodeByte(ref ip);
-                        Push(value);
-                        break;
-                    }
-
-                    case Opcode.LC16:
-                    {
-                        int value = ReadCodeShort(ref ip);
-                        Push(value);
-                        break;
-                    }
-
-                    case Opcode.LC32:
-                    {
-                        int value = ReadCodeInt(ref ip);
-                        Push(value);
-                        break;
-                    }
-
-                    case Opcode.LC64:
-                    {
-                        long value = ReadCodeLong(ref ip);
-                        Push(value);
-                        break;
-                    }
-
-                    case Opcode.LCPTR:
-                    {
-                        IntPtr value = ReadCodePtr(ref ip);
-                        Push(value);
-                        break;
-                    }
-
-                    case Opcode.LIP:
-                    {
-                        Push(ip);
-                        break;
-                    }
-
-                    case Opcode.LSP:
-                    {
-                        Push(sp);
-                        break;
-                    }
-
-                    case Opcode.LBP:
-                    {
-                        Push(bp);
-                        break;
-                    }
-
-                    case Opcode.SIP:
-                    {
-                        ip = Pop();
-                        break;
-                    }
-
-                    case Opcode.SSP:
-                    {
-                        sp = Pop();
-                        break;
-                    }
-
-                    case Opcode.SBP:
-                    {
-                        bp = Pop();
-                        break;
-                    }
-
-                    case Opcode.ADDSP:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        sp += offset;
-                        break;
-                    }
-
-                    case Opcode.SUBSP:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        sp -= offset;
-                        break;
-                    }
-
-                    case Opcode.LHA:
-                    {
-                        int offset = Pop();
-                        Push(ResidentToHostAddr(offset));
-                        break;
-                    }
-
-                    case Opcode.LGHA:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        Push(ResidentToHostAddr(offset));
-                        break;
-                    }
-
-                    case Opcode.LLHA:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        Push(ResidentToHostAddr(bp + offset));
-                        break;
-                    }
-
-                    case Opcode.LLRA:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        Push(bp + offset);
-                        break;
-                    }
-
-                    case Opcode.RHA:
-                    {
-                        int offset = Pop();
-                        Push(ResidentToHostAddr(offset));
-                        break;
-                    }
-
-                    case Opcode.HRA:
-                    {
-                        IntPtr addr = PopPtr();
-                        Push(HostToResidentAddr(addr));
-                        break;
-                    }
-
-                    case Opcode.LS8:
-                    {
-                        int addr = Pop();
-                        byte value = ReadStackByte(addr);
-                        Push(value);
-                        break;
-                    }
-
-                    case Opcode.LS16:
-                    {
-                        int addr = Pop();
-                        short value = ReadStackShort(addr);
-                        Push(value);
-                        break;
-                    }
-
-                    case Opcode.LS32:
-                    {
-                        int addr = Pop();
-                        int value = ReadStackInt(addr);
-                        Push(value);
-                        break;
-                    }
-
-                    case Opcode.LS64:
-                    {
-                        int addr = Pop();
-                        long value = ReadStackLong(addr);
-                        Push(value);
-                        break;
-                    }
-
-                    case Opcode.LSPTR:
-                    {
-                        int addr = Pop();
-                        IntPtr value = ReadStackPtr(addr);
-                        Push(value);
-                        break;
-                    }
-
-                    case Opcode.SS8:
-                    {
-                        int value = Pop();
-                        int addr = Pop();
-                        WriteStack(addr, (byte) value);
-                        break;
-                    }
-
-                    case Opcode.SS16:
-                    {
-                        int value = Pop();
-                        int addr = Pop();
-                        WriteStack(addr, (short) value);
-                        break;
-                    }
-
-                    case Opcode.SS32:
-                    {
-                        int value = Pop();
-                        int addr = Pop();
-                        WriteStack(addr, value);
-                        break;
-                    }
-
-                    case Opcode.SS64:
-                    {
-                        long value = PopLong();
-                        int addr = Pop();
-                        WriteStack(addr, value);
-                        break;
-                    }
-
-                    case Opcode.SSPTR:
-                    {
-                        IntPtr value = PopPtr();
-                        int addr = Pop();
-                        WriteStack(addr, value);
-                        break;
-                    }
-
-                    case Opcode.LG8:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        byte value = ReadStackByte(offset);
-                        Push(value);
-                        break;
-                    }
-
-                    case Opcode.LG16:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        short value = ReadStackShort(offset);
-                        Push(value);
-                        break;
-                    }
-
-                    case Opcode.LG32:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        int value = ReadStackInt(offset);
-                        Push(value);
-                        break;
-                    }
-
-                    case Opcode.LG64:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        long value = ReadStackLong(offset);
-                        Push(value);
-                        break;
-                    }
-
-                    case Opcode.LGPTR:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        IntPtr value = ReadStackPtr(offset);
-                        Push(value);
-                        break;
-                    }
-
-                    case Opcode.LL8:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        byte value = ReadStackByte(bp + offset);
-                        Push(value);
-                        break;
-                    }
-
-                    case Opcode.LL16:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        short value = ReadStackShort(bp + offset);
-                        Push(value);
-                        break;
-                    }
-
-                    case Opcode.LL32:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        int value = ReadStackInt(bp + offset);
-                        Push(value);
-                        break;
-                    }
-
-                    case Opcode.LL64:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        long value = ReadStackLong(bp + offset);
-                        Push(value);
-                        break;
-                    }
-
-                    case Opcode.LLPTR:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        IntPtr value = ReadStackPtr(bp + offset);
-                        Push(value);
-                        break;
-                    }
-
-                    case Opcode.SG8:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        int value = Pop();
-                        WriteStack(offset, (byte) value);
-                        break;
-                    }
-
-                    case Opcode.SG16:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        int value = Pop();
-                        WriteStack(offset, (short) value);
-                        break;
-                    }
-
-                    case Opcode.SG32:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        int value = Pop();
-                        WriteStack(offset, value);
-                        break;
-                    }
-
-                    case Opcode.SG64:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        long value = PopLong();
-                        WriteStack(offset, value);
-                        break;
-                    }
-
-                    case Opcode.SGPTR:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        IntPtr value = PopPtr();
-                        WriteStack(offset, value);
-                        break;
-                    }
-
-                    case Opcode.SL8:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        int value = Pop();
-                        WriteStack(bp + offset, (byte) value);
-                        break;
-                    }
-
-                    case Opcode.SL16:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        int value = Pop();
-                        WriteStack(bp + offset, (short) value);
-                        break;
-                    }
-
-                    case Opcode.SL32:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        int value = Pop();
-                        WriteStack(bp + offset, value);
-                        break;
-                    }
-
-                    case Opcode.SL64:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        long value = PopLong();
-                        WriteStack(bp + offset, value);
-                        break;
-                    }
-
-                    case Opcode.SLPTR:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        IntPtr value = PopPtr();
-                        WriteStack(bp + offset, value);
-                        break;
-                    }
-
-                    case Opcode.LPTR8:
-                    {
-                        IntPtr addr = PopPtr();
-                        byte result = ReadPointerByte(addr);
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.LPTR16:
-                    {
-                        IntPtr addr = PopPtr();
-                        short result = ReadPointerShort(addr);
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.LPTR32:
-                    {
-                        IntPtr addr = PopPtr();
-                        int result = ReadPointerInt(addr);
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.LPTR64:
-                    {
-                        IntPtr addr = PopPtr();
-                        long result = ReadPointerLong(addr);
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.LPTRPTR:
-                    {
-                        IntPtr addr = PopPtr();
-                        IntPtr result = ReadPointerPtr(addr);
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.SPTR8:
-                    {
-                        int value = Pop();
-                        IntPtr addr = PopPtr();
-                        WritePointer(addr, (byte) value);
-                        break;
-                    }
-
-                    case Opcode.SPTR16:
-                    {
-                        int value = Pop();
-                        IntPtr addr = PopPtr();
-                        WritePointer(addr, (short) value);
-                        break;
-                    }
-
-                    case Opcode.SPTR32:
-                    {
-                        int value = Pop();
-                        IntPtr addr = PopPtr();
-                        WritePointer(addr, value);
-                        break;
-                    }
-
-                    case Opcode.SPTR64:
-                    {
-                        long value = PopLong();
-                        IntPtr addr = PopPtr();
-                        WritePointer(addr, value);
-                        break;
-                    }
-
-                    case Opcode.SPTRPTR:
-                    {
-                        IntPtr value = PopPtr();
-                        IntPtr addr = PopPtr();
-                        WritePointer(addr, value);
-                        break;
-                    }
-
-                    case Opcode.ADD:
-                    {
-                        int operand2 = Pop();
-                        int operand1 = Pop();
-                        int result = operand1 + operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.ADD64:
-                    {
-                        long operand2 = PopLong();
-                        long operand1 = PopLong();
-                        long result = operand1 + operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.SUB:
-                    {
-                        int operand2 = Pop();
-                        int operand1 = Pop();
-                        int result = operand1 - operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.SUB64:
-                    {
-                        long operand2 = PopLong();
-                        long operand1 = PopLong();
-                        long result = operand1 - operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.MUL:
-                    {
-                        int operand2 = Pop();
-                        int operand1 = Pop();
-                        int result = operand1 * operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.MUL64:
-                    {
-                        long operand2 = PopLong();
-                        long operand1 = PopLong();
-                        long result = operand1 * operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.DIV:
-                    {
-                        int operand2 = Pop();
-                        int operand1 = Pop();
-                        int result = operand1 / operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.DIV64:
-                    {
-                        long operand2 = PopLong();
-                        long operand1 = PopLong();
-                        long result = operand1 / operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.MOD:
-                    {
-                        int operand2 = Pop();
-                        int operand1 = Pop();
-                        int result = operand1 % operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.MOD64:
-                    {
-                        long operand2 = PopLong();
-                        long operand1 = PopLong();
-                        long result = operand1 % operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.NEG:
-                    {
-                        int operand = Pop();
-                        int result = -operand;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.NEG64:
-                    {
-                        long operand = PopLong();
-                        long result = -operand;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.AND:
-                    {
-                        int operand2 = Pop();
-                        int operand1 = Pop();
-                        int result = operand1 & operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.AND64:
-                    {
-                        long operand2 = PopLong();
-                        long operand1 = PopLong();
-                        long result = operand1 & operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.OR:
-                    {
-                        int operand2 = Pop();
-                        int operand1 = Pop();
-                        int result = operand1 | operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.OR64:
-                    {
-                        long operand2 = PopLong();
-                        long operand1 = PopLong();
-                        long result = operand1 | operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.XOR:
-                    {
-                        int operand2 = Pop();
-                        int operand1 = Pop();
-                        int result = operand1 ^ operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.XOR64:
-                    {
-                        long operand2 = PopLong();
-                        long operand1 = PopLong();
-                        long result = operand1 ^ operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.NOT:
-                    {
-                        int operand = Pop();
-                        int result = ~operand;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.NOT64:
-                    {
-                        long operand = PopLong();
-                        long result = ~operand;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.SHL:
-                    {
-                        int operand2 = Pop();
-                        int operand1 = Pop();
-                        int result = operand1 << operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.SHL64:
-                    {
-                        int operand2 = Pop();
-                        long operand1 = PopLong();
-                        long result = operand1 << operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.SHR:
-                    {
-                        int operand2 = Pop();
-                        int operand1 = Pop();
-                        int result = operand1 >> operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.SHR64:
-                    {
-                        int operand2 = Pop();
-                        long operand1 = PopLong();
-                        long result = operand1 << operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.USHR:
-                    {
-                        int operand2 = Pop();
-                        int operand1 = Pop();
-                        uint result = ((uint) operand1) >> operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.USHR64:
-                    {
-                        int operand2 = Pop();
-                        long operand1 = PopLong();
-                        ulong result = ((ulong) operand1) >> operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.FADD:
-                    {
-                        float operand2 = PopFloat();
-                        float operand1 = PopFloat();
-                        float result = operand1 + operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.FADD64:
-                    {
-                        double operand2 = PopDouble();
-                        double operand1 = PopDouble();
-                        double result = operand1 + operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.FSUB:
-                    {
-                        float operand2 = PopFloat();
-                        float operand1 = PopFloat();
-                        float result = operand1 - operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.FSUB64:
-                    {
-                        double operand2 = PopDouble();
-                        double operand1 = PopDouble();
-                        double result = operand1 - operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.FMUL:
-                    {
-                        float operand2 = PopFloat();
-                        float operand1 = PopFloat();
-                        float result = operand1 * operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.FMUL64:
-                    {
-                        double operand2 = PopDouble();
-                        double operand1 = PopDouble();
-                        double result = operand1 * operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.FDIV:
-                    {
-                        float operand2 = PopFloat();
-                        float operand1 = PopFloat();
-                        float result = operand1 / operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.FDIV64:
-                    {
-                        double operand2 = PopDouble();
-                        double operand1 = PopDouble();
-                        double result = operand1 / operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.FNEG:
-                    {
-                        float operand = PopFloat();
-                        float result = -operand;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.FNEG64:
-                    {
-                        double operand = PopDouble();
-                        double result = -operand;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.PTRADD:
-                    {
-                        int operand2 = Pop();
-                        IntPtr operand1 = PopPtr();
-                        IntPtr result = operand1 + operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.PTRSUB:
-                    {
-                        int operand2 = Pop();
-                        IntPtr operand1 = PopPtr();
-                        IntPtr result = operand1 - operand2;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.I32I64:
-                    {
-                        int operand = Pop();
-                        long result = operand;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.I64I32:
-                    {
-                        long operand = PopLong();
-                        int result = (int) operand;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.I32F32:
-                    {
-                        int operand = Pop();
-                        float result = operand;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.I32F64:
-                    {
-                        int operand = Pop();
-                        double result = operand;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.I64F64:
-                    {
-                        long operand = PopLong();
-                        double result = operand;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.F32F64:
-                    {
-                        float operand = PopFloat();
-                        double result = operand;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.F32I32:
-                    {
-                        float operand = PopFloat();
-                        int result = (int) operand;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.F32I64:
-                    {
-                        float operand = PopFloat();
-                        long result = (long) operand;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.F64I64:
-                    {
-                        double operand = PopDouble();
-                        long result = (long) operand;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.F64F32:
-                    {
-                        double operand = PopDouble();
-                        float result = (float) operand;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.I32PTR:
-                    {
-                        int operand = Pop();
-                        IntPtr result = (IntPtr) operand;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.I64PTR:
-                    {
-                        long operand = PopLong();
-                        IntPtr result = (IntPtr) operand;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.PTRI32:
-                    {
-                        IntPtr operand = PopPtr();
-                        int result = (int) operand;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.PTRI64:
-                    {
-                        IntPtr operand = PopPtr();
-                        long result = (long) operand;
-                        Push(result);
-                        break;
-                    }
-
-                    case Opcode.CMPE:
-                    {
-                        int operand2 = Pop();
-                        int operand1 = Pop();
-                        bool result = operand1 == operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.CMPNE:
-                    {
-                        int operand2 = Pop();
-                        int operand1 = Pop();
-                        bool result = operand1 != operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.CMPG:
-                    {
-                        int operand2 = Pop();
-                        int operand1 = Pop();
-                        bool result = operand1 > operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.CMPGE:
-                    {
-                        int operand2 = Pop();
-                        int operand1 = Pop();
-                        bool result = operand1 >= operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.CMPL:
-                    {
-                        int operand2 = Pop();
-                        int operand1 = Pop();
-                        bool result = operand1 < operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.CMPLE:
-                    {
-                        int operand2 = Pop();
-                        int operand1 = Pop();
-                        bool result = operand1 <= operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.CMPE64:
-                    {
-                        long operand2 = PopLong();
-                        long operand1 = PopLong();
-                        bool result = operand1 == operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.CMPNE64:
-                    {
-                        long operand2 = PopLong();
-                        long operand1 = PopLong();
-                        bool result = operand1 != operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.CMPG64:
-                    {
-                        long operand2 = PopLong();
-                        long operand1 = PopLong();
-                        bool result = operand1 > operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.CMPGE64:
-                    {
-                        long operand2 = PopLong();
-                        long operand1 = PopLong();
-                        bool result = operand1 >= operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.CMPL64:
-                    {
-                        long operand2 = PopLong();
-                        long operand1 = PopLong();
-                        bool result = operand1 < operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.CMPLE64:
-                    {
-                        long operand2 = PopLong();
-                        long operand1 = PopLong();
-                        bool result = operand1 <= operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.FCMPE:
-                    {
-                        float operand2 = PopFloat();
-                        float operand1 = PopFloat();
-                        bool result = operand1 == operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.FCMPNE:
-                    {
-                        float operand2 = PopFloat();
-                        float operand1 = PopFloat();
-                        bool result = operand1 != operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.FCMPG:
-                    {
-                        float operand2 = PopFloat();
-                        float operand1 = PopFloat();
-                        bool result = operand1 > operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.FCMPGE:
-                    {
-                        float operand2 = PopFloat();
-                        float operand1 = PopFloat();
-                        bool result = operand1 >= operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.FCMPL:
-                    {
-                        float operand2 = PopFloat();
-                        float operand1 = PopFloat();
-                        bool result = operand1 < operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.FCMPLE:
-                    {
-                        float operand2 = PopFloat();
-                        float operand1 = PopFloat();
-                        bool result = operand1 <= operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.FCMPE64:
-                    {
-                        double operand2 = PopDouble();
-                        double operand1 = PopDouble();
-                        bool result = operand1 == operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.FCMPNE64:
-                    {
-                        double operand2 = PopDouble();
-                        double operand1 = PopDouble();
-                        bool result = operand1 != operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.FCMPG64:
-                    {
-                        double operand2 = PopDouble();
-                        double operand1 = PopDouble();
-                        bool result = operand1 > operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.FCMPGE64:
-                    {
-                        double operand2 = PopDouble();
-                        double operand1 = PopDouble();
-                        bool result = operand1 >= operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.FCMPL64:
-                    {
-                        double operand2 = PopDouble();
-                        double operand1 = PopDouble();
-                        bool result = operand1 < operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.FCMPLE64:
-                    {
-                        double operand2 = PopDouble();
-                        double operand1 = PopDouble();
-                        bool result = operand1 <= operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.CMPEPTR:
-                    {
-                        IntPtr operand2 = PopPtr();
-                        IntPtr operand1 = PopPtr();
-                        bool result = operand1 == operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.CMPNEPTR:
-                    {
-                        IntPtr operand2 = PopPtr();
-                        IntPtr operand1 = PopPtr();
-                        bool result = operand1 != operand2;
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.CMPGPTR:
-                    {
-                        IntPtr operand2 = PopPtr();
-                        IntPtr operand1 = PopPtr();
-
-                        bool result;
-                        if (IntPtr.Size == sizeof(int))
-                            result = (int) operand1 > (int) operand2;
-                        else
-                            result = (long) operand1 > (long) operand2;
-
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.CMPGEPTR:
-                    {
-                        IntPtr operand2 = PopPtr();
-                        IntPtr operand1 = PopPtr();
-
-                        bool result;
-                        if (IntPtr.Size == sizeof(int))
-                            result = (int) operand1 >= (int) operand2;
-                        else
-                            result = (long) operand1 >= (long) operand2;
-
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.CMPLPTR:
-                    {
-                        IntPtr operand2 = PopPtr();
-                        IntPtr operand1 = PopPtr();
-
-                        bool result;
-                        if (IntPtr.Size == sizeof(int))
-                            result = (int) operand1 < (int) operand2;
-                        else
-                            result = (long) operand1 < (long) operand2;
-
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.CMPLEPTR:
-                    {
-                        IntPtr operand2 = PopPtr();
-                        IntPtr operand1 = PopPtr();
-
-                        bool result;
-                        if (IntPtr.Size == sizeof(int))
-                            result = (int) operand1 <= (int) operand2;
-                        else
-                            result = (long) operand1 <= (long) operand2;
-
-                        Push(result ? 1 : 0);
-                        break;
-                    }
-
-                    case Opcode.JMP:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        ip = lastIP + offset;
-                        break;
-                    }
-
-                    case Opcode.JT:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        int value = Pop() & 1;
-
-                        if (value == 1)
-                            ip = lastIP + offset;
-
-                        break;
-                    }
-
-                    case Opcode.JF:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        int value = Pop() & 1;
-
-                        if (value == 0)
-                            ip = lastIP + offset;
-
-                        break;
-                    }
-
-                    case Opcode.POP:
-                    {
-                        Pop();
-                        break;
-                    }
-
-                    case Opcode.POP2:
-                    {
-                        PopLong();
-                        break;
-                    }
-
-                    case Opcode.POPN:
-                    {
-                        byte n = ReadCodeByte(ref ip);
-
-                        for (int i = 0; i < n; i++)
-                            Pop();
-
-                        break;
-                    }
-
-                    case Opcode.DUP:
-                    {
-                        int value = ReadStackTop();
-                        Push(value);
-                        break;
-                    }
-
-                    case Opcode.DUP64:
-                    {
-                        long value = ReadStackTop64();
-                        Push(value);
-                        break;
-                    }
-
-                    case Opcode.DUPN:
-                    {
-                        byte n = ReadCodeByte(ref ip);
-                        int value = ReadStackTop();
-
-                        for (int i = 0; i < n; i++)
-                            Push(value);
-
-                        break;
-                    }
-
-                    case Opcode.DUP64N:
-                    {
-                        byte n = ReadCodeByte(ref ip);
-                        long value = ReadStackTop64();
-
-                        for (int i = 0; i < n; i++)
-                            Push(value);
-
-                        break;
-                    }
-
-                    case Opcode.CALL:
-                    {
-                        int offset = ReadCodeInt(ref ip);
-                        Push(ip);
-                        Push(bp);
-                        bp = sp;
-                        ip = lastIP + offset;
+                    case SteppingMode.OUT:
+                        while (ip < code.Length)
+                        {
+                            lastIP = ip;
+                            int op = ReadCodeByte(ref ip) & 0xff;
+                            Opcode opcode = (Opcode) op;
 
-                        if (steppingMode == SteppingMode.OVER || steppingMode == SteppingMode.OUT)
-                            lock (breakpoints)
+                            if (calls < 0)
                             {
-                                if (steppingMode == SteppingMode.OVER || steppingMode == SteppingMode.OUT)
-                                    calls++;
+                                this.runToIP = -1;
+                                calls = 0;
+                                Step();
                             }
+                            else if (!CheckPaused())
+                                CheckBreak(ref opcode);
 
-                        break;
-                    }
+                            if (!SingleStep(opcode))
+                                return;
 
-                    case Opcode.ICALL:
-                    {
-                        int offset = Pop();
-                        Push(ip);
-                        Push(bp);
-                        bp = sp;
-                        ip = lastIP + offset;
-
-                        if (steppingMode == SteppingMode.OVER || steppingMode == SteppingMode.OUT)
-                            lock (breakpoints)
-                            {
-                                if (steppingMode == SteppingMode.OVER || steppingMode == SteppingMode.OUT)
-                                    calls++;
-                            }
-
-                        break;
-                    }
-
-                    case Opcode.ECALL:
-                    {
-                        int index = ReadCodeInt(ref ip);
-                        ExternalFunctionEntry entry = externalFunctions[index];
-
-                        Push(ip);
-                        Push(bp);
-                        bp = sp;
-
-                        entry.handler(this);
-
-                        sp = bp;
-                        bp = Pop();
-                        ip = Pop();
-                        sp -= entry.paramSize;
-
-                        break;
-                    }
-
-                    case Opcode.RET:
-                    {
-                        bp = Pop();
-                        ip = Pop();
-
-                        if (steppingMode == SteppingMode.OVER || steppingMode == SteppingMode.OUT)
-                            lock (breakpoints)
-                            {
-                                if (steppingMode == SteppingMode.OVER || steppingMode == SteppingMode.OUT)
-                                    calls--;
-                            }
-
-                        break;
-                    }
-
-                    case Opcode.RETN:
-                    {
-                        int count = ReadCodeInt(ref ip);
-                        bp = Pop();
-                        ip = Pop();
-                        sp -= count;
-
-                        if (steppingMode == SteppingMode.OVER || steppingMode == SteppingMode.OUT)
-                            lock (breakpoints)
-                            {
-                                if (steppingMode == SteppingMode.OVER || steppingMode == SteppingMode.OUT)
-                                    calls--;
-                            }
-
-                        break;
-                    }
-
-                    case Opcode.SCANB:
-                    {
-                        IntPtr addr = PopPtr();
-                        string str = ReadFromConsole();
-                        try
-                        {
-                            if (str == "verdade" || str == "1")
-                                WritePointer(addr, 1);
-                            else if (str == "falso" || str == "0")
-                                WritePointer(addr, 0);
-                            else
-                            {
-                                bool value = bool.Parse(str);
-                                WritePointer(addr, value ? 1 : 0);
-                            }
-                        }
-                        catch (Exception)
-                        {
-                            WritePointer(addr, (byte) 0);
+                            if (steppingMode != oldSteppingMode)
+                                break;
                         }
 
                         break;
-                    }
-
-                    case Opcode.SCAN8:
-                    {
-                        IntPtr addr = PopPtr();
-                        string str = ReadFromConsole();
-                        try
-                        {
-                            int value = int.Parse(str);
-                            WritePointer(addr, (byte) value);
-                        }
-                        catch (Exception)
-                        {
-                            WritePointer(addr, (byte) 0);
-                        }
-
-                        break;
-                    }
-
-                    case Opcode.SCANC:
-                    {
-                        IntPtr addr = PopPtr();
-                        string str = ReadFromConsole();
-                        if (str.Length == 0)
-                            WritePointer(addr, (short) 0);
-                        else
-                            WritePointer(addr, (short) str[0]);
-
-                        break;
-                    }
-
-                    case Opcode.SCAN16:
-                    {
-                        IntPtr addr = PopPtr();
-                        string str = ReadFromConsole();
-                        try
-                        {
-                            int value = int.Parse(str);
-                            WritePointer(addr, (short) value);
-                        }
-                        catch (Exception)
-                        {
-                            WritePointer(addr, (short) 0);
-                        }
-
-                        break;
-                    }
-
-                    case Opcode.SCAN32:
-                    {
-                        IntPtr addr = PopPtr();
-                        string str = ReadFromConsole();
-                        try
-                        {
-                            int value = int.Parse(str);
-                            WritePointer(addr, value);
-                        }
-                        catch (Exception)
-                        {
-                            WritePointer(addr, 0);
-                        }
-
-                        break;
-                    }
-
-                    case Opcode.SCAN64:
-                    {
-                        IntPtr addr = PopPtr();
-                        string str = ReadFromConsole();
-                        try
-                        {
-                            long value = long.Parse(str);
-                            WritePointer(addr, value);
-                        }
-                        catch (Exception)
-                        {
-                            WritePointer(addr, 0L);
-                        }
-
-                        break;
-                    }
-
-                    case Opcode.FSCAN:
-                    {
-                        IntPtr addr = PopPtr();
-                        string str = ReadFromConsole();
-                        try
-                        {
-                            float value = float.Parse(str, CultureInfo.InvariantCulture);
-                            WritePointer(addr, value);
-                        }
-                        catch (Exception)
-                        {
-                            WritePointer(addr, 0F);
-                        }
-
-                        break;
-                    }
-
-                    case Opcode.FSCAN64:
-                    {
-                        IntPtr addr = PopPtr();
-                        string str = ReadFromConsole();
-                        try
-                        {
-                            double value = double.Parse(str, CultureInfo.InvariantCulture);
-                            WritePointer(addr, value);
-                        }
-                        catch (Exception)
-                        {
-                            WritePointer(addr, 0.0);
-                        }
-
-                        break;
-                    }
-
-                    case Opcode.SCANSTR:
-                    {
-                        IntPtr addr = PopPtr();
-                        string value = ReadFromConsole();
-                        WritePointer(addr, value);
-                        break;
-                    }
-
-                    case Opcode.PRINTB:
-                    {
-                        int value = Pop();
-                        Print((value & 1) != 0 ? "verdade" : "falso");
-                        break;
-                    }
-
-                    case Opcode.PRINTC:
-                    {
-                        int value = Pop();
-                        Print(((char) value).ToString());
-                        break;
-                    }
-
-                    case Opcode.PRINT32:
-                    {
-                        int value = Pop();
-                        Print(value.ToString());
-                        break;
-                    }
-
-                    case Opcode.PRINT64:
-                    {
-                        long value = PopLong();
-                        Print(value.ToString());
-                        break;
-                    }
-
-                    case Opcode.FPRINT:
-                    {
-                        float value = PopFloat();
-                        Print(value.ToString(CultureInfo.InvariantCulture));
-                        break;
-                    }
-
-                    case Opcode.FPRINT64:
-                    {
-                        double value = PopDouble();
-                        Print(value.ToString(CultureInfo.InvariantCulture));
-                        break;
-                    }
-
-                    case Opcode.PRINTSTR:
-                    {
-                        IntPtr addr = PopPtr();
-                        string value = addr != null ? ReadPointerString(addr) : "nulo";
-                        Print(value);
-                        break;
-                    }
-
-                    case Opcode.HALT:
-                    {
-                        return;
-                    }
-
-                    default:
-                        throw new Exception("Illegal Opcode " + op + " at IP " + lastIP);
                 }
             }
+        }
+
+        private bool SingleStep(Opcode opcode)
+        {
+            switch (opcode)
+            {
+                case Opcode.NOP:
+                    break;
+
+                case Opcode.LC8:
+                {
+                    int value = ReadCodeByte(ref ip);
+                    Push(value);
+                    break;
+                }
+
+                case Opcode.LC16:
+                {
+                    int value = ReadCodeShort(ref ip);
+                    Push(value);
+                    break;
+                }
+
+                case Opcode.LC32:
+                {
+                    int value = ReadCodeInt(ref ip);
+                    Push(value);
+                    break;
+                }
+
+                case Opcode.LC64:
+                {
+                    long value = ReadCodeLong(ref ip);
+                    Push(value);
+                    break;
+                }
+
+                case Opcode.LCPTR:
+                {
+                    IntPtr value = ReadCodePtr(ref ip);
+                    Push(value);
+                    break;
+                }
+
+                case Opcode.LIP:
+                {
+                    Push(ip);
+                    break;
+                }
+
+                case Opcode.LSP:
+                {
+                    Push(sp);
+                    break;
+                }
+
+                case Opcode.LBP:
+                {
+                    Push(bp);
+                    break;
+                }
+
+                case Opcode.SIP:
+                {
+                    ip = Pop();
+                    break;
+                }
+
+                case Opcode.SSP:
+                {
+                    sp = Pop();
+                    break;
+                }
+
+                case Opcode.SBP:
+                {
+                    bp = Pop();
+                    break;
+                }
+
+                case Opcode.ADDSP:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    sp += offset;
+                    break;
+                }
+
+                case Opcode.SUBSP:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    sp -= offset;
+                    break;
+                }
+
+                case Opcode.LHA:
+                {
+                    int offset = Pop();
+                    Push(ResidentToHostAddr(offset));
+                    break;
+                }
+
+                case Opcode.LGHA:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    Push(ResidentToHostAddr(offset));
+                    break;
+                }
+
+                case Opcode.LLHA:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    Push(ResidentToHostAddr(bp + offset));
+                    break;
+                }
+
+                case Opcode.LLRA:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    Push(bp + offset);
+                    break;
+                }
+
+                case Opcode.RHA:
+                {
+                    int offset = Pop();
+                    Push(ResidentToHostAddr(offset));
+                    break;
+                }
+
+                case Opcode.HRA:
+                {
+                    IntPtr addr = PopPtr();
+                    Push(HostToResidentAddr(addr));
+                    break;
+                }
+
+                case Opcode.LS8:
+                {
+                    int addr = Pop();
+                    byte value = ReadStackByte(addr);
+                    Push(value);
+                    break;
+                }
+
+                case Opcode.LS16:
+                {
+                    int addr = Pop();
+                    short value = ReadStackShort(addr);
+                    Push(value);
+                    break;
+                }
+
+                case Opcode.LS32:
+                {
+                    int addr = Pop();
+                    int value = ReadStackInt(addr);
+                    Push(value);
+                    break;
+                }
+
+                case Opcode.LS64:
+                {
+                    int addr = Pop();
+                    long value = ReadStackLong(addr);
+                    Push(value);
+                    break;
+                }
+
+                case Opcode.LSPTR:
+                {
+                    int addr = Pop();
+                    IntPtr value = ReadStackPtr(addr);
+                    Push(value);
+                    break;
+                }
+
+                case Opcode.SS8:
+                {
+                    int value = Pop();
+                    int addr = Pop();
+                    WriteStack(addr, (byte) value);
+                    break;
+                }
+
+                case Opcode.SS16:
+                {
+                    int value = Pop();
+                    int addr = Pop();
+                    WriteStack(addr, (short) value);
+                    break;
+                }
+
+                case Opcode.SS32:
+                {
+                    int value = Pop();
+                    int addr = Pop();
+                    WriteStack(addr, value);
+                    break;
+                }
+
+                case Opcode.SS64:
+                {
+                    long value = PopLong();
+                    int addr = Pop();
+                    WriteStack(addr, value);
+                    break;
+                }
+
+                case Opcode.SSPTR:
+                {
+                    IntPtr value = PopPtr();
+                    int addr = Pop();
+                    WriteStack(addr, value);
+                    break;
+                }
+
+                case Opcode.LG8:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    byte value = ReadStackByte(offset);
+                    Push(value);
+                    break;
+                }
+
+                case Opcode.LG16:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    short value = ReadStackShort(offset);
+                    Push(value);
+                    break;
+                }
+
+                case Opcode.LG32:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    int value = ReadStackInt(offset);
+                    Push(value);
+                    break;
+                }
+
+                case Opcode.LG64:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    long value = ReadStackLong(offset);
+                    Push(value);
+                    break;
+                }
+
+                case Opcode.LGPTR:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    IntPtr value = ReadStackPtr(offset);
+                    Push(value);
+                    break;
+                }
+
+                case Opcode.LL8:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    byte value = ReadStackByte(bp + offset);
+                    Push(value);
+                    break;
+                }
+
+                case Opcode.LL16:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    short value = ReadStackShort(bp + offset);
+                    Push(value);
+                    break;
+                }
+
+                case Opcode.LL32:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    int value = ReadStackInt(bp + offset);
+                    Push(value);
+                    break;
+                }
+
+                case Opcode.LL64:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    long value = ReadStackLong(bp + offset);
+                    Push(value);
+                    break;
+                }
+
+                case Opcode.LLPTR:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    IntPtr value = ReadStackPtr(bp + offset);
+                    Push(value);
+                    break;
+                }
+
+                case Opcode.SG8:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    int value = Pop();
+                    WriteStack(offset, (byte) value);
+                    break;
+                }
+
+                case Opcode.SG16:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    int value = Pop();
+                    WriteStack(offset, (short) value);
+                    break;
+                }
+
+                case Opcode.SG32:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    int value = Pop();
+                    WriteStack(offset, value);
+                    break;
+                }
+
+                case Opcode.SG64:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    long value = PopLong();
+                    WriteStack(offset, value);
+                    break;
+                }
+
+                case Opcode.SGPTR:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    IntPtr value = PopPtr();
+                    WriteStack(offset, value);
+                    break;
+                }
+
+                case Opcode.SL8:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    int value = Pop();
+                    WriteStack(bp + offset, (byte) value);
+                    break;
+                }
+
+                case Opcode.SL16:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    int value = Pop();
+                    WriteStack(bp + offset, (short) value);
+                    break;
+                }
+
+                case Opcode.SL32:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    int value = Pop();
+                    WriteStack(bp + offset, value);
+                    break;
+                }
+
+                case Opcode.SL64:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    long value = PopLong();
+                    WriteStack(bp + offset, value);
+                    break;
+                }
+
+                case Opcode.SLPTR:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    IntPtr value = PopPtr();
+                    WriteStack(bp + offset, value);
+                    break;
+                }
+
+                case Opcode.LPTR8:
+                {
+                    IntPtr addr = PopPtr();
+                    byte result = ReadPointerByte(addr);
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.LPTR16:
+                {
+                    IntPtr addr = PopPtr();
+                    short result = ReadPointerShort(addr);
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.LPTR32:
+                {
+                    IntPtr addr = PopPtr();
+                    int result = ReadPointerInt(addr);
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.LPTR64:
+                {
+                    IntPtr addr = PopPtr();
+                    long result = ReadPointerLong(addr);
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.LPTRPTR:
+                {
+                    IntPtr addr = PopPtr();
+                    IntPtr result = ReadPointerPtr(addr);
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.SPTR8:
+                {
+                    int value = Pop();
+                    IntPtr addr = PopPtr();
+                    WritePointer(addr, (byte) value);
+                    break;
+                }
+
+                case Opcode.SPTR16:
+                {
+                    int value = Pop();
+                    IntPtr addr = PopPtr();
+                    WritePointer(addr, (short) value);
+                    break;
+                }
+
+                case Opcode.SPTR32:
+                {
+                    int value = Pop();
+                    IntPtr addr = PopPtr();
+                    WritePointer(addr, value);
+                    break;
+                }
+
+                case Opcode.SPTR64:
+                {
+                    long value = PopLong();
+                    IntPtr addr = PopPtr();
+                    WritePointer(addr, value);
+                    break;
+                }
+
+                case Opcode.SPTRPTR:
+                {
+                    IntPtr value = PopPtr();
+                    IntPtr addr = PopPtr();
+                    WritePointer(addr, value);
+                    break;
+                }
+
+                case Opcode.ADD:
+                {
+                    int operand2 = Pop();
+                    int operand1 = Pop();
+                    int result = operand1 + operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.ADD64:
+                {
+                    long operand2 = PopLong();
+                    long operand1 = PopLong();
+                    long result = operand1 + operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.SUB:
+                {
+                    int operand2 = Pop();
+                    int operand1 = Pop();
+                    int result = operand1 - operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.SUB64:
+                {
+                    long operand2 = PopLong();
+                    long operand1 = PopLong();
+                    long result = operand1 - operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.MUL:
+                {
+                    int operand2 = Pop();
+                    int operand1 = Pop();
+                    int result = operand1 * operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.MUL64:
+                {
+                    long operand2 = PopLong();
+                    long operand1 = PopLong();
+                    long result = operand1 * operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.DIV:
+                {
+                    int operand2 = Pop();
+                    int operand1 = Pop();
+                    int result = operand1 / operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.DIV64:
+                {
+                    long operand2 = PopLong();
+                    long operand1 = PopLong();
+                    long result = operand1 / operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.MOD:
+                {
+                    int operand2 = Pop();
+                    int operand1 = Pop();
+                    int result = operand1 % operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.MOD64:
+                {
+                    long operand2 = PopLong();
+                    long operand1 = PopLong();
+                    long result = operand1 % operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.NEG:
+                {
+                    int operand = Pop();
+                    int result = -operand;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.NEG64:
+                {
+                    long operand = PopLong();
+                    long result = -operand;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.AND:
+                {
+                    int operand2 = Pop();
+                    int operand1 = Pop();
+                    int result = operand1 & operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.AND64:
+                {
+                    long operand2 = PopLong();
+                    long operand1 = PopLong();
+                    long result = operand1 & operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.OR:
+                {
+                    int operand2 = Pop();
+                    int operand1 = Pop();
+                    int result = operand1 | operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.OR64:
+                {
+                    long operand2 = PopLong();
+                    long operand1 = PopLong();
+                    long result = operand1 | operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.XOR:
+                {
+                    int operand2 = Pop();
+                    int operand1 = Pop();
+                    int result = operand1 ^ operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.XOR64:
+                {
+                    long operand2 = PopLong();
+                    long operand1 = PopLong();
+                    long result = operand1 ^ operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.NOT:
+                {
+                    int operand = Pop();
+                    int result = ~operand;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.NOT64:
+                {
+                    long operand = PopLong();
+                    long result = ~operand;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.SHL:
+                {
+                    int operand2 = Pop();
+                    int operand1 = Pop();
+                    int result = operand1 << operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.SHL64:
+                {
+                    int operand2 = Pop();
+                    long operand1 = PopLong();
+                    long result = operand1 << operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.SHR:
+                {
+                    int operand2 = Pop();
+                    int operand1 = Pop();
+                    int result = operand1 >> operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.SHR64:
+                {
+                    int operand2 = Pop();
+                    long operand1 = PopLong();
+                    long result = operand1 << operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.USHR:
+                {
+                    int operand2 = Pop();
+                    int operand1 = Pop();
+                    uint result = ((uint) operand1) >> operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.USHR64:
+                {
+                    int operand2 = Pop();
+                    long operand1 = PopLong();
+                    ulong result = ((ulong) operand1) >> operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.FADD:
+                {
+                    float operand2 = PopFloat();
+                    float operand1 = PopFloat();
+                    float result = operand1 + operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.FADD64:
+                {
+                    double operand2 = PopDouble();
+                    double operand1 = PopDouble();
+                    double result = operand1 + operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.FSUB:
+                {
+                    float operand2 = PopFloat();
+                    float operand1 = PopFloat();
+                    float result = operand1 - operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.FSUB64:
+                {
+                    double operand2 = PopDouble();
+                    double operand1 = PopDouble();
+                    double result = operand1 - operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.FMUL:
+                {
+                    float operand2 = PopFloat();
+                    float operand1 = PopFloat();
+                    float result = operand1 * operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.FMUL64:
+                {
+                    double operand2 = PopDouble();
+                    double operand1 = PopDouble();
+                    double result = operand1 * operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.FDIV:
+                {
+                    float operand2 = PopFloat();
+                    float operand1 = PopFloat();
+                    float result = operand1 / operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.FDIV64:
+                {
+                    double operand2 = PopDouble();
+                    double operand1 = PopDouble();
+                    double result = operand1 / operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.FNEG:
+                {
+                    float operand = PopFloat();
+                    float result = -operand;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.FNEG64:
+                {
+                    double operand = PopDouble();
+                    double result = -operand;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.PTRADD:
+                {
+                    int operand2 = Pop();
+                    IntPtr operand1 = PopPtr();
+                    IntPtr result = operand1 + operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.PTRSUB:
+                {
+                    int operand2 = Pop();
+                    IntPtr operand1 = PopPtr();
+                    IntPtr result = operand1 - operand2;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.I32I64:
+                {
+                    int operand = Pop();
+                    long result = operand;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.I64I32:
+                {
+                    long operand = PopLong();
+                    int result = (int) operand;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.I32F32:
+                {
+                    int operand = Pop();
+                    float result = operand;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.I32F64:
+                {
+                    int operand = Pop();
+                    double result = operand;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.I64F64:
+                {
+                    long operand = PopLong();
+                    double result = operand;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.F32F64:
+                {
+                    float operand = PopFloat();
+                    double result = operand;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.F32I32:
+                {
+                    float operand = PopFloat();
+                    int result = (int) operand;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.F32I64:
+                {
+                    float operand = PopFloat();
+                    long result = (long) operand;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.F64I64:
+                {
+                    double operand = PopDouble();
+                    long result = (long) operand;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.F64F32:
+                {
+                    double operand = PopDouble();
+                    float result = (float) operand;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.I32PTR:
+                {
+                    int operand = Pop();
+                    IntPtr result = (IntPtr) operand;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.I64PTR:
+                {
+                    long operand = PopLong();
+                    IntPtr result = (IntPtr) operand;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.PTRI32:
+                {
+                    IntPtr operand = PopPtr();
+                    int result = (int) operand;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.PTRI64:
+                {
+                    IntPtr operand = PopPtr();
+                    long result = (long) operand;
+                    Push(result);
+                    break;
+                }
+
+                case Opcode.CMPE:
+                {
+                    int operand2 = Pop();
+                    int operand1 = Pop();
+                    bool result = operand1 == operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.CMPNE:
+                {
+                    int operand2 = Pop();
+                    int operand1 = Pop();
+                    bool result = operand1 != operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.CMPG:
+                {
+                    int operand2 = Pop();
+                    int operand1 = Pop();
+                    bool result = operand1 > operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.CMPGE:
+                {
+                    int operand2 = Pop();
+                    int operand1 = Pop();
+                    bool result = operand1 >= operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.CMPL:
+                {
+                    int operand2 = Pop();
+                    int operand1 = Pop();
+                    bool result = operand1 < operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.CMPLE:
+                {
+                    int operand2 = Pop();
+                    int operand1 = Pop();
+                    bool result = operand1 <= operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.CMPE64:
+                {
+                    long operand2 = PopLong();
+                    long operand1 = PopLong();
+                    bool result = operand1 == operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.CMPNE64:
+                {
+                    long operand2 = PopLong();
+                    long operand1 = PopLong();
+                    bool result = operand1 != operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.CMPG64:
+                {
+                    long operand2 = PopLong();
+                    long operand1 = PopLong();
+                    bool result = operand1 > operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.CMPGE64:
+                {
+                    long operand2 = PopLong();
+                    long operand1 = PopLong();
+                    bool result = operand1 >= operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.CMPL64:
+                {
+                    long operand2 = PopLong();
+                    long operand1 = PopLong();
+                    bool result = operand1 < operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.CMPLE64:
+                {
+                    long operand2 = PopLong();
+                    long operand1 = PopLong();
+                    bool result = operand1 <= operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.FCMPE:
+                {
+                    float operand2 = PopFloat();
+                    float operand1 = PopFloat();
+                    bool result = operand1 == operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.FCMPNE:
+                {
+                    float operand2 = PopFloat();
+                    float operand1 = PopFloat();
+                    bool result = operand1 != operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.FCMPG:
+                {
+                    float operand2 = PopFloat();
+                    float operand1 = PopFloat();
+                    bool result = operand1 > operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.FCMPGE:
+                {
+                    float operand2 = PopFloat();
+                    float operand1 = PopFloat();
+                    bool result = operand1 >= operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.FCMPL:
+                {
+                    float operand2 = PopFloat();
+                    float operand1 = PopFloat();
+                    bool result = operand1 < operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.FCMPLE:
+                {
+                    float operand2 = PopFloat();
+                    float operand1 = PopFloat();
+                    bool result = operand1 <= operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.FCMPE64:
+                {
+                    double operand2 = PopDouble();
+                    double operand1 = PopDouble();
+                    bool result = operand1 == operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.FCMPNE64:
+                {
+                    double operand2 = PopDouble();
+                    double operand1 = PopDouble();
+                    bool result = operand1 != operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.FCMPG64:
+                {
+                    double operand2 = PopDouble();
+                    double operand1 = PopDouble();
+                    bool result = operand1 > operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.FCMPGE64:
+                {
+                    double operand2 = PopDouble();
+                    double operand1 = PopDouble();
+                    bool result = operand1 >= operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.FCMPL64:
+                {
+                    double operand2 = PopDouble();
+                    double operand1 = PopDouble();
+                    bool result = operand1 < operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.FCMPLE64:
+                {
+                    double operand2 = PopDouble();
+                    double operand1 = PopDouble();
+                    bool result = operand1 <= operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.CMPEPTR:
+                {
+                    IntPtr operand2 = PopPtr();
+                    IntPtr operand1 = PopPtr();
+                    bool result = operand1 == operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.CMPNEPTR:
+                {
+                    IntPtr operand2 = PopPtr();
+                    IntPtr operand1 = PopPtr();
+                    bool result = operand1 != operand2;
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.CMPGPTR:
+                {
+                    IntPtr operand2 = PopPtr();
+                    IntPtr operand1 = PopPtr();
+
+                    bool result;
+                    if (IntPtr.Size == sizeof(int))
+                        result = (int) operand1 > (int) operand2;
+                    else
+                        result = (long) operand1 > (long) operand2;
+
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.CMPGEPTR:
+                {
+                    IntPtr operand2 = PopPtr();
+                    IntPtr operand1 = PopPtr();
+
+                    bool result;
+                    if (IntPtr.Size == sizeof(int))
+                        result = (int) operand1 >= (int) operand2;
+                    else
+                        result = (long) operand1 >= (long) operand2;
+
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.CMPLPTR:
+                {
+                    IntPtr operand2 = PopPtr();
+                    IntPtr operand1 = PopPtr();
+
+                    bool result;
+                    if (IntPtr.Size == sizeof(int))
+                        result = (int) operand1 < (int) operand2;
+                    else
+                        result = (long) operand1 < (long) operand2;
+
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.CMPLEPTR:
+                {
+                    IntPtr operand2 = PopPtr();
+                    IntPtr operand1 = PopPtr();
+
+                    bool result;
+                    if (IntPtr.Size == sizeof(int))
+                        result = (int) operand1 <= (int) operand2;
+                    else
+                        result = (long) operand1 <= (long) operand2;
+
+                    Push(result ? 1 : 0);
+                    break;
+                }
+
+                case Opcode.JMP:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    ip = lastIP + offset;
+                    break;
+                }
+
+                case Opcode.JT:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    int value = Pop() & 1;
+
+                    if (value == 1)
+                        ip = lastIP + offset;
+
+                    break;
+                }
+
+                case Opcode.JF:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    int value = Pop() & 1;
+
+                    if (value == 0)
+                        ip = lastIP + offset;
+
+                    break;
+                }
+
+                case Opcode.POP:
+                {
+                    Pop();
+                    break;
+                }
+
+                case Opcode.POP2:
+                {
+                    PopLong();
+                    break;
+                }
+
+                case Opcode.POPN:
+                {
+                    byte n = ReadCodeByte(ref ip);
+
+                    for (int i = 0; i < n; i++)
+                        Pop();
+
+                    break;
+                }
+
+                case Opcode.DUP:
+                {
+                    int value = ReadStackTop();
+                    Push(value);
+                    break;
+                }
+
+                case Opcode.DUP64:
+                {
+                    long value = ReadStackTop64();
+                    Push(value);
+                    break;
+                }
+
+                case Opcode.DUPN:
+                {
+                    byte n = ReadCodeByte(ref ip);
+                    int value = ReadStackTop();
+
+                    for (int i = 0; i < n; i++)
+                        Push(value);
+
+                    break;
+                }
+
+                case Opcode.DUP64N:
+                {
+                    byte n = ReadCodeByte(ref ip);
+                    long value = ReadStackTop64();
+
+                    for (int i = 0; i < n; i++)
+                        Push(value);
+
+                    break;
+                }
+
+                case Opcode.CALL:
+                {
+                    int offset = ReadCodeInt(ref ip);
+                    Push(ip);
+                    Push(bp);
+                    bp = sp;
+                    ip = lastIP + offset;
+
+                    if (steppingMode == SteppingMode.OVER || steppingMode == SteppingMode.OUT)
+                        lock (breakpoints)
+                        {
+                            if (steppingMode == SteppingMode.OVER || steppingMode == SteppingMode.OUT)
+                                calls++;
+                        }
+
+                    break;
+                }
+
+                case Opcode.ICALL:
+                {
+                    int offset = Pop();
+                    Push(ip);
+                    Push(bp);
+                    bp = sp;
+                    ip = lastIP + offset;
+
+                    if (steppingMode == SteppingMode.OVER || steppingMode == SteppingMode.OUT)
+                        lock (breakpoints)
+                        {
+                            if (steppingMode == SteppingMode.OVER || steppingMode == SteppingMode.OUT)
+                                calls++;
+                        }
+
+                    break;
+                }
+
+                case Opcode.ECALL:
+                {
+                    int index = ReadCodeInt(ref ip);
+                    ExternalFunctionEntry entry = externalFunctions[index];
+
+                    Push(ip);
+                    Push(bp);
+                    bp = sp;
+
+                    entry.handler(this);
+
+                    sp = bp;
+                    bp = Pop();
+                    ip = Pop();
+                    sp -= entry.paramSize;
+
+                    break;
+                }
+
+                case Opcode.RET:
+                {
+                    bp = Pop();
+                    ip = Pop();
+
+                    if (steppingMode == SteppingMode.OVER || steppingMode == SteppingMode.OUT)
+                        lock (breakpoints)
+                        {
+                            if (steppingMode == SteppingMode.OVER || steppingMode == SteppingMode.OUT)
+                                calls--;
+                        }
+
+                    break;
+                }
+
+                case Opcode.RETN:
+                {
+                    int count = ReadCodeInt(ref ip);
+                    bp = Pop();
+                    ip = Pop();
+                    sp -= count;
+
+                    if (steppingMode == SteppingMode.OVER || steppingMode == SteppingMode.OUT)
+                        lock (breakpoints)
+                        {
+                            if (steppingMode == SteppingMode.OVER || steppingMode == SteppingMode.OUT)
+                                calls--;
+                        }
+
+                    break;
+                }
+
+                case Opcode.SCANB:
+                {
+                    IntPtr addr = PopPtr();
+                    string str = ReadFromConsole();
+                    try
+                    {
+                        if (str == "verdade" || str == "1")
+                            WritePointer(addr, 1);
+                        else if (str == "falso" || str == "0")
+                            WritePointer(addr, 0);
+                        else
+                        {
+                            bool value = bool.Parse(str);
+                            WritePointer(addr, value ? 1 : 0);
+                        }
+                    }
+                    catch (Exception e) when (e is FormatException || e is OverflowException)
+                    {
+                        WritePointer(addr, (byte) 0);
+                    }
+
+                    break;
+                }
+
+                case Opcode.SCAN8:
+                {
+                    IntPtr addr = PopPtr();
+                    string str = ReadFromConsole();
+                    try
+                    {
+                        int value = int.Parse(str);
+                        WritePointer(addr, (byte) value);
+                    }
+                    catch (Exception e) when (e is FormatException || e is OverflowException)
+                    {
+                        WritePointer(addr, (byte) 0);
+                    }
+
+                    break;
+                }
+
+                case Opcode.SCANC:
+                {
+                    IntPtr addr = PopPtr();
+                    string str = ReadFromConsole();
+                    if (str.Length == 0)
+                        WritePointer(addr, (short) 0);
+                    else
+                        WritePointer(addr, (short) str[0]);
+
+                    break;
+                }
+
+                case Opcode.SCAN16:
+                {
+                    IntPtr addr = PopPtr();
+                    string str = ReadFromConsole();
+                    try
+                    {
+                        int value = int.Parse(str);
+                        WritePointer(addr, (short) value);
+                    }
+                    catch (Exception e) when (e is FormatException || e is OverflowException)
+                    {
+                        WritePointer(addr, (short) 0);
+                    }
+
+                    break;
+                }
+
+                case Opcode.SCAN32:
+                {
+                    IntPtr addr = PopPtr();
+                    string str = ReadFromConsole();
+                    try
+                    {
+                        int value = int.Parse(str);
+                        WritePointer(addr, value);
+                    }
+                    catch (Exception e) when (e is FormatException || e is OverflowException)
+                    {
+                        WritePointer(addr, 0);
+                    }
+
+                    break;
+                }
+
+                case Opcode.SCAN64:
+                {
+                    IntPtr addr = PopPtr();
+                    string str = ReadFromConsole();
+                    try
+                    {
+                        long value = long.Parse(str);
+                        WritePointer(addr, value);
+                    }
+                    catch (Exception e) when (e is FormatException || e is OverflowException)
+                    {
+                        WritePointer(addr, 0L);
+                    }
+
+                    break;
+                }
+
+                case Opcode.FSCAN:
+                {
+                    IntPtr addr = PopPtr();
+                    string str = ReadFromConsole();
+                    try
+                    {
+                        float value = float.Parse(str, CultureInfo.InvariantCulture);
+                        WritePointer(addr, value);
+                    }
+                    catch (Exception e) when (e is FormatException || e is OverflowException)
+                    {
+                        WritePointer(addr, 0F);
+                    }
+
+                    break;
+                }
+
+                case Opcode.FSCAN64:
+                {
+                    IntPtr addr = PopPtr();
+                    string str = ReadFromConsole();
+                    try
+                    {
+                        double value = double.Parse(str, CultureInfo.InvariantCulture);
+                        WritePointer(addr, value);
+                    }
+                    catch (Exception e) when (e is FormatException || e is OverflowException)
+                    {
+                        WritePointer(addr, 0.0);
+                    }
+
+                    break;
+                }
+
+                case Opcode.SCANSTR:
+                {
+                    IntPtr addr = PopPtr();
+                    string value = ReadFromConsole();
+                    WritePointer(addr, value);
+                    break;
+                }
+
+                case Opcode.PRINTB:
+                {
+                    int value = Pop();
+                    Print((value & 1) != 0 ? "verdade" : "falso");
+                    break;
+                }
+
+                case Opcode.PRINTC:
+                {
+                    int value = Pop();
+                    Print(((char) value).ToString());
+                    break;
+                }
+
+                case Opcode.PRINT32:
+                {
+                    int value = Pop();
+                    Print(value.ToString());
+                    break;
+                }
+
+                case Opcode.PRINT64:
+                {
+                    long value = PopLong();
+                    Print(value.ToString());
+                    break;
+                }
+
+                case Opcode.FPRINT:
+                {
+                    float value = PopFloat();
+                    Print(value.ToString(CultureInfo.InvariantCulture));
+                    break;
+                }
+
+                case Opcode.FPRINT64:
+                {
+                    double value = PopDouble();
+                    Print(value.ToString(CultureInfo.InvariantCulture));
+                    break;
+                }
+
+                case Opcode.PRINTSTR:
+                {
+                    IntPtr addr = PopPtr();
+                    string value = addr != null ? ReadPointerString(addr) : "nulo";
+                    Print(value);
+                    break;
+                }
+
+                case Opcode.HALT:
+                    return false;
+
+                default:
+                    throw new Exception("Illegal Opcode " + opcode + " at IP " + lastIP);
+            }
+
+            return true;
         }
 
         private string ReadFromConsole()
@@ -3706,7 +3786,7 @@ namespace vm
                     }
 
                     case Opcode.ECALL:
-                    {         
+                    {
                         int index = ReadCodeInt(ref ip);
                         PrintDisassembledLine(lastIP, op, "ECALL " + (index >= 0 && index < externalFunctions.Count ? externalFunctions[index].functionName : "?") + " //" + index);
                         break;
