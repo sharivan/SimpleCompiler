@@ -66,6 +66,11 @@ namespace compiler
         {
             vars.Add(new Tuple<string, Expression>(name, initializer));
         }
+
+        internal void Resolve()
+        {
+            AbstractType.Resolve(ref type);
+        }
     }
 
     public class ExpressionStatement : InitializerStatement

@@ -54,7 +54,7 @@ namespace compiler
             return parent == null;
         }
 
-        internal Variable DeclareLocalVariable(Function function, string name, AbstractType type, bool recursive = true)
+        internal Variable DeclareLocalVariable(Function function, string name, AbstractType type, SourceInterval interval, bool recursive = true)
         {
             if (variableTable.TryGetValue(name, out Variable result))
                 return result;
@@ -62,7 +62,7 @@ namespace compiler
             if (recursive && parent != null && parent.FindVariable(name, true) != null)
                 return null;
 
-            result = new LocalVariable(function, name, type, RealOffset);
+            result = new LocalVariable(function, name, type, interval, RealOffset);
             offset += Compiler.GetAlignedSize(type.Size());
             function.CheckLocalVariableOffset(RealOffset);
             variables.Add(result);

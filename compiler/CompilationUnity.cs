@@ -32,9 +32,13 @@ namespace compiler
         private Dictionary<string, GlobalVariable> globalTable;
         private List<StructType> structs;
         private Dictionary<string, StructType> structTable;
+        private List<TypeSetType> typeSets;
+        private Dictionary<string, TypeSetType> typeSetTable;
         private List<Function> functions;
         private Dictionary<string, Function> functionTable;
         private Dictionary<string, int> stringTable;
+        private List<UnresolvedType> undeclaredTypes;
+        private Dictionary<string, UnresolvedType> undeclaredTypeTable;
 
         private int globalVariableOffset;
         private Function entryPoint;
@@ -55,6 +59,16 @@ namespace compiler
 
         public int GlobalVariableSize => globalVariableOffset;
 
+        public int StructCount => structs.Count;
+
+        public int TypeSetCount => typeSets.Count;
+
+        public int FunctionCount => functions.Count;
+
+        public int StringTableCount => stringTable.Count;
+
+        public int UndeclaredCount => undeclaredTypes.Count;
+
         public Function EntryPoint
         {
             get => entryPoint;
@@ -69,15 +83,19 @@ namespace compiler
             this.fileName = fileName;
             this.isUnity = isUnity;
 
-            imports = new List<CompilationUnity>();
-            importTable = new Dictionary<string, CompilationUnity>();
-            globals = new List<GlobalVariable>();
-            globalTable = new Dictionary<string, GlobalVariable>();
-            structs = new List<StructType>();
-            structTable = new Dictionary<string, StructType>();
-            functions = new List<Function>();
-            functionTable = new Dictionary<string, Function>();           
-            stringTable = new Dictionary<string, int>();
+            imports = new();
+            importTable = new();
+            globals = new();
+            globalTable = new();
+            structs = new();
+            structTable = new();
+            typeSets = new();
+            typeSetTable = new();
+            functions = new();
+            functionTable = new();           
+            stringTable = new();
+            undeclaredTypes = new();
+            undeclaredTypeTable = new();
 
             globalVariableOffset = 0;
             entryPoint = null;
@@ -157,26 +175,30 @@ namespace compiler
             return null;
         }
 
-        internal GlobalVariable DeclareGlobalVariable(string name, AbstractType type)
+        public GlobalVariable GetGlobalVariable(int index)
+        {
+            return globals[index];
+        }
+
+        internal GlobalVariable DeclareGlobalVariable(string name, AbstractType type, SourceInterval interval)
         {
             GlobalVariable result = FindGlobalVariable(name);
             if (result != null)
                 return null;
 
-            result = new GlobalVariable(this, name, type, globalVariableOffset);
-            globalVariableOffset += Compiler.GetAlignedSize(type.Size());
+            result = new GlobalVariable(this, name, type, interval);            
             globals.Add(result);
             globalTable.Add(name, result);
             return result;
         }
 
-        internal GlobalVariable DeclareGlobalVariable(string name, AbstractType type, object initialValue)
+        internal GlobalVariable DeclareGlobalVariable(string name, AbstractType type, SourceInterval interval, object initialValue)
         {
             GlobalVariable result = FindGlobalVariable(name);
             if (result != null)
                 return null;
 
-            result = new GlobalVariable(this, name, type, globalVariableOffset, initialValue);
+            result = new GlobalVariable(this, name, type, interval, globalVariableOffset, initialValue);
             globalVariableOffset += Compiler.GetAlignedSize(type.Size());
             globals.Add(result);
             globalTable.Add(name, result);
@@ -199,16 +221,63 @@ namespace compiler
             return null;
         }
 
-        internal StructType DeclareStruct(string name)
+        public StructType GetStruct(int index)
         {
-            StructType result = FindStruct(name);
-            if (result != null)
+            return structs[index];
+        }
+
+        internal StructType DeclareStruct(string name, SourceInterval interval)
+        {
+            NamedType nt = FindNamedType(name);
+            if (nt != null)
                 return null;
 
-            result = new StructType(this, name);
+            StructType result = new StructType(this, name, interval);
             structs.Add(result);
             structTable.Add(name, result);
             return result;
+        }
+
+        public TypeSetType FindTypeSet(string name, bool searchInImports = true)
+        {
+            if (typeSetTable.TryGetValue(name, out TypeSetType result))
+                return result;
+
+            if (searchInImports)
+                foreach (CompilationUnity unity in imports)
+                {
+                    result = unity.FindTypeSet(name, false);
+                    if (result != null)
+                        return result;
+                }
+
+            return null;
+        }
+
+        public TypeSetType GetTypeSet(int index)
+        {
+            return typeSets[index];
+        }
+
+        internal TypeSetType DeclareTypeSet(string name, AbstractType type, SourceInterval interval)
+        {
+            NamedType nt = FindNamedType(name);
+            if (nt != null)
+                return null;
+
+            TypeSetType result = new TypeSetType(this, name, type, interval);
+            typeSets.Add(result);
+            typeSetTable.Add(name, result);
+            return result;
+        }
+
+        public NamedType FindNamedType(string name)
+        {
+            StructType st = FindStruct(name);
+            if (st != null)
+                return st;
+
+            return FindTypeSet(name);
         }
 
         public Function FindFunction(string name, bool searchInImports = true)
@@ -227,16 +296,41 @@ namespace compiler
             return null;
         }
 
-        internal Function DeclareFunction(string name, bool isExtern)
+        internal Function DeclareFunction(string name, SourceInterval interval, bool isExtern)
         {
             Function result = FindFunction(name);
             if (result != null)
                 return null;
 
-            result = new Function(this, name, isExtern);
+            result = new Function(this, name, interval, isExtern);
             functions.Add(result);
             functionTable.Add(name, result);
             return result;
+        }
+
+        internal UnresolvedType FindUndeclaredType(string name)
+        {
+            if (undeclaredTypeTable.TryGetValue(name, out UnresolvedType result))
+                return result;
+
+            return null;
+        }
+
+        internal UnresolvedType AddUndeclaredType(string name, SourceInterval interval)
+        {
+            UnresolvedType result = FindUndeclaredType(name);
+            if (result != null)
+                return result;
+
+            result = new UnresolvedType(this, name, interval);
+            undeclaredTypes.Add(result);
+            undeclaredTypeTable.Add(name, result);
+            return result;
+        }
+
+        public UnresolvedType GetUndeclaredType(int index)
+        {
+            return undeclaredTypes[index];
         }
 
         internal void Compile(Assembler assembler)
@@ -258,6 +352,38 @@ namespace compiler
         {
             foreach (var kv in stringTable)
                 assembler.WriteConstant(globalStartOffset + kv.Value, kv.Key);
+        }
+
+        internal void Resolve()
+        {
+            foreach (UnresolvedType type in undeclaredTypes)
+            {
+                StructType st = FindStruct(type.Name);
+                if (st == null)
+                    throw new CompilerException(type.Interval, "Tipo não declarado '" + type.Name + "'.");
+
+                type.ReferencedType = st;
+            }
+
+            foreach (StructType st in structs)
+                st.Resolve();
+
+            foreach (TypeSetType ts in typeSets)
+                ts.Resolve();
+
+            globalVariableOffset = 0;
+            foreach (GlobalVariable global in globals)
+            {
+                global.Resolve();
+                global.Offset = globalVariableOffset;
+                globalVariableOffset += Compiler.GetAlignedSize(global.Type.Size());
+            }
+
+            foreach (Function function in functions)
+                function.Resolve();
+
+            undeclaredTypes.Clear();
+            undeclaredTypeTable.Clear();
         }
     }
 }

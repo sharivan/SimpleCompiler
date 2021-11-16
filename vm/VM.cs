@@ -2575,7 +2575,7 @@ namespace vm
                     string str = ReadFromConsole();
                     try
                     {
-                        int value = int.Parse(str);
+                        int value = int.Parse(str, CultureInfo.InvariantCulture);
                         WritePointer(addr, (byte) value);
                     }
                     catch (Exception e) when (e is FormatException || e is OverflowException)
@@ -2604,7 +2604,7 @@ namespace vm
                     string str = ReadFromConsole();
                     try
                     {
-                        int value = int.Parse(str);
+                        int value = int.Parse(str, CultureInfo.InvariantCulture);
                         WritePointer(addr, (short) value);
                     }
                     catch (Exception e) when (e is FormatException || e is OverflowException)
@@ -2621,7 +2621,7 @@ namespace vm
                     string str = ReadFromConsole();
                     try
                     {
-                        int value = int.Parse(str);
+                        int value = int.Parse(str, CultureInfo.InvariantCulture);
                         WritePointer(addr, value);
                     }
                     catch (Exception e) when (e is FormatException || e is OverflowException)
@@ -2638,7 +2638,7 @@ namespace vm
                     string str = ReadFromConsole();
                     try
                     {
-                        long value = long.Parse(str);
+                        long value = long.Parse(str, CultureInfo.InvariantCulture);
                         WritePointer(addr, value);
                     }
                     catch (Exception e) when (e is FormatException || e is OverflowException)
@@ -2701,21 +2701,21 @@ namespace vm
                 case Opcode.PRINTC:
                 {
                     int value = Pop();
-                    Print(((char) value).ToString());
+                    Print(((char) value).ToString(CultureInfo.InvariantCulture));
                     break;
                 }
 
                 case Opcode.PRINT32:
                 {
                     int value = Pop();
-                    Print(value.ToString());
+                    Print(value.ToString(CultureInfo.InvariantCulture));
                     break;
                 }
 
                 case Opcode.PRINT64:
                 {
                     long value = PopLong();
-                    Print(value.ToString());
+                    Print(value.ToString(CultureInfo.InvariantCulture));
                     break;
                 }
 

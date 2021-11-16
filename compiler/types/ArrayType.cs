@@ -106,5 +106,32 @@ namespace compiler.types
         {
             return !(t1 == t2);
         }
+
+        public override bool IsUnresolved()
+        {
+            return type.IsUnresolved();
+        }
+
+        internal void Resolve()
+        {
+            if (!resolved)
+            {
+                resolved = true;
+                UncheckedResolve();
+            }
+        }
+
+        protected override void UncheckedResolve()
+        {
+            if (type is UnresolvedType u)
+            {
+                if (u.ReferencedType == null)
+                    throw new CompilerException(u.Interval, "Tipo não declarado '" + u.Name + "'.");
+
+                type = u.ReferencedType;
+            }
+            else
+                Resolve(ref type);
+        }
     }
 }

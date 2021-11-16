@@ -14,7 +14,7 @@ namespace compiler
 
         public StructType Container => container;
 
-        internal Field(StructType container, string name, AbstractType type, int offset) : base(name, type, offset)
+        internal Field(StructType container, string name, AbstractType type, SourceInterval interval, int offset = -1) : base(name, type, interval, offset)
         {           
             this.container = container;
         }

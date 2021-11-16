@@ -8,6 +8,8 @@ namespace compiler.types
 {
     public abstract class AbstractType
     {
+        protected bool resolved = false;
+
         public abstract int Size();
 
         public abstract bool CoerceWith(AbstractType other, bool isExplicit);
@@ -37,5 +39,20 @@ namespace compiler.types
         {
             return !(t1 == t2);
         }
+
+        public abstract bool IsUnresolved();
+
+        internal static void Resolve(ref AbstractType type)
+        {
+            if (!type.resolved)
+            {
+                type.resolved = true;
+                type.UncheckedResolve();
+                if (type is UnresolvedType u)
+                    type = u.ReferencedType;
+            }
+        }
+
+        protected abstract void UncheckedResolve();
     }
 }

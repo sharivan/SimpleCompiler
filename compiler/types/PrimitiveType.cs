@@ -335,5 +335,14 @@ namespace compiler.types
         {
             return !(t1 == t2);
         }
+
+        public override bool IsUnresolved()
+        {
+            return false;
+        }
+
+        protected override void UncheckedResolve()
+        {
+        }
     }
 }

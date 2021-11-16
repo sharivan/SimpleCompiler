@@ -552,9 +552,10 @@ namespace compiler
             if (result == null)
             {
                 Identifier id = lexer.NextIdentifier();
-                result = unity.FindStruct(id.Name);
+                string name = id.Name;
+                result = unity.FindStruct(name);
                 if (result == null)
-                    throw new CompilerException(id.Interval, "Tipo não declarado: '" + id.Name + "'");
+                    result = unity.AddUndeclaredType(name, id.Interval);
             }
 
             while (true)
@@ -613,18 +614,17 @@ namespace compiler
                 bool byRef = lexer.NextSymbol("&", false) != null;
 
                 Identifier id = lexer.NextIdentifier();
+                string name = id.Name;
                 lexer.NextSymbol(":");
                 AbstractType type = ParseType();
 
-                Parameter p = function.DeclareParameter(id.Name, type, byRef);
+                Parameter p = function.DeclareParameter(name, type, id.Interval, byRef);
                 if (p == null)
-                    throw new CompilerException(id.Interval, "Parâmetro '" + id.Name + "' já declarado.");
+                    throw new CompilerException(id.Interval, "Parâmetro '" + name + "' já declarado.");
 
                 if (lexer.NextSymbol(",", false) == null)
                     break;
             }
-
-            function.ComputeParametersOffsets();
         }
 
         private void ParseFieldsDeclaration(StructType st)
@@ -632,12 +632,13 @@ namespace compiler
             while (true)
             {
                 Identifier id = lexer.NextIdentifier();
+                string name = id.Name;
                 lexer.NextSymbol(":");
                 AbstractType type = ParseType();
 
-                Field field = st.DeclareField(id.Name, type);
+                Field field = st.DeclareField(name, type, id.Interval);
                 if (field == null)
-                    throw new CompilerException(id.Interval, "Campo '" + id.Name + "' já declarado.");
+                    throw new CompilerException(id.Interval, "Campo '" + name + "' já declarado.");
 
                 lexer.NextSymbol(";");
 
@@ -863,18 +864,19 @@ namespace compiler
             return result;
         }
 
-        private DeclarationStatement ParseVariableDeclaration()
+        private DeclarationStatement ParseVariableDeclaration(bool allowInitializer = true)
         {
             Identifier id = lexer.NextIdentifier();
+            string name = id.Name;
             lexer.NextSymbol(":");
             AbstractType type = ParseType();
 
-            Expression initializer = null;
-            if (lexer.NextSymbol("=", false) != null)
+            Expression initializer = null;               
+            if (allowInitializer && lexer.NextSymbol("=", false) != null)
                 initializer = ParseExpression();
 
-            DeclarationStatement result = new DeclarationStatement(id.Interval, type);
-            result.AddVariable(id.Name, initializer);
+            DeclarationStatement result = new(id.Interval, type);
+            result.AddVariable(name, initializer);
             return result;
         }
 
@@ -883,9 +885,10 @@ namespace compiler
             bool isExtern = lexer.NextKeyword("externa", false) != null;
 
             Identifier id = lexer.NextIdentifier();
-            Function f = unity.DeclareFunction(id.Name, isExtern);
+            string name = id.Name;
+            Function f = unity.DeclareFunction(name, id.Interval, isExtern);
             if (f == null)
-                throw new CompilerException(id.Interval, "Função '" + id.Name + "' já declarada.");
+                throw new CompilerException(id.Interval, "Função '" + name + "' já declarada.");
 
             lexer.NextSymbol("(");
             if (lexer.NextSymbol(")", false) == null)
@@ -915,9 +918,10 @@ namespace compiler
         private void ParseStructDeclaration()
         {
             Identifier id = lexer.NextIdentifier();
-            StructType st = unity.DeclareStruct(id.Name);
+            string name = id.Name;
+            StructType st = unity.DeclareStruct(name, id.Interval);
             if (st == null)
-                throw new CompilerException(id.Interval, "Estrutura '" + id.Name + "' já declarada.");
+                throw new CompilerException(id.Interval, "Tipo nomeado '" + name + "' já declarado.");
 
             lexer.NextSymbol("{");
             if (lexer.NextSymbol("}", false) == null)
@@ -968,8 +972,13 @@ namespace compiler
 
                     case "var":
                     {
-                        DeclarationStatement declaration = ParseVariableDeclaration();
-                        CompileVariableDeclaration(null, null, declaration);
+                        DeclarationStatement declaration = ParseVariableDeclaration(false);
+                        Tuple<string, Expression> tuple = declaration[0];
+                        string name = tuple.Item1;
+                        Variable var = unity.DeclareGlobalVariable(name, declaration.Type, declaration.Interval);
+                        if (var == null)
+                            throw new CompilerException(declaration.Interval, "Variável global '" + name + "' já declarada.");
+
                         lexer.NextSymbol(";");
                         return true;
                     }
@@ -989,7 +998,7 @@ namespace compiler
             Symbol start = lexer.NextSymbol("{", false);
             if (start != null)
             {
-                Function f = unity.DeclareFunction("@main", false);
+                Function f = unity.DeclareFunction("@main", start.Interval, false);
                 if (f == null)
                     throw new CompilerException(start.Interval, "Ponto de entrada já declarado.");
 
@@ -1070,7 +1079,8 @@ namespace compiler
 
         private void ParseCompilationUnity(CompilationUnity unity)
         {
-            CompilationUnity oldUnity = unity;
+            CompilationUnity oldUnity = this.unity;
+            this.unity = unity;
             Lexer oldLexer = lexer;
             unity.parsed = true;
 
@@ -1084,8 +1094,6 @@ namespace compiler
 
                 if (unity.Name != name)
                     throw new CompilerException(id.Interval, "Nome da unidade é diferente do nome do arquivo.");
-
-                this.unity = unity;
 
                 lexer.NextSymbol("{");
 
@@ -1101,7 +1109,7 @@ namespace compiler
             }
 
             lexer = oldLexer;
-            unity = oldUnity;
+            this.unity = oldUnity;
         }
     }
 }

@@ -183,6 +183,11 @@ namespace compiler
             this.type = type;
             this.operand = operand;
         }
+
+        internal void Resolve()
+        {
+            AbstractType.Resolve(ref type);
+        }
     }
 
     public enum PrimaryType

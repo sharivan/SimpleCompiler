@@ -13,6 +13,7 @@ namespace compiler
     {
         private CompilationUnity unity;
         private string name;
+        private SourceInterval interval;
         private bool isExtern;
         private List<Parameter> parameters;
         private AbstractType returnType;
@@ -29,6 +30,8 @@ namespace compiler
 
         public string Name => name;
 
+        public SourceInterval Interval => interval;
+
         public bool IsExtern => isExtern;
 
         public Parameter this[int index] => parameters[index];
@@ -39,14 +42,7 @@ namespace compiler
         {
             get => returnType;
 
-            internal set
-            {
-                returnType = value;
-
-                returnOffset = parameterOffset;
-                if (!PrimitiveType.IsPrimitiveVoid(returnType))
-                    returnOffset -= Compiler.GetAlignedSize(returnType.Size());
-            }
+            internal set => returnType = value;
         }
 
         public BlockStatement Block
@@ -69,10 +65,11 @@ namespace compiler
         public Label ReturnLabel => returnLabel;
 
 
-        internal Function(CompilationUnity unity, string name, bool isExtern = false)
+        internal Function(CompilationUnity unity, string name, SourceInterval interval, bool isExtern = false)
         {
             this.unity = unity;
             this.name = name;
+            this.interval = interval;
             this.isExtern = isExtern;
 
             parameters = new List<Parameter>();
@@ -133,34 +130,35 @@ namespace compiler
             return null;
         }
 
-        internal Parameter DeclareParameter(string name, AbstractType type, bool byRef)
+        internal Parameter DeclareParameter(string name, AbstractType type, SourceInterval interval, bool byRef)
         {
             Parameter result = FindParameter(name);
             if (result != null)
                 return null;
 
-            int size = byRef ? IntPtr.Size : Compiler.GetAlignedSize(type.Size());
-            parameterOffset -= size;
-            parameterSize += size;
-            result = new Parameter(this, name, type, parameterOffset, byRef);            
+            result = new Parameter(this, name, type, interval, parameterOffset, byRef);            
             parameters.Add(result);
-
-            returnOffset = parameterOffset;
-            if (!PrimitiveType.IsPrimitiveVoid(returnType))
-                returnOffset -= Compiler.GetAlignedSize(returnType.Size());
 
             return result;
         }
 
-        internal void ComputeParametersOffsets()
+        internal void Resolve()
         {
-            int offset = -2 * sizeof(int);
+            parameterOffset = -2 * sizeof(int);
             for (int i = parameters.Count - 1; i >= 0; i--)
             {
                 Parameter parameter = parameters[i];
-                offset -= parameter.ByRef ? IntPtr.Size : Compiler.GetAlignedSize(parameter.Type.Size());
-                parameter.Offset = offset;
+                parameter.Resolve();               
+                AbstractType paramType = parameter.Type;
+                int size = parameter.ByRef ? IntPtr.Size : Compiler.GetAlignedSize(paramType.Size());
+                parameterOffset -= size;
+                parameter.Offset = parameterOffset;
             }
+
+            returnOffset = parameterOffset;
+            AbstractType.Resolve(ref returnType);
+            if (!PrimitiveType.IsPrimitiveVoid(returnType))
+                returnOffset -= Compiler.GetAlignedSize(returnType.Size());
         }
 
         internal void CheckLocalVariableOffset(int offset)

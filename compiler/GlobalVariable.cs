@@ -43,17 +43,8 @@ namespace compiler
 
         public string InitialValueString => (string) initialValue;
 
-
-        internal GlobalVariable(CompilationUnity unity, string name, AbstractType type, int offset) :
-            base(name, type, offset)
-        {
-            this.unity = unity;
-
-            initialValueSet = false;
-        }
-
-        internal GlobalVariable(CompilationUnity unity, string name, AbstractType type, int offset, object initialValue) : 
-            base(name, type, offset)
+        internal GlobalVariable(CompilationUnity unity, string name, AbstractType type, SourceInterval interval, int offset = -1, object initialValue = null) : 
+            base(name, type, interval, offset)
         {
             this.unity = unity;
             this.initialValue = initialValue;

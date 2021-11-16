@@ -30,7 +30,7 @@ namespace compiler
         private Dictionary<string, CompilationUnity> unityTable;
         private CompilationUnity program;
         private List<Tuple<string, int>> externalFunctions;
-        private Dictionary<string, int> externalFunctionMap;
+        private Dictionary<string, int> externalFunctionMap;        
 
         internal CompilationUnity unity;
         internal CompilationUnity unitySystem;
@@ -2805,7 +2805,7 @@ namespace compiler
                 CompilePop(assembler, type);
             }
             else if (statement is DeclarationStatement decl)
-                CompileVariableDeclaration(context, assembler, decl);
+                CompileLocalVariableDeclaration(context, assembler, decl);
             else if (statement is ReturnStatement r)
             {
                 Expression expr = r.Expression;
@@ -3091,8 +3091,9 @@ namespace compiler
                 throw new CompilerException(statement.Interval, "Tipo desconhecido de statement: " + statement);
         }
 
-        private void CompileVariableDeclaration(Context context, Assembler assembler, DeclarationStatement statement)
+        private void CompileLocalVariableDeclaration(Context context, Assembler assembler, DeclarationStatement statement)
         {
+            statement.Resolve();
             AbstractType type = statement.Type;
             for (int i = 0; i < statement.VariableCount; i++)
             {
@@ -3100,15 +3101,12 @@ namespace compiler
                 string name = tuple.Item1;
                 Expression initializer = tuple.Item2;
 
-                Variable var = function == null ? unity.DeclareGlobalVariable(name, type) : context.DeclareLocalVariable(function, name, type);
+                Variable var = context.DeclareLocalVariable(function, name, type, statement.Interval);
                 if (var == null)
-                    throw new CompilerException(statement.Interval, "Variável '" + name + "' já declarada.");
+                    throw new CompilerException(statement.Interval, "Variável local '" + name + "' já declarada.");
 
                 if (initializer != null)
                 {
-                    if (function == null)
-                        throw new CompilerException(statement.Interval, "Variável global não pode ser inicializada.");
-
                     bool useVar = false;
                     if (var is GlobalVariable)
                         assembler.EmitLoadConst(var.Offset);
@@ -3274,6 +3272,11 @@ namespace compiler
                 throw new CompilerException("Não foi encontrado nenhum programa.");
 
             globalVariableOffset = sizeof(int);
+
+            foreach (CompilationUnity u in units)
+                u.Resolve();
+
+            program.Resolve();
 
             Assembler tempAssembler = new Assembler();
             foreach (CompilationUnity u in units)

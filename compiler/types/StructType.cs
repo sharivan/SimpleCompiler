@@ -6,18 +6,12 @@ using System.Threading.Tasks;
 
 namespace compiler.types
 {
-    public class StructType : AbstractType
+    public class StructType : NamedType
     {
-        private CompilationUnity unity;
-        private string name;
         private int fieldAlignSize;
 
         private List<Field> fields;
         private int size;
-
-        public CompilationUnity Unity => unity;
-
-        public string Name => name;
 
         public int FieldAlignSize => fieldAlignSize;
 
@@ -25,10 +19,8 @@ namespace compiler.types
 
         public Field this[int index] => fields[index];
 
-        internal StructType(CompilationUnity unity, string name, int fieldAlignSize = sizeof(byte))
+        internal StructType(CompilationUnity unity, string name, SourceInterval interval, int fieldAlignSize = sizeof(byte)) : base(unity, name, interval)
         {
-            this.unity = unity;
-            this.name = name;
             this.fieldAlignSize = fieldAlignSize;
 
             fields = new List<Field>();
@@ -48,38 +40,70 @@ namespace compiler.types
             return null;
         }
 
-        internal Field DeclareField(string name, AbstractType type)
+        internal Field DeclareField(string name, AbstractType type, SourceInterval interval)
         {
             Field result = FindField(name);
             if (result != null)
                 return null;
 
-            result = new Field(this, name, type, size);
-            size += Compiler.GetAlignedSize(type.Size(), fieldAlignSize);
+            result = new Field(this, name, type, interval);            
             fields.Add(result);
             return result;
         }
 
-        public override bool Equals(object obj)
+        internal void Resolve()
         {
-            if (ReferenceEquals(this, obj))
-                return true;
-
-            if (obj == null)
-                return false;
-
-            if (obj is StructType s)
+            if (!resolved)
             {
-                string otherName = s.name;
-                return name == otherName;
+                resolved = true;
+                UncheckedResolve();
             }
+        }
 
-            return false;
+        protected override void UncheckedResolve()
+        {
+            size = 0;
+            foreach (Field field in fields)
+            {
+                field.Resolve();
+                AbstractType type = field.Type;
+
+                switch (type)
+                {
+                    case ArrayType t:
+                    {
+                        if (t.Type is StructType st && st == this)
+                            throw new CompilerException(field.Interval, "Uma estrutura não pode conter um tipo de campo que faz referência direta a ela mesma.");
+
+                        break;
+                    }
+
+                    case StructType t:
+                    {
+                        if (t == this)
+                            throw new CompilerException(field.Interval, "Uma estrutura não pode conter um tipo de campo que faz referência direta a ela mesma.");
+
+                        break;
+                    }
+
+                    case TypeSetType t:
+                    {
+                        if (t.Type is StructType st && st == this)
+                            throw new CompilerException(field.Interval, "Uma estrutura não pode conter um tipo de campo que faz referência direta a ela mesma.");
+
+                        break;
+                    }
+                }
+
+                field.Offset = this.size;
+                int size = type.Size();
+                this.size += Compiler.GetAlignedSize(size, fieldAlignSize);
+            }
         }
 
         public override string ToString()
         {
-            string result = "estrutura " + name + "\n{\n";
+            string result = "estrutura " + Name + "\n{\n";
 
             for (int i = 0; i < fields.Count; i++)
                 result += "  " + fields[i] + "\n";
@@ -100,25 +124,14 @@ namespace compiler.types
         public override int GetHashCode()
         {
             int hashCode = -1735305858;
-            hashCode = hashCode * -1521134295 + EqualityComparer<string>.Default.GetHashCode(name);
+            hashCode = hashCode * -1521134295 + EqualityComparer<string>.Default.GetHashCode(Name);
             hashCode = hashCode * -1521134295 + EqualityComparer<List<Field>>.Default.GetHashCode(fields);
             return hashCode;
         }
 
-        public static bool operator ==(StructType t1, StructType t2)
+        public override bool IsUnresolved()
         {
-            if (ReferenceEquals(t1, t2))
-                return true;
-
-            if (((object) t1) == null || ((object) t2) == null)
-                return false;
-
-            return t1.Equals(t2);
-        }
-
-        public static bool operator !=(StructType t1, StructType t2)
-        {
-            return !(t1 == t2);
+            return false;
         }
     }
 }

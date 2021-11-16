@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -85,7 +86,7 @@ namespace units
 
             try
             {
-                int value = int.Parse(s);
+                int value = int.Parse(s, CultureInfo.InvariantCulture);
                 vm.WritePointer(dst, value);
                 vm.SetParam(STRING_TO_INT_PARAM_SIZE, 0, 1);
             }
@@ -104,7 +105,7 @@ namespace units
 
             try
             {
-                long value = long.Parse(s);
+                long value = long.Parse(s, CultureInfo.InvariantCulture);
                 vm.WritePointer(dst, value);
                 vm.SetParam(STRING_TO_INT_PARAM_SIZE, 0, 1);
             }
@@ -123,7 +124,7 @@ namespace units
 
             try
             {
-                float value = float.Parse(s);
+                float value = float.Parse(s, CultureInfo.InvariantCulture);
                 vm.WritePointer(dst, value);
                 vm.SetParam(STRING_TO_INT_PARAM_SIZE, 0, 1);
             }
@@ -142,7 +143,7 @@ namespace units
 
             try
             {
-                double value = double.Parse(s);
+                double value = double.Parse(s, CultureInfo.InvariantCulture);
                 vm.WritePointer(dst, value);
                 vm.SetParam(STRING_TO_INT_PARAM_SIZE, 0, 1);
             }
@@ -157,7 +158,7 @@ namespace units
             int src = vm.LoadParam(INT_TO_STRING_PARAM_SIZE, 0);
             IntPtr dst = vm.LoadParamPtr(INT_TO_STRING_PARAM_SIZE, 1);
 
-            string s = src.ToString();
+            string s = src.ToString(CultureInfo.InvariantCulture);
             vm.WritePointer(dst, s);
         }
 
@@ -166,7 +167,7 @@ namespace units
             long src = vm.LoadParamLong(LONG_TO_STRING_PARAM_SIZE, 0);
             IntPtr dst = vm.LoadParamPtr(LONG_TO_STRING_PARAM_SIZE, 2);
 
-            string s = src.ToString();
+            string s = src.ToString(CultureInfo.InvariantCulture);
             vm.WritePointer(dst, s);
         }
 
@@ -175,7 +176,7 @@ namespace units
             float src = vm.LoadParamFloat(INT_TO_STRING_PARAM_SIZE, 0);
             IntPtr dst = vm.LoadParamPtr(INT_TO_STRING_PARAM_SIZE, 1);
 
-            string s = src.ToString();
+            string s = src.ToString(CultureInfo.InvariantCulture);
             vm.WritePointer(dst, s);
         }
 
@@ -184,7 +185,7 @@ namespace units
             double src = vm.LoadParamDouble(LONG_TO_STRING_PARAM_SIZE, 0);
             IntPtr dst = vm.LoadParamPtr(LONG_TO_STRING_PARAM_SIZE, 2);
 
-            string s = src.ToString();
+            string s = src.ToString(CultureInfo.InvariantCulture);
             vm.WritePointer(dst, s);
         }
 

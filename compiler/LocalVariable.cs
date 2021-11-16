@@ -16,7 +16,7 @@ namespace compiler
 
         public bool Param => Offset < 0;
 
-        internal LocalVariable(Function function, string name, AbstractType type, int offset) : base(name, type, offset)
+        internal LocalVariable(Function function, string name, AbstractType type, SourceInterval interval, int offset = -1) : base(name, type, interval, offset)
         {
             this.function = function;
         }
