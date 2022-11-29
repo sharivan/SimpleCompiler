@@ -72,10 +72,6 @@ A depuração pode ser feita pelo próprio programa, mas somente sobre o código
 
 Alguns recursos ainda serão inseridos em breve à linguagem:
 
-- Suporte a alocação dinâmica.
-
 - Suporte a arrays dinâmicos.
-
-- Suporte a strings com contagem por referência, da mesma forma como no Delphi.
 
 - Depurador completo.
