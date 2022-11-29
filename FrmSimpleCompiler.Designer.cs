@@ -49,9 +49,6 @@ namespace SimpleCompiler
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.txtConsole = new System.Windows.Forms.RichTextBox();
             this.dgvStack = new System.Windows.Forms.DataGridView();
-            this.dataGridViewTextBoxColumn3 = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.dataGridViewButtonColumn2 = new System.Windows.Forms.DataGridViewButtonColumn();
-            this.dataGridViewTextBoxColumn4 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.mnuStackView = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.mnuStackViewAlign16 = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuStackViewAlign8 = new System.Windows.Forms.ToolStripMenuItem();
@@ -81,6 +78,10 @@ namespace SimpleCompiler
             this.openFileDialog = new System.Windows.Forms.OpenFileDialog();
             this.imageList = new System.Windows.Forms.ImageList(this.components);
             this.bwCompiler = new System.ComponentModel.BackgroundWorker();
+            this.RA = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.HA = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.Value = new System.Windows.Forms.DataGridViewButtonColumn();
+            this.View = new System.Windows.Forms.DataGridViewTextBoxColumn();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainerMain)).BeginInit();
             this.splitContainerMain.Panel1.SuspendLayout();
             this.splitContainerMain.Panel2.SuspendLayout();
@@ -318,9 +319,10 @@ namespace SimpleCompiler
             this.dgvStack.AllowUserToDeleteRows = false;
             this.dgvStack.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             this.dgvStack.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
-            this.dataGridViewTextBoxColumn3,
-            this.dataGridViewButtonColumn2,
-            this.dataGridViewTextBoxColumn4});
+            this.RA,
+            this.HA,
+            this.Value,
+            this.View});
             this.dgvStack.ContextMenuStrip = this.mnuStackView;
             this.dgvStack.Dock = System.Windows.Forms.DockStyle.Fill;
             this.dgvStack.Location = new System.Drawing.Point(0, 0);
@@ -330,29 +332,6 @@ namespace SimpleCompiler
             this.dgvStack.TabIndex = 1;
             this.dgvStack.Scroll += new System.Windows.Forms.ScrollEventHandler(this.dgvStack_Scroll);
             this.dgvStack.Resize += new System.EventHandler(this.dgvStack_Resize);
-            // 
-            // dataGridViewTextBoxColumn3
-            // 
-            this.dataGridViewTextBoxColumn3.HeaderText = "Endereço";
-            this.dataGridViewTextBoxColumn3.Name = "dataGridViewTextBoxColumn3";
-            this.dataGridViewTextBoxColumn3.ReadOnly = true;
-            this.dataGridViewTextBoxColumn3.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
-            // dataGridViewButtonColumn2
-            // 
-            this.dataGridViewButtonColumn2.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.DisplayedCells;
-            this.dataGridViewButtonColumn2.HeaderText = "Valor";
-            this.dataGridViewButtonColumn2.Name = "dataGridViewButtonColumn2";
-            this.dataGridViewButtonColumn2.ReadOnly = true;
-            this.dataGridViewButtonColumn2.Width = 37;
-            // 
-            // dataGridViewTextBoxColumn4
-            // 
-            this.dataGridViewTextBoxColumn4.HeaderText = "Visualização em caracteres";
-            this.dataGridViewTextBoxColumn4.Name = "dataGridViewTextBoxColumn4";
-            this.dataGridViewTextBoxColumn4.ReadOnly = true;
-            this.dataGridViewTextBoxColumn4.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            this.dataGridViewTextBoxColumn4.Width = 200;
             // 
             // mnuStackView
             // 
@@ -621,6 +600,35 @@ namespace SimpleCompiler
             // 
             this.bwCompiler.DoWork += new System.ComponentModel.DoWorkEventHandler(this.bwCompiler_DoWork);
             // 
+            // RA
+            // 
+            this.RA.HeaderText = "RA";
+            this.RA.Name = "RA";
+            this.RA.ReadOnly = true;
+            this.RA.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            // 
+            // HA
+            // 
+            this.HA.HeaderText = "HA";
+            this.HA.Name = "HA";
+            this.HA.ReadOnly = true;
+            // 
+            // Value
+            // 
+            this.Value.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.DisplayedCells;
+            this.Value.HeaderText = "Valor";
+            this.Value.Name = "Value";
+            this.Value.ReadOnly = true;
+            this.Value.Width = 37;
+            // 
+            // View
+            // 
+            this.View.HeaderText = "Visualização em caracteres";
+            this.View.Name = "View";
+            this.View.ReadOnly = true;
+            this.View.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            this.View.Width = 200;
+            // 
             // FrmSimpleCompiler
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -711,9 +719,10 @@ namespace SimpleCompiler
         private System.Windows.Forms.ToolStripMenuItem mnuStackViewAlign16;
         private System.Windows.Forms.ToolStripMenuItem mnuStackViewAlign8;
         private System.Windows.Forms.ToolStripMenuItem mnuStackViewAlign4;
-        private System.Windows.Forms.DataGridViewTextBoxColumn dataGridViewTextBoxColumn3;
-        private System.Windows.Forms.DataGridViewButtonColumn dataGridViewButtonColumn2;
-        private System.Windows.Forms.DataGridViewTextBoxColumn dataGridViewTextBoxColumn4;
+        private System.Windows.Forms.DataGridViewTextBoxColumn RA;
+        private System.Windows.Forms.DataGridViewTextBoxColumn HA;
+        private System.Windows.Forms.DataGridViewButtonColumn Value;
+        private System.Windows.Forms.DataGridViewTextBoxColumn View;
     }
 }
 

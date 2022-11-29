@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
 
 namespace compiler.lexer
 {
@@ -11,9 +9,9 @@ namespace compiler.lexer
         {
             private const int BUFFER_SIZE = 16;
 
-            private TextReader input;
+            private readonly TextReader input;
 
-            private char[] buffer;
+            private readonly char[] buffer;
             private int pos;
             private int len;
 
@@ -63,62 +61,53 @@ namespace compiler.lexer
                 return lines;
             }
 
-            public void Dispose()
-            {
-                input.Close();
-            }
+            public void Dispose() => input.Close();
         }
 
-        public static Lexer CreateFromSource(string source)
-        {
-            return new Lexer(null, new StringReader(source));
-        }
+        public static Lexer CreateFromSource(string source) => new(null, new StringReader(source));
 
-        public static Lexer CreateFromFile(string fileName)
-        {
-            return new Lexer(fileName, File.OpenText(fileName));
-        }
+        public static Lexer CreateFromFile(string fileName) => new(fileName, File.OpenText(fileName));
 
-        public static Lexer CreateFromReader(TextReader reader)
-        {
-            return new Lexer(null, reader);
-        }
+        public static Lexer CreateFromReader(TextReader reader) => new(null, reader);
 
-        public static Lexer CreateFromReader(string fileName, TextReader reader)
-        {
-            return new Lexer(fileName, reader);
-        }
+        public static Lexer CreateFromReader(string fileName, TextReader reader) => new(fileName, reader);
 
         private const int MAX_CACHED_TOKENS = 16;
-
-        private string fileName;
-        private LocalBuffer input;
-
-        private int pos;
-        private int line;
+        private readonly LocalBuffer input;
         private bool disposed;
 
-        private Token[] tokens;
+        private readonly Token[] tokens;
         private int tokenIndex;
         private int tokenCount;
 
-        public string FileName => fileName;
+        public string FileName
+        {
+            get;
+        }
 
-        public int CurrentPos => pos;
+        public int CurrentPos
+        {
+            get;
+            private set;
+        }
 
-        public int CurrentLine => line;
+        public int CurrentLine
+        {
+            get;
+            private set;
+        }
 
-        public SourceInterval CurrentInterval(int startPos) => new SourceInterval(fileName, startPos, pos, line);
+        public SourceInterval CurrentInterval(int startPos) => new(FileName, startPos, CurrentPos, CurrentLine);
 
         private Lexer(string fileName, TextReader input)
         {
-            this.fileName = fileName;
+            FileName = fileName;
             this.input = new LocalBuffer(input);
 
             tokens = new Token[MAX_CACHED_TOKENS];
 
-            pos = 0;
-            line = 1;
+            CurrentPos = 0;
+            CurrentLine = 1;
             disposed = false;
             tokenIndex = -1;
             tokenCount = 0;
@@ -133,13 +122,7 @@ namespace compiler.lexer
             }
         }
 
-        public Token CurrentToken()
-        {
-            if (tokenIndex == -1)
-                return null;
-
-            return tokens[tokenIndex];
-        }
+        public Token CurrentToken() => tokenIndex == -1 ? null : tokens[tokenIndex];
 
         private char NextChar()
         {
@@ -147,10 +130,10 @@ namespace compiler.lexer
             if (result == '\0')
                 return '\0';
 
-            pos++;
+            CurrentPos++;
 
             if (result == '\n')
-                line++;
+                CurrentLine++;
 
             return result;
         }
@@ -158,8 +141,8 @@ namespace compiler.lexer
         private void Undo(int count = 1)
         {
             int lines = input.Undo(count);
-            pos -= count;
-            line -= lines;
+            CurrentPos -= count;
+            CurrentLine -= lines;
         }
 
         private void SkipBlanks()
@@ -168,7 +151,7 @@ namespace compiler.lexer
             if (c == '\0')
                 return;
 
-            while (c == ' ' || c == '\t' || c == '\n' || c == '\r')
+            while (c is ' ' or '\t' or '\n' or '\r')
                 c = NextChar();
 
             Undo();
@@ -176,7 +159,7 @@ namespace compiler.lexer
 
         private void SkipComments()
         {
-            int startPos = pos;
+            int startPos = CurrentPos;
             char c = NextChar();
             if (c == '\0')
                 return;
@@ -227,12 +210,12 @@ namespace compiler.lexer
 
         private char ParseChar(int startPos, bool fromString)
         {
-            int charStartPos = pos;
+            int charStartPos = CurrentPos;
             char c = NextChar();
             if (c == '\0')
                 throw new CompilerException(CurrentInterval(startPos), "Caractere esperado mas fim do arquivo encontrado.");
 
-            if (c == '\n' || c == '\r')
+            if (c is '\n' or '\r')
             {
                 Undo();
                 throw new CompilerException(CurrentInterval(startPos), "Delimitador de " + (fromString ? "string" : "caractere") + " esperado mas quebra de linha encontrada.");
@@ -244,7 +227,7 @@ namespace compiler.lexer
                 if (c == '\0')
                     throw new CompilerException(CurrentInterval(charStartPos), "Código de escape esperado mas fim do arquivo encontrado.");
 
-                if (c == '\n' || c == '\r')
+                if (c is '\n' or '\r')
                 {
                     Undo();
                     throw new CompilerException(CurrentInterval(charStartPos), "Delimitador de " + (fromString ? "string" : "caractere") + " esperado mas quebra de linha encontrada.");
@@ -270,13 +253,13 @@ namespace compiler.lexer
                             if (c == '\0')
                                 throw new CompilerException(CurrentInterval(charStartPos), "Código unicode esperado mas fim do arquivo encontrado.");
 
-                            if (c == '\n' || c == '\r')
+                            if (c is '\n' or '\r')
                             {
                                 Undo();
                                 throw new CompilerException(CurrentInterval(charStartPos), "Delimitador de " + (fromString ? "string" : "caractere") + " esperado mas quebra de linha encontrada.");
                             }
 
-                            if (!(c >= '0' && c <= '9' || c >= 'A' && c <= 'F' || c >= 'a' && c <= 'f'))
+                            if (c is not (>= '0' and <= '9' or >= 'A' and <= 'F' or >= 'a' and <= 'f'))
                             {
                                 Undo();
                                 break;
@@ -300,10 +283,9 @@ namespace compiler.lexer
                             throw new CompilerException(CurrentInterval(charStartPos), "Estouro na conversão de código unicode.");
                         }
 
-                        if (hex < 0 || hex >= short.MaxValue)
-                            throw new CompilerException(CurrentInterval(charStartPos), "Código unicode fora da faixa.");
-
-                        return (char) hex;
+                        return hex is < 0 or >= short.MaxValue
+                            ? throw new CompilerException(CurrentInterval(charStartPos), "Código unicode fora da faixa.")
+                            : (char) hex;
                     }
 
                     case '0':
@@ -315,13 +297,13 @@ namespace compiler.lexer
                             if (c == '\0')
                                 throw new CompilerException(CurrentInterval(charStartPos), "Código octal esperado mas fim do arquivo encontrado.");
 
-                            if (c == '\n' || c == '\r')
+                            if (c is '\n' or '\r')
                             {
                                 Undo();
                                 throw new CompilerException(CurrentInterval(charStartPos), "Delimitador de " + (fromString ? "string" : "caractere") + " esperado mas quebra de linha encontrada.");
                             }
 
-                            if (!(c >= '0' && c <= '7'))
+                            if (c is not (>= '0' and <= '7'))
                             {
                                 Undo();
                                 break;
@@ -349,10 +331,9 @@ namespace compiler.lexer
                             throw new CompilerException(CurrentInterval(charStartPos), "Estouro na conversão de código octal.");
                         }
 
-                        if (oct < 0 || oct >= short.MaxValue)
-                            throw new CompilerException(CurrentInterval(charStartPos), "Código octal fora da faixa.");
-
-                        return (char) oct;
+                        return oct is < 0 or >= short.MaxValue
+                            ? throw new CompilerException(CurrentInterval(charStartPos), "Código octal fora da faixa.")
+                            : (char) oct;
                     }
 
                     case '\\':
@@ -493,58 +474,58 @@ namespace compiler.lexer
             int lastPos;
             while (true)
             {
-                lastPos = pos;
+                lastPos = CurrentPos;
 
                 SkipBlanks();
                 SkipComments();
 
-                if (lastPos == pos)
+                if (lastPos == CurrentPos)
                     break;
             }
 
-            lastPos = pos;
+            lastPos = CurrentPos;
             char c = NextChar();
 
             Token result = null;
 
             if (c != '\0')
             {
-                if (c >= '0' && c <= '9') // é um digito numérico?
+                if (c is >= '0' and <= '9') // é um digito numérico?
                 {
                     string number = c + "";
                     c = NextChar();
-                    while (c >= '0' && c <= '9') // enquanto for um digito numérico
+                    while (c is >= '0' and <= '9') // enquanto for um digito numérico
                     {
                         number += c;
                         c = NextChar();
                     }
 
-                    if (c == 'B' || c == 'b')
+                    if (c is 'B' or 'b')
                         result = ParseByte(lastPos, number);
-                    else if (c == 'S' || c == 's')
+                    else if (c is 'S' or 's')
                         result = ParseShort(lastPos, number);
-                    else if (c == 'L' || c == 'l')
+                    else if (c is 'L' or 'l')
                         result = ParseLong(lastPos, number);
-                    else if (c == 'F' || c == 'f')
+                    else if (c is 'F' or 'f')
                         result = ParseFloat(lastPos, number);
-                    else if (c == 'E' || c == 'e')
+                    else if (c is 'E' or 'e')
                     {
                         number += 'E';
 
                         c = NextChar();
-                        if (c == '+' || c == '-')
+                        if (c is '+' or '-')
                             number += c;
                         else
                             Undo();
 
                         c = NextChar();
-                        while (c >= '0' && c <= '9') // enquanto for um digito numérico
+                        while (c is >= '0' and <= '9') // enquanto for um digito numérico
                         {
                             number += c;
                             c = NextChar();
                         }
 
-                        if (c == 'F' || c == 'f')
+                        if (c is 'F' or 'f')
                             result = ParseFloat(lastPos, number);
                         else
                         {
@@ -557,32 +538,32 @@ namespace compiler.lexer
                     {
                         number += '.';
                         c = NextChar();
-                        while (c >= '0' && c <= '9') // enquanto for um digito numérico
+                        while (c is >= '0' and <= '9') // enquanto for um digito numérico
                         {
                             number += c;
                             c = NextChar();
                         }
 
-                        if (c == 'F' || c == 'f')
+                        if (c is 'F' or 'f')
                             result = ParseFloat(lastPos, number);
-                        else if (c == 'E' || c == 'e')
+                        else if (c is 'E' or 'e')
                         {
                             number += 'E';
 
                             c = NextChar();
-                            if (c == '+' || c == '-')
+                            if (c is '+' or '-')
                                 number += c;
                             else
                                 Undo();
 
                             c = NextChar();
-                            while (c >= '0' && c <= '9') // enquanto for um digito numérico
+                            while (c is >= '0' and <= '9') // enquanto for um digito numérico
                             {
                                 number += c;
                                 c = NextChar();
                             }
 
-                            if (c == 'F' || c == 'f')
+                            if (c is 'F' or 'f')
                                 result = ParseFloat(lastPos, number);
                             else
                             {
@@ -673,10 +654,7 @@ namespace compiler.lexer
 
                     Undo();
 
-                    if (Keyword.IsKeyword(name))
-                        result = new Keyword(CurrentInterval(lastPos), name);
-                    else
-                        result = new Identifier(CurrentInterval(lastPos), name);
+                    result = Keyword.IsKeyword(name) ? new Keyword(CurrentInterval(lastPos), name) : new Identifier(CurrentInterval(lastPos), name);
                 }
                 else
                 {
@@ -706,20 +684,18 @@ namespace compiler.lexer
             {
                 PreviusToken();
 
-                if (throwException)
-                    throw new CompilerException(CurrentInterval(pos), errorMessage != null ? errorMessage : "Número esperado mas fim do arquivo encontrado.");
-
-                return null;
+                return throwException
+                    ? throw new CompilerException(CurrentInterval(CurrentPos), errorMessage ?? "Número esperado mas fim do arquivo encontrado.")
+                    : null;
             }
 
-            if (!(token is NumericLiteral))
+            if (token is not NumericLiteral)
             {
                 PreviusToken();
 
-                if (throwException)
-                    throw new CompilerException(token.Interval, errorMessage != null ? errorMessage : "Número esperado mas " + token + " encontrado.");
-
-                return null;
+                return throwException
+                    ? throw new CompilerException(token.Interval, errorMessage ?? "Número esperado mas " + token + " encontrado.")
+                    : null;
             }
 
             return (NumericLiteral) token;
@@ -732,20 +708,18 @@ namespace compiler.lexer
             {
                 PreviusToken();
 
-                if (throwException)
-                    throw new CompilerException(CurrentInterval(pos), errorMessage != null ? errorMessage : "Símbolo esperado mas fim do arquivo encontrado.");
-
-                return null;
+                return throwException
+                    ? throw new CompilerException(CurrentInterval(CurrentPos), errorMessage ?? "Símbolo esperado mas fim do arquivo encontrado.")
+                    : null;
             }
 
-            if (!(token is Symbol))
+            if (token is not Symbol)
             {
                 PreviusToken();
 
-                if (throwException)
-                    throw new CompilerException(token.Interval, errorMessage != null ? errorMessage : "Símbolo esperado mas " + token + " encontrado.");
-
-                return null;
+                return throwException
+                    ? throw new CompilerException(token.Interval, errorMessage ?? "Símbolo esperado mas " + token + " encontrado.")
+                    : null;
             }
 
             return (Symbol) token;
@@ -758,31 +732,28 @@ namespace compiler.lexer
             {
                 PreviusToken();
 
-                if (throwException)
-                    throw new CompilerException(CurrentInterval(pos), errorMessage != null ? errorMessage : "'" + expectedValue + "' esperado mas fim da expressão encontrado.");
-
-                return null;
+                return throwException
+                    ? throw new CompilerException(CurrentInterval(CurrentPos), errorMessage ?? "'" + expectedValue + "' esperado mas fim da expressão encontrado.")
+                    : null;
             }
 
-            if (!(token is Symbol))
+            if (token is not Symbol)
             {
                 PreviusToken();
 
-                if (throwException)
-                    throw new CompilerException(token.Interval, errorMessage != null ? errorMessage : "'" + expectedValue + "' esperado mas " + token + " encontrado.");
-
-                return null;
+                return throwException
+                    ? throw new CompilerException(token.Interval, errorMessage ?? "'" + expectedValue + "' esperado mas " + token + " encontrado.")
+                    : null;
             }
 
-            Symbol symbol = (Symbol) token;
+            var symbol = (Symbol) token;
             if (symbol.Value != expectedValue)
             {
                 PreviusToken();
 
-                if (throwException)
-                    throw new CompilerException(token.Interval, errorMessage != null ? errorMessage : "'" + expectedValue + "' esperado mas '" + symbol.Value + "' encontrado.");
-
-                return null;
+                return throwException
+                    ? throw new CompilerException(token.Interval, errorMessage ?? "'" + expectedValue + "' esperado mas '" + symbol.Value + "' encontrado.")
+                    : null;
             }
 
             return symbol;
@@ -795,20 +766,18 @@ namespace compiler.lexer
             {
                 PreviusToken();
 
-                if (throwException)
-                    throw new CompilerException(CurrentInterval(pos), errorMessage != null ? errorMessage : "Palavra reservada esperada mas fim do arquivo encontrado.");
-
-                return null;
+                return throwException
+                    ? throw new CompilerException(CurrentInterval(CurrentPos), errorMessage ?? "Palavra reservada esperada mas fim do arquivo encontrado.")
+                    : null;
             }
 
-            if (!(token is Keyword))
+            if (token is not Keyword)
             {
                 PreviusToken();
 
-                if (throwException)
-                    throw new CompilerException(token.Interval, errorMessage != null ? errorMessage : "Palavra reservada esperada mas " + token + " encontrado.");
-
-                return null;
+                return throwException
+                    ? throw new CompilerException(token.Interval, errorMessage ?? "Palavra reservada esperada mas " + token + " encontrado.")
+                    : null;
             }
 
             return (Keyword) token;
@@ -821,31 +790,28 @@ namespace compiler.lexer
             {
                 PreviusToken();
 
-                if (throwException)
-                    throw new CompilerException(CurrentInterval(pos), errorMessage != null ? errorMessage : "'" + expectedValue + "' esperado mas fim do arquivo encontrado.");
-
-                return null;
+                return throwException
+                    ? throw new CompilerException(CurrentInterval(CurrentPos), errorMessage ?? "'" + expectedValue + "' esperado mas fim do arquivo encontrado.")
+                    : null;
             }
 
-            if (!(token is Keyword))
+            if (token is not Keyword)
             {
                 PreviusToken();
 
-                if (throwException)
-                    throw new CompilerException(token.Interval, errorMessage != null ? errorMessage : "'" + expectedValue + "' esperado mas " + token + " encontrado.");
-
-                return null;
+                return throwException
+                    ? throw new CompilerException(token.Interval, errorMessage ?? "'" + expectedValue + "' esperado mas " + token + " encontrado.")
+                    : null;
             }
 
-            Keyword keyword = (Keyword) token;
+            var keyword = (Keyword) token;
             if (keyword.Value != expectedValue)
             {
                 PreviusToken();
 
-                if (throwException)
-                    throw new CompilerException(token.Interval, errorMessage != null ? errorMessage : "'" + expectedValue + "' esperado mas '" + keyword.Value + "' encontrado.");
-
-                return null;
+                return throwException
+                    ? throw new CompilerException(token.Interval, errorMessage ?? "'" + expectedValue + "' esperado mas '" + keyword.Value + "' encontrado.")
+                    : null;
             }
 
             return keyword;
@@ -858,20 +824,18 @@ namespace compiler.lexer
             {
                 PreviusToken();
 
-                if (throwException)
-                    throw new CompilerException(CurrentInterval(pos), errorMessage != null ? errorMessage : "Identificador esperado mas fim do arquivo encontrado.");
-
-                return null;
+                return throwException
+                    ? throw new CompilerException(CurrentInterval(CurrentPos), errorMessage ?? "Identificador esperado mas fim do arquivo encontrado.")
+                    : null;
             }
 
-            if (!(token is Identifier))
+            if (token is not Identifier)
             {
                 PreviusToken();
 
-                if (throwException)
-                    throw new CompilerException(token.Interval, errorMessage != null ? errorMessage : "Identificador esperado mas " + token + " encontrado.");
-
-                return null;
+                return throwException
+                    ? throw new CompilerException(token.Interval, errorMessage ?? "Identificador esperado mas " + token + " encontrado.")
+                    : null;
             }
 
             return (Identifier) token;
@@ -884,31 +848,28 @@ namespace compiler.lexer
             {
                 PreviusToken();
 
-                if (throwException)
-                    throw new CompilerException(CurrentInterval(pos), errorMessage != null ? errorMessage : "'" + expectedValue + "' mas fim do arquivo encontrado.");
-
-                return null;
+                return throwException
+                    ? throw new CompilerException(CurrentInterval(CurrentPos), errorMessage ?? "'" + expectedValue + "' mas fim do arquivo encontrado.")
+                    : null;
             }
 
-            if (!(token is Symbol))
+            if (token is not Symbol)
             {
                 PreviusToken();
 
-                if (throwException)
-                    throw new CompilerException(token.Interval, errorMessage != null ? errorMessage : "'" + expectedValue + "' esperado mas " + token + " encontrado.");
-
-                return null;
+                return throwException
+                    ? throw new CompilerException(token.Interval, errorMessage ?? "'" + expectedValue + "' esperado mas " + token + " encontrado.")
+                    : null;
             }
 
-            Identifier variable = (Identifier) token;
+            var variable = (Identifier) token;
             if (variable.Name != expectedValue)
             {
                 PreviusToken();
 
-                if (throwException)
-                    throw new CompilerException(token.Interval, errorMessage != null ? errorMessage : "'" + expectedValue + "' esperado mas '" + variable.Name + "' encontrado.");
-
-                return null;
+                return throwException
+                    ? throw new CompilerException(token.Interval, errorMessage ?? "'" + expectedValue + "' esperado mas '" + variable.Name + "' encontrado.")
+                    : null;
             }
 
             return variable;
@@ -920,10 +881,7 @@ namespace compiler.lexer
                 return null;
 
             --tokenIndex;
-            if (tokenIndex < 0)
-                return null;
-
-            return tokens[tokenIndex];
+            return tokenIndex < 0 ? null : tokens[tokenIndex];
         }
     }
 }

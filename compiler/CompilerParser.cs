@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using compiler.lexer;
 using compiler.types;
@@ -61,7 +57,7 @@ namespace compiler
             {
                 if (lexer.NextSymbol("(", false) != null)
                 {
-                    CallExpression result = new CallExpression(id.Interval, new IdentifierExpression(id.Interval, id.Name));
+                    CallExpression result = new(id.Interval, new IdentifierExpression(id.Interval, id.Name));
 
                     if (lexer.NextSymbol(")", false) != null)
                         return result;
@@ -123,7 +119,7 @@ namespace compiler
                     if (lexer.NextSymbol("]", false) != null)
                         throw new CompilerException(operand.Interval, "Índice de array esperado.");
 
-                    ArrayAccessorExpression result = new ArrayAccessorExpression(SourceInterval.Merge(operand.Interval, symbol.Interval), operand);
+                    ArrayAccessorExpression result = new(SourceInterval.Merge(operand.Interval, symbol.Interval), operand);
                     Expression indexer = ParseExpression();
                     result.AddIndexer(indexer);
 
@@ -543,6 +539,10 @@ namespace compiler
                         result = PrimitiveType.DOUBLE;
                         break;
 
+                    case "texto":
+                        result = StringType.STRING;
+                        break;
+
                     default:
                         lexer.PreviusToken();
                         break;
@@ -569,10 +569,10 @@ namespace compiler
                         result = new PointerType(result, true);
                     else
                     {
-                        ArrayType a = new ArrayType(result);
+                        ArrayType a = new(result);
 
                         NumericLiteral number = lexer.NextNumber();
-                        if (!(number is IntLiteral n))
+                        if (number is not IntLiteral n)
                             throw new CompilerException(number.Interval, "Literal inteiro esperado.");
 
                         if (n.Value <= 0)
@@ -583,7 +583,7 @@ namespace compiler
                         while (lexer.NextSymbol(",", false) != null)
                         {
                             number = lexer.NextNumber();
-                            if (!(number is IntLiteral n2))
+                            if (number is not IntLiteral n2)
                                 throw new CompilerException(number.Interval, "Literal inteiro esperado.");
 
                             if (n2.Value <= 0)
@@ -599,10 +599,9 @@ namespace compiler
                 }
                 else
                 {
-                    if (!allowVoid && PrimitiveType.IsPrimitiveVoid(result))
-                        throw new CompilerException(kw.Interval, "Tipo void não permitido nesta declaração.");
-
-                    return result;
+                    return !allowVoid && PrimitiveType.IsPrimitiveVoid(result)
+                        ? throw new CompilerException(kw.Interval, "Tipo void não permitido nesta declaração.")
+                        : result;
                 }
             }
         }
@@ -696,7 +695,7 @@ namespace compiler
                         if (lexer.NextKeyword("senão", false) != null)
                             elseStatement = ParseStatement();
 
-                        IfStatement result = new IfStatement(SourceInterval.Merge(kw.Interval, end.Interval), expression, thenStatement, elseStatement);
+                        IfStatement result = new(SourceInterval.Merge(kw.Interval, end.Interval), expression, thenStatement, elseStatement);
                         return result;
                     }
 
@@ -704,7 +703,7 @@ namespace compiler
                     {
                         lexer.NextSymbol("(");
 
-                        ForStatement result = new ForStatement(kw.Interval);
+                        ForStatement result = new(kw.Interval);
 
                         // inicializadores
                         if (lexer.NextSymbol(";", false) == null)
@@ -776,7 +775,7 @@ namespace compiler
 
                     case "leia":
                     {
-                        ReadStatement result = new ReadStatement(kw.Interval);
+                        ReadStatement result = new(kw.Interval);
 
                         if (lexer.NextSymbol(";", false) != null)
                             throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos), "Expressão esperada.");
@@ -798,14 +797,11 @@ namespace compiler
                     case "escreva":
                     case "escrevaln":
                     {
-                        PrintStatement result = new PrintStatement(kw.Interval, kw.Value == "escrevaln");
+                        PrintStatement result = new(kw.Interval, kw.Value == "escrevaln");
 
                         if (lexer.NextSymbol(";", false) != null)
                         {
-                            if (result.LineBreak)
-                                return result;
-
-                            throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos), "Expressão esperada.");
+                            return result.LineBreak ? (Statement) result : throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos), "Expressão esperada.");
                         }
 
                         Expression expression = ParseExpression();
@@ -854,7 +850,7 @@ namespace compiler
 
         private BlockStatement ParseBlock()
         {
-            BlockStatement result = new BlockStatement(lexer.CurrentInterval(lexer.CurrentPos));
+            BlockStatement result = new(lexer.CurrentInterval(lexer.CurrentPos));
             while (lexer.NextSymbol("}", false) == null)
             {
                 Statement statement = ParseStatement();
@@ -930,7 +926,7 @@ namespace compiler
 
         private void AddImport(SourceInterval interval, string unityName)
         {
-            CompilationUnity.ImportResult r = unity.AddImport(unityName, out CompilationUnity importedUnity);
+            CompilationUnity.ImportResult r = unity.AddImport(unityName, out _);
             switch (r)
             {
                 case CompilationUnity.ImportResult.SELF_REFERENCE_UNITY:
@@ -999,10 +995,7 @@ namespace compiler
             if (start != null)
             {
                 Function f = unity.DeclareFunction("@main", start.Interval, false);
-                if (f == null)
-                    throw new CompilerException(start.Interval, "Ponto de entrada já declarado.");
-
-                unity.EntryPoint = f;
+                unity.EntryPoint = f ?? throw new CompilerException(start.Interval, "Ponto de entrada já declarado.");
 
                 f.CreateEntryLabel();
                 f.CreateReturnLabel();
@@ -1015,15 +1008,11 @@ namespace compiler
             return false;
         }
 
-        private CompilationUnity ParseCompilationUnityFromFile(string fileName, bool programOnly = false)
-        {
-            return ParseCompilationUnity(fileName, File.OpenText(fileName), programOnly);
-        }
+        private CompilationUnity ParseCompilationUnityFromFile(string fileName, bool programOnly = false) => ParseCompilationUnity(fileName, File.OpenText(fileName), programOnly);
 
-        private CompilationUnity ParseCompilationUnityFromSource(int sourceID, string source, bool programOnly = false)
-        {
-            return ParseCompilationUnity("#" + sourceID, new StringReader(source), programOnly);
-        }
+#pragma warning disable IDE0051 // Remover membros privados não utilizados
+        private CompilationUnity ParseCompilationUnityFromSource(int sourceID, string source, bool programOnly = false) => ParseCompilationUnity("#" + sourceID, new StringReader(source), programOnly);
+#pragma warning restore IDE0051 // Remover membros privados não utilizados
 
         private CompilationUnity ParseCompilationUnity(string fileName, TextReader input, bool programOnly = false)
         {
@@ -1048,9 +1037,11 @@ namespace compiler
 
                 Identifier id = lexer.NextIdentifier();
                 string name = id.Name;
- 
-                unity = new CompilationUnity(this, name, fileName, isUnity);
-                unity.parsed = true;
+
+                unity = new CompilationUnity(this, name, fileName, isUnity)
+                {
+                    parsed = true
+                };
 
                 if (unity.Name != "System")
                     unity.AddImport(unitySystem, out _);
@@ -1077,7 +1068,9 @@ namespace compiler
             return result;
         }
 
+#pragma warning disable IDE0051 // Remover membros privados não utilizados
         private void ParseCompilationUnity(CompilationUnity unity)
+#pragma warning restore IDE0051 // Remover membros privados não utilizados
         {
             CompilationUnity oldUnity = this.unity;
             this.unity = unity;

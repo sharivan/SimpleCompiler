@@ -1,11 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 using assembler;
 using units;
@@ -23,6 +20,24 @@ namespace vm
 
     public class VM
     {
+        public static readonly int POINTER_SIZE = IntPtr.Size;
+        public static readonly int STRING_SIZE = POINTER_SIZE;
+        public static readonly int STRING_REC_SIZE = 2 * POINTER_SIZE + 2 * sizeof(int);
+
+        /*
+         * Estrutura de uma string contada por referência
+         * offset (32 bits)     offset (64 bits)    descrição
+         * -16                  -24                 ponteiro para a string anteriormente alocada
+         * -12                  -16                 ponteiro para a próxima string alocada
+         * -8                   -8                  número de referências
+         * -4                   -4                  tamanho da string (quantidade de caracteres, sem contar o caracter terminador nulo)
+         * 0                    0                   primeiro caracter
+         * 
+         * O ponteiro para uma string contada por referência sempre apontara para o offset 0 que leva ao endereço do primeiro caracter,
+         * isso torna esse tipo de string compatíveis com as strings de C. As strings contadas por referência também são terminadas com
+         * um caracter nulo, da mesma forma que as strings em C.
+         */
+
         private class ExternalFunctionEntry
         {
             public string functionName;
@@ -42,6 +57,9 @@ namespace vm
         [DllImport("kernel32.dll", EntryPoint = "CopyMemory", SetLastError = false)]
         public static extern void KernelCopyMemory(IntPtr dest, IntPtr src, int count);
 
+        [DllImport("kernel32.dll", EntryPoint = "ZeroMemory", SetLastError = false)]
+        public static extern void KernelZeroMemory(IntPtr ptr, int count);
+
         public delegate void ExternalFunctionHandler(VM vm);
 
         public const int DEFAULT_STACK_SIZE = 32798; // tamanho da pilha bytes
@@ -54,26 +72,25 @@ namespace vm
         public delegate void BreakpointDelegate(Breakpoint bp);
 
         private byte[] code;
-        private byte[] stack;
+        private IntPtr stack;
 
         // registradores
         private int ip; // ponteiro de instrução
-        private int sp; // ponteiro de pilha
-        private int bp; // ponteiro de base
 
+        private int initialSP;
         private int lastIP;
         private int calls;
-
-        private bool paused;
         private SteppingMode steppingMode = SteppingMode.RUN;
         private int runToIP = -1;
 
-        private List<Breakpoint> breakpoints;
-        private Dictionary<int, int> breakpointTable;
+        private IntPtr lastString;
 
-        private List<ExternalFunctionEntry> externalFunctions;
-        private Dictionary<string, Tuple<int, int>> externalFunctionMapByName;
-        private Dictionary<int, string> externalFunctionMapByIndex;
+        private readonly List<Breakpoint> breakpoints;
+        private readonly Dictionary<int, int> breakpointTable;
+
+        private readonly List<ExternalFunctionEntry> externalFunctions;
+        private readonly Dictionary<string, Tuple<int, int>> externalFunctionMapByName;
+        private readonly Dictionary<int, string> externalFunctionMapByIndex;
 
         public event DisassemblyLine OnDisassemblyLine;
         public event ConsoleRead OnConsoleRead;
@@ -91,28 +108,45 @@ namespace vm
 
         public int SP
         {
-            get => sp;
-
-            set => sp = value;
+            get; set;
         }
 
         public int BP
         {
-            get => bp;
-
-            set => bp = value;
+            get; set;
         }
 
-        public bool Paused => paused;
+        public bool Paused
+        {
+            get;
+            private set;
+        }
 
         public int CodeSize => code.Length;
 
-        public int StackSize => stack.Length;
+        public int StackSize
+        {
+            get;
+            private set;
+        }
+
+        public int StringCount
+        {
+            get;
+            internal set;
+        }
+
+        public int AllocatedStringSize
+        {
+            get;
+            private set;
+        }
 
         public VM()
         {
             code = null;
-            stack = new byte[DEFAULT_STACK_SIZE];
+            stack = IntPtr.Zero;
+            StackSize = 0;
 
             breakpoints = new List<Breakpoint>();
             breakpointTable = new Dictionary<int, int>();
@@ -124,20 +158,32 @@ namespace vm
             steppingMode = SteppingMode.RUN;
         }
 
+        ~VM()
+        {
+            Free();
+        }
+
         public void Initialize(Assembler assembler, int stackSize = DEFAULT_STACK_SIZE)
         {
             code = new byte[assembler.CodeSize];
             assembler.CopyCode(code);
-            sp = 0;
+            SP = 0;
 
-            Array.Resize(ref stack, stackSize + (int) assembler.ConstantSize);
+            StackSize = stackSize + (int) assembler.ConstantSize;
+            stack = Marshal.AllocHGlobal(StackSize);
+            KernelZeroMemory(stack, StackSize);
 
             if (assembler.ConstantSize > 0)
             {
                 byte[] constantBuffer = new byte[assembler.ConstantSize];
                 assembler.CopyConstantBuffer(constantBuffer);
-                Push(constantBuffer);                
+                Push(constantBuffer);
             }
+
+            initialSP = SP;
+            lastString = IntPtr.Zero;
+            StringCount = 0;
+            AllocatedStringSize = 0;
 
             breakpoints.Clear();
             breakpointTable.Clear();
@@ -156,6 +202,153 @@ namespace vm
                 BindExternalFunction(kv.Key, kv.Value);
         }
 
+        public void Free()
+        {
+            code = null;
+
+            SP = 0;
+            ip = 0;
+            BP = 0;
+
+            if (stack != IntPtr.Zero)
+            {
+                Marshal.FreeHGlobal(stack);
+                stack = IntPtr.Zero;
+                StackSize = 0;
+            }
+
+            FreeAllocatedStrings();
+
+            breakpoints.Clear();
+            breakpointTable.Clear();
+
+            externalFunctions.Clear();
+            externalFunctionMapByName.Clear();
+            externalFunctionMapByIndex.Clear();
+        }
+
+        public IntPtr NewString(int len)
+        {
+            try
+            {
+                int size = STRING_REC_SIZE + (len + 1) * sizeof(char);
+                IntPtr result = Marshal.AllocHGlobal(size);
+                result += STRING_REC_SIZE;
+
+                WritePointer(result - 2 * sizeof(int) - 2 * POINTER_SIZE, lastString); // anterior
+                WritePointer(result - 2 * sizeof(int) - POINTER_SIZE, IntPtr.Zero); // próximo
+
+                if (lastString != IntPtr.Zero)
+                    WritePointer(lastString - 2 * sizeof(int) - POINTER_SIZE, result); // próximo
+
+                lastString = result;
+                
+                WritePointer(result - 2 * sizeof(int), 1);
+                WritePointer(result - sizeof(int), len);
+                WritePointer(result, '\0');
+
+                AllocatedStringSize += size;
+                StringCount++;
+                return result;
+            }
+            catch (OutOfMemoryException)
+            {
+            }
+
+            return IntPtr.Zero;
+        }
+
+        public IntPtr NewString(string s)
+        {
+            IntPtr result = NewString(s.Length);
+            WritePointer(result, s);
+            return result;
+        }
+
+        public static int StringLength(IntPtr str) => str == IntPtr.Zero ? 0 : ReadPointerInt(str - sizeof(int));
+
+        public IntPtr SetStringLength(IntPtr str, int len)
+        {
+            if (str == IntPtr.Zero)
+                return NewString(len);
+
+            try
+            {
+                int oldSize = STRING_REC_SIZE + (StringLength(str) + 1) * sizeof(char);
+                int newSize = STRING_REC_SIZE + (len + 1) * sizeof(char);
+                str = Marshal.ReAllocHGlobal(str - STRING_REC_SIZE, (IntPtr) newSize);
+                str += STRING_REC_SIZE;
+
+                WritePointer(str - sizeof(int), len);
+                WritePointer(str + len * sizeof(char), '\0');
+
+                AllocatedStringSize -= oldSize;
+                AllocatedStringSize += newSize;
+                return str;
+            }
+            catch (OutOfMemoryException)
+            {
+            }
+
+            return IntPtr.Zero;
+        }
+
+        public static void StringAddRef(IntPtr str)
+        {
+            if (str != IntPtr.Zero)
+            {
+                int refCount = ReadPointerInt(str - 2 * sizeof(int));
+                WritePointer(str - 2 * sizeof(int), refCount + 1);
+            }
+        }
+
+        public IntPtr StringRelease(IntPtr str)
+        {
+            if (str == IntPtr.Zero)
+                return IntPtr.Zero;
+
+            int refCount = ReadPointerInt(str - 2 * sizeof(int));
+            refCount--;
+            WritePointer(str - 2 * sizeof(int), refCount);
+
+            if (refCount <= 0)
+            {
+                int size = STRING_REC_SIZE + (StringLength(str) + 1) * sizeof(char);
+
+                IntPtr previous = ReadPointerPtr(str - 2 * sizeof(int) - 2 * POINTER_SIZE);
+                IntPtr next = ReadPointerPtr(str - 2 * sizeof(int) - POINTER_SIZE);
+
+                if (previous != IntPtr.Zero)
+                    WritePointer(previous - 2 * sizeof(int) - POINTER_SIZE, next); // próximo
+
+                if (next != IntPtr.Zero)
+                    WritePointer(next - 2 * sizeof(int) - 2 * POINTER_SIZE, previous); // anterior
+
+                if (str == lastString)
+                    lastString = previous;
+
+                Marshal.FreeHGlobal(str - STRING_REC_SIZE);
+                AllocatedStringSize -= size;
+                return IntPtr.Zero;
+            }
+
+            return str;
+        }
+
+        private void FreeAllocatedStrings()
+        {
+            while (lastString != IntPtr.Zero)
+            {
+                IntPtr str = lastString - STRING_REC_SIZE;
+                lastString = ReadPointerPtr(str); // anterior
+                Marshal.FreeHGlobal(str);
+            }
+
+            lastString = IntPtr.Zero;
+            StringCount = 0;
+            AllocatedStringSize = 0;
+        }
+
         public Breakpoint AddBreakpoint(int ip, bool temporary = false, bool enabled = true)
         {
             lock (breakpoints)
@@ -172,7 +365,7 @@ namespace vm
                 }
 
                 int bpIP = ip;
-                Opcode opcode = (Opcode) ReadCodeByte(ref ip);
+                var opcode = (Opcode) ReadCodeByte(ref ip);
                 result = new Breakpoint(bpIP, opcode, temporary, enabled);
                 breakpoints.Add(result);
                 breakpointTable.Add(bpIP, breakpoints.Count - 1);
@@ -186,10 +379,7 @@ namespace vm
         {
             lock (breakpoints)
             {
-                if (breakpointTable.TryGetValue(ip, out int index))
-                    return breakpoints[index];
-
-                return null;
+                return breakpointTable.TryGetValue(ip, out int index) ? breakpoints[index] : null;
             }
         }
 
@@ -271,10 +461,7 @@ namespace vm
                 externalFunctions[entry.Item1] = new ExternalFunctionEntry(functionName, entry.Item1, function, entry.Item2);
         }
 
-        public byte ReadCodeByte(ref int ip)
-        {
-            return code[ip++];
-        }
+        public byte ReadCodeByte(ref int ip) => code[ip++];
 
         private const int MASK0 = 0xff;
         private const int MASK1 = MASK0 << 8;
@@ -314,13 +501,7 @@ namespace vm
             return result;
         }
 
-        public IntPtr ReadCodePtr(ref int ip)
-        {
-            if (IntPtr.Size == sizeof(int))
-                return (IntPtr) ReadCodeInt(ref ip);
-
-            return (IntPtr) ReadCodeLong(ref ip);
-        }
+        public IntPtr ReadCodePtr(ref int ip) => IntPtr.Size == sizeof(int) ? (IntPtr) ReadCodeInt(ref ip) : (IntPtr) ReadCodeLong(ref ip);
 
         public float ReadCodeFloat(ref int ip)
         {
@@ -334,10 +515,7 @@ namespace vm
             return BitConverter.ToDouble(BitConverter.GetBytes(value), 0);
         }
 
-        public void WriteCode(ref int ip, byte value)
-        {
-            code[ip++] = value;
-        }
+        public void WriteCode(ref int ip, byte value) => code[ip++] = value;
 
         public void WriteCode(ref int ip, short value)
         {
@@ -365,15 +543,9 @@ namespace vm
             code[ip++] = (byte) (value >> 56);
         }
 
-        public void WriteCode(ref int ip, float value)
-        {
-            WriteCode(ref ip, BitConverter.ToInt32(BitConverter.GetBytes(value), 0));
-        }
+        public void WriteCode(ref int ip, float value) => WriteCode(ref ip, BitConverter.ToInt32(BitConverter.GetBytes(value), 0));
 
-        public void WriteCode(ref int ip, double value)
-        {
-            WriteCode(ref ip, BitConverter.ToInt64(BitConverter.GetBytes(value), 0));
-        }
+        public void WriteCode(ref int ip, double value) => WriteCode(ref ip, BitConverter.ToInt64(BitConverter.GetBytes(value), 0));
 
         public void WriteCode(ref int ip, string value)
         {
@@ -383,10 +555,7 @@ namespace vm
             WriteCode(ref ip, (short) 0);
         }
 
-        public void WriteCode(ref int ip, byte[] buf)
-        {
-            WriteCode(ref ip, buf, 0, buf.Length);
-        }
+        public void WriteCode(ref int ip, byte[] buf) => WriteCode(ref ip, buf, 0, buf.Length);
 
         public void WriteCode(ref int ip, byte[] buf, int off, int len)
         {
@@ -394,143 +563,89 @@ namespace vm
             ip += len;
         }
 
-        public byte ReadStackByte(int addr)
-        {
-            int result = stack[addr] & MASK0;
-            return (byte) result;
-        }
+        public byte ReadStackByte(int addr) => ReadPointerByte(ResidentToHostAddr(addr));
 
-        public byte ReadPointerByte(IntPtr addr)
+        public static byte ReadPointerByte(IntPtr addr)
         {
             unsafe
             {
-                return *((byte*) addr);
+                return *(byte*) addr;
             }
         }
 
-        public char ReadStackChar(int addr)
-        {
-            return (char) ReadStackShort(addr);
-        }
+        public char ReadStackChar(int addr) => ReadPointerChar(ResidentToHostAddr(addr));
 
-        public char ReadPointeChar(IntPtr addr)
+        public static char ReadPointerChar(IntPtr addr)
         {
             unsafe
             {
-                return *((char*) addr);
+                return *(char*) addr;
             }
         }
 
-        public short ReadStackShort(int addr)
-        {
-            int result = stack[addr++] & MASK0;
-            result |= (stack[addr] << 8) & MASK1;
-            return (short) result;
-        }
+        public short ReadStackShort(int addr) => ReadPointerShort(ResidentToHostAddr(addr));
 
-        public short ReadPointerShort(IntPtr addr)
+        public static short ReadPointerShort(IntPtr addr)
         {
             unsafe
             {
-                return *((short*) addr);
+                return *(short*) addr;
             }
         }
 
-        public int ReadStackInt(int addr)
-        {
-            int result = stack[addr++] & MASK0;
-            result |= (stack[addr++] << 8) & MASK1;
-            result |= (stack[addr++] << 16) & MASK2;
-            result |= (stack[addr] << 24) & MASK3;
-            return result;
-        }
+        public int ReadStackInt(int addr) => ReadPointerInt(ResidentToHostAddr(addr));
 
-        public int ReadPointerInt(IntPtr addr)
+        public static int ReadPointerInt(IntPtr addr)
         {
             unsafe
             {
-                return *((int*) addr);
+                return *(int*) addr;
             }
         }
 
-        public long ReadStackLong(int addr)
-        {
-            long result = stack[addr++] & MASK0;
-            result |= ((long) stack[addr++] << 8) & MASK1;
-            result |= ((long) stack[addr++] << 16) & MASK2;
-            result |= ((long) stack[addr++] << 24) & MASK3;
-            result |= ((long) stack[addr++] << 32) & MASK4;
-            result |= ((long) stack[addr++] << 40) & MASK5;
-            result |= ((long) stack[addr++] << 48) & MASK6;
-            result |= ((long) stack[addr] << 56) & MASK7;
-            return result;
-        }
+        public long ReadStackLong(int addr) => ReadPointerLong(ResidentToHostAddr(addr));
 
-        public long ReadPointerLong(IntPtr addr)
+        public static long ReadPointerLong(IntPtr addr)
         {
             unsafe
             {
-                return *((long*) addr);
+                return *(long*) addr;
             }
         }
 
-        public IntPtr ReadStackPtr(int addr)
-        {
-            if (IntPtr.Size == sizeof(int))
-                return (IntPtr) ReadStackInt(addr);
+        public IntPtr ReadStackPtr(int addr) => ReadPointerPtr(ResidentToHostAddr(addr));
 
-            return (IntPtr) ReadStackLong(addr);
-        }
-
-        public IntPtr ReadPointerPtr(IntPtr addr)
+        public static IntPtr ReadPointerPtr(IntPtr addr)
         {
             unsafe
             {
-                return *((IntPtr*) addr);
+                return *(IntPtr*) addr;
             }
         }
 
-        public float ReadStackFloat(int addr)
-        {
-            int value = ReadStackInt(addr);
-            return BitConverter.ToSingle(BitConverter.GetBytes(value), 0);
-        }
+        public float ReadStackFloat(int addr) => ReadPointerFloat(ResidentToHostAddr(addr));
 
-        public float ReadPointerFloat(IntPtr addr)
+        public static float ReadPointerFloat(IntPtr addr)
         {
-            int value = ReadPointerInt(addr);
-            return BitConverter.ToSingle(BitConverter.GetBytes(value), 0);
-        }
-
-        public double ReadStackDouble(int addr)
-        {
-            long value = ReadStackLong(addr);
-            return BitConverter.ToDouble(BitConverter.GetBytes(value), 0);
-        }
-
-        public double ReadPointerDouble(IntPtr addr)
-        {
-            long value = ReadPointerLong(addr);
-            return BitConverter.ToDouble(BitConverter.GetBytes(value), 0);
-        }
-
-        public string ReadStackString(int addr)
-        {
-            string result = "";
-            while (true)
+            unsafe
             {
-                char c = (char) ReadStackShort(addr);
-                addr += sizeof(short);
-                if (c == '\0')
-                    break;
-
-                result += c;
+                return *(float*) addr;
             }
-
-            return result;
         }
 
-        public string ReadPointerString(IntPtr addr)
+        public double ReadStackDouble(int addr) => ReadPointerDouble(ResidentToHostAddr(addr));
+
+        public static double ReadPointerDouble(IntPtr addr)
+        {
+            unsafe
+            {
+                return *(double*) addr;
+            }
+        }
+
+        public string ReadStackString(int addr) => ReadPointerString(ResidentToHostAddr(addr));
+
+        public static string ReadPointerString(IntPtr addr)
         {
             string result = "";
             while (true)
@@ -546,286 +661,194 @@ namespace vm
             return result;
         }
 
-        public void WriteStack(int addr, byte value)
-        {
-            stack[addr] = value;
-        }
+        public void WriteStack(int addr, byte value) => WritePointer(ResidentToHostAddr(addr), value);
 
-        public void WritePointer(IntPtr addr, byte value)
+        public static void WritePointer(IntPtr addr, byte value)
         {
             unsafe
             {
-                *((byte*) addr) = value;
+                *(byte*) addr = value;
             }
         }
 
-        public void WriteStack(int addr, char value)
-        {
-            WriteStack(addr, (short) value);
-        }
+        public void WriteStack(int addr, char value) => WritePointer(ResidentToHostAddr(addr), value);
 
-        public void WritePointer(IntPtr addr, char value)
+        public static void WritePointer(IntPtr addr, char value)
         {
             unsafe
             {
-                *((char*) addr) = value;
+                *(char*) addr = value;
             }
         }
 
-        public void WriteStack(int addr, short value)
-        {
-            stack[addr++] = (byte) value;
-            stack[addr] = (byte) (value >> 8);
-        }
+        public void WriteStack(int addr, short value) => WritePointer(ResidentToHostAddr(addr), value);
 
-        public void WritePointer(IntPtr addr, short value)
+        public static void WritePointer(IntPtr addr, short value)
         {
             unsafe
             {
-                *((short*) addr) = value;
+                *(short*) addr = value;
             }
         }
 
-        public void WriteStack(int addr, int value)
-        {
-            stack[addr++] = (byte) value;
-            stack[addr++] = (byte) (value >> 8);
-            stack[addr++] = (byte) (value >> 16);
-            stack[addr] = (byte) (value >> 24);
-        }
+        public void WriteStack(int addr, int value) => WritePointer(ResidentToHostAddr(addr), value);
 
-        public void WritePointer(IntPtr addr, int value)
+        public static void WritePointer(IntPtr addr, int value)
         {
             unsafe
             {
-                *((int*) addr) = value;
+                *(int*) addr = value;
             }
         }
 
-        public void WriteStack(int addr, long value)
-        {
-            stack[addr++] = (byte) value;
-            stack[addr++] = (byte) (value >> 8);
-            stack[addr++] = (byte) (value >> 16);
-            stack[addr++] = (byte) (value >> 24);
-            stack[addr++] = (byte) (value >> 32);
-            stack[addr++] = (byte) (value >> 40);
-            stack[addr++] = (byte) (value >> 48);
-            stack[addr] = (byte) (value >> 56);
-        }
+        public void WriteStack(int addr, long value) => WritePointer(ResidentToHostAddr(addr), value);
 
-        public void WritePointer(IntPtr addr, long value)
+        public static void WritePointer(IntPtr addr, long value)
         {
             unsafe
             {
-                *((long*) addr) = value;
+                *(long*) addr = value;
             }
         }
 
-        public void WriteStack(int addr, IntPtr ptr)
-        {
-            if (IntPtr.Size == sizeof(int))
-                WriteStack(addr, (int) ptr);
-            else
-                WriteStack(addr, (long) ptr);
-        }
+        public void WriteStack(int addr, IntPtr ptr) => WritePointer(ResidentToHostAddr(addr), ptr);
 
-        public void WritePointer(IntPtr addr, IntPtr value)
+        public static void WritePointer(IntPtr addr, IntPtr value)
         {
             unsafe
             {
-                *((IntPtr*) addr) = value;
+                *(IntPtr*) addr = value;
             }
         }
 
-        public void WriteStack(int addr, float value)
-        {
-            WriteStack(addr, BitConverter.ToInt32(BitConverter.GetBytes(value), 0));
-        }
+        public void WriteStack(int addr, float value) => WritePointer(ResidentToHostAddr(addr), value);
 
         public void WritePointer(IntPtr addr, float value)
         {
             unsafe
             {
-                *((float*) addr) = value;
+                *(float*) addr = value;
             }
         }
 
-        public void WriteStack(int addr, double value)
-        {
-            WriteStack(addr, BitConverter.ToInt64(BitConverter.GetBytes(value), 0));
-        }
+        public void WriteStack(int addr, double value) => WritePointer(ResidentToHostAddr(addr), value);
 
-        public void WritePointer(IntPtr addr, double value)
+        public static void WritePointer(IntPtr addr, double value)
         {
             unsafe
             {
-                *((double*) addr) = value;
+                *(double*) addr = value;
             }
         }
 
-        public void WriteStack(int addr, string value)
-        {
-            byte[] bytes = new byte[value.Length * sizeof(char)];
-            Buffer.BlockCopy(value.ToCharArray(), 0, bytes, 0, bytes.Length);
-            WriteStack(addr, bytes);
-            WriteStack(addr + bytes.Length, (short) 0);
-        }
+        public void WriteStack(int addr, string value) => WritePointer(ResidentToHostAddr(addr), value);
 
-        public void WritePointer(IntPtr addr, string value)
+        public static void WritePointer(IntPtr addr, string value)
         {
             byte[] bytes = new byte[value.Length * sizeof(char)];
             Buffer.BlockCopy(value.ToCharArray(), 0, bytes, 0, bytes.Length);
             WritePointer(addr, bytes);
-            WritePointer(addr + bytes.Length, (short) 0);
+            WritePointer(addr + bytes.Length, '\0');
         }
 
-        public void WriteStack(int addr, byte[] buf)
-        {
-            WriteStack(addr, buf, 0, buf.Length);
-        }
+        public void WriteStack(int addr, byte[] buf) => WritePointer(ResidentToHostAddr(addr), buf);
 
-        public void WritePointer(IntPtr addr, byte[] buf)
-        {
-            WritePointer(addr, buf, 0, buf.Length);
-        }
+        public static void WritePointer(IntPtr addr, byte[] buf) => WritePointer(addr, buf, 0, buf.Length);
 
-        public void WriteStack(int addr, byte[] buf, int off, int len)
-        {
-            Array.Copy(buf, off, stack, addr, len);
-        }
+        public void WriteStack(int addr, byte[] buf, int off, int len) => WritePointer(ResidentToHostAddr(addr), buf, off, len);
 
-        public void WritePointer(IntPtr addr, byte[] buf, int off, int len)
-        {
-            Marshal.Copy(buf, off, addr, len);
-        }
+        public static void WritePointer(IntPtr addr, byte[] buf, int off, int len) => Marshal.Copy(buf, off, addr, len);
 
-        public void MoveStackBlock(int srcAddr, int dstAddr, int len)
-        {
-            Array.Copy(stack, srcAddr, stack, dstAddr, len);
-        }
+        public void MoveStackBlock(int srcAddr, int dstAddr, int len) => MovePointerBlock(ResidentToHostAddr(srcAddr), ResidentToHostAddr(dstAddr), len);
 
-        public void MovePointerBlock(IntPtr srcAddr, IntPtr dstAddr, int len)
-        {
-            KernelCopyMemory(dstAddr, srcAddr, len);
-        }
+        public static void MovePointerBlock(IntPtr srcAddr, IntPtr dstAddr, int len) => KernelCopyMemory(dstAddr, srcAddr, len);
 
-        public void MovePointerBlockToStack(IntPtr srcAddr, int dstAddr, int len)
-        {
-            Marshal.Copy(srcAddr, stack, dstAddr, len);
-        }
+        public void MovePointerBlockToStack(IntPtr srcAddr, int dstAddr, int len) => MovePointerBlock(srcAddr, ResidentToHostAddr(dstAddr), len);
 
-        public void MoveStackBlockToPointer(int srcAddr, IntPtr dstAddr, int len)
-        {
-            Marshal.Copy(stack, srcAddr, dstAddr, len);
-        }
+        public void MoveStackBlockToPointer(int srcAddr, IntPtr dstAddr, int len) => MovePointerBlock(ResidentToHostAddr(srcAddr), dstAddr, len);
 
         public void LoadStackBlock(int srcAddr, int len)
         {
-            MoveStackBlock(srcAddr, sp, len);
-            sp += len;
+            MoveStackBlock(srcAddr, SP, len);
+            SP += len;
         }
 
         public void LoadPointerBlock(IntPtr srcAddr, int len)
         {
-            MovePointerBlockToStack(srcAddr, sp, len);
-            sp += len;
+            MovePointerBlockToStack(srcAddr, SP, len);
+            SP += len;
         }
 
         public void StoreStackBlock(int dstAddr, int len)
         {
-            sp -= len;
-            MoveStackBlock(sp, dstAddr, len);
+            SP -= len;
+            MoveStackBlock(SP, dstAddr, len);
         }
 
         public void StorePointerBlock(IntPtr dstAddr, int len)
         {
-            sp -= len;
-            MoveStackBlockToPointer(sp, dstAddr, len);
+            SP -= len;
+            MoveStackBlockToPointer(SP, dstAddr, len);
         }
 
-        public int ReadStackTop()
-        {
-            return ReadStackInt(SP - sizeof(int));
-        }
+        public int ReadStackTop() => ReadStackInt(SP - sizeof(int));
 
-        public long ReadStackTop64()
-        {
-            return ReadStackLong(SP - sizeof(long));
-        }
+        public long ReadStackTop64() => ReadStackLong(SP - sizeof(long));
 
-        public IntPtr ReadStackTopPtr()
-        {
-            return ReadStackPtr(SP - IntPtr.Size);
-        }
+        public IntPtr ReadStackTopPtr() => ReadStackPtr(SP - IntPtr.Size);
 
-        public float ReadStackTopFloat()
-        {
-            return ReadStackFloat(SP - sizeof(float));
-        }
+        public float ReadStackTopFloat() => ReadStackFloat(SP - sizeof(float));
 
-        public double ReadStackTopDouble()
-        {
-            return ReadStackDouble(SP - sizeof(double));
-        }
+        public double ReadStackTopDouble() => ReadStackDouble(SP - sizeof(double));
 
         public void Push(int value)
         {
-            WriteStack(sp, value);
-            sp += sizeof(int);
+            WriteStack(SP, value);
+            SP += sizeof(int);
         }
 
         public void Push(long value)
         {
-            WriteStack(sp, value);
-            sp += sizeof(long);
+            WriteStack(SP, value);
+            SP += sizeof(long);
         }
 
         public void Push(IntPtr value)
         {
-            WriteStack(sp, value);
-            sp += IntPtr.Size;
+            WriteStack(SP, value);
+            SP += IntPtr.Size;
         }
 
-        public void Push(float value)
-        {
-            Push(BitConverter.ToInt32(BitConverter.GetBytes(value), 0));
-        }
+        public void Push(float value) => Push(BitConverter.ToInt32(BitConverter.GetBytes(value), 0));
 
-        public void Push(double value)
-        {
-            Push(BitConverter.ToInt64(BitConverter.GetBytes(value), 0));
-        }
+        public void Push(double value) => Push(BitConverter.ToInt64(BitConverter.GetBytes(value), 0));
 
-        public void Push(byte[] buf)
-        {
-            Push(buf, 0, buf.Length);
-        }
+        public void Push(byte[] buf) => Push(buf, 0, buf.Length);
 
         public void Push(byte[] buf, int off, int len)
         {
-            WriteStack(sp, buf, off, len);
-            sp += len;
+            WriteStack(SP, buf, off, len);
+            SP += len;
         }
 
         public int Pop()
         {
-            sp -= sizeof(int);
-            int result = ReadStackInt(sp);
+            SP -= sizeof(int);
+            int result = ReadStackInt(SP);
             return result;
         }
 
         public long PopLong()
         {
-            sp -= sizeof(long);
-            long result = ReadStackLong(sp);
+            SP -= sizeof(long);
+            long result = ReadStackLong(SP);
             return result;
         }
 
         public IntPtr PopPtr()
         {
-            sp -= IntPtr.Size;
-            IntPtr result = ReadStackPtr(sp);
+            SP -= IntPtr.Size;
+            IntPtr result = ReadStackPtr(SP);
             return result;
         }
 
@@ -841,81 +864,41 @@ namespace vm
             return BitConverter.ToDouble(BitConverter.GetBytes(value), 0);
         }
 
-        public IntPtr ResidentToHostAddr(int addr)
-        {
-            return Marshal.UnsafeAddrOfPinnedArrayElement(stack, addr);
-        }
+        public IntPtr ResidentToHostAddr(int addr) => stack + addr;
 
-        public int HostToResidentAddr(IntPtr addr)
-        {
-            return (int) ((long) addr - (long) Marshal.UnsafeAddrOfPinnedArrayElement(stack, 0));
-        }
+        public int HostToResidentAddr(IntPtr addr) => (int) ((nint) addr - stack);
 
-        private int GetParamAbsoluteOffset(int paramsSize, int index)
-        {
-            return bp - 2 * sizeof(int) - paramsSize + index * sizeof(int);
-        }
+        public bool IsStackHostAddr(IntPtr addr) => (nint) addr > stack && (nint) addr < stack + StackSize;
 
-        public IntPtr LoadParamAddr(int paramsSize, int index)
-        {
-            return Marshal.UnsafeAddrOfPinnedArrayElement(stack, GetParamAbsoluteOffset(paramsSize, index));
-        }
+        private int GetParamAbsoluteOffset(int paramsSize, int index) => BP - 2 * sizeof(int) - paramsSize + index * sizeof(int);
 
-        public int LoadParam(int paramsSize, int index)
-        {
-            return ReadStackInt(GetParamAbsoluteOffset(paramsSize, index));
-        }
+        public IntPtr LoadParamAddr(int paramsSize, int index) => ResidentToHostAddr(GetParamAbsoluteOffset(paramsSize, index));
 
-        public long LoadParamLong(int paramsSize, int index)
-        {
-            return ReadStackLong(GetParamAbsoluteOffset(paramsSize, index));
-        }
+        public int LoadParam(int paramsSize, int index) => ReadStackInt(GetParamAbsoluteOffset(paramsSize, index));
 
-        public IntPtr LoadParamPtr(int paramsSize, int index)
-        {
-            return ReadStackPtr(GetParamAbsoluteOffset(paramsSize, index));
-        }
+        public long LoadParamLong(int paramsSize, int index) => ReadStackLong(GetParamAbsoluteOffset(paramsSize, index));
 
-        public float LoadParamFloat(int paramsSize, int index)
-        {
-            return ReadStackFloat(GetParamAbsoluteOffset(paramsSize, index));
-        }
+        public IntPtr LoadParamPtr(int paramsSize, int index) => ReadStackPtr(GetParamAbsoluteOffset(paramsSize, index));
 
-        public double LoadParamDouble(int paramsSize, int index)
-        {
-            return ReadStackDouble(GetParamAbsoluteOffset(paramsSize, index));
-        }
+        public float LoadParamFloat(int paramsSize, int index) => ReadStackFloat(GetParamAbsoluteOffset(paramsSize, index));
 
-        public void SetParam(int paramsSize, int index, int value)
-        {
-            WriteStack(GetParamAbsoluteOffset(paramsSize, index), value);
-        }
+        public double LoadParamDouble(int paramsSize, int index) => ReadStackDouble(GetParamAbsoluteOffset(paramsSize, index));
 
-        public void SetParam(int paramsSize, int index, long value)
-        {
-            WriteStack(GetParamAbsoluteOffset(paramsSize, index), value);
-        }
+        public void SetParam(int paramsSize, int index, int value) => WriteStack(GetParamAbsoluteOffset(paramsSize, index), value);
 
-        public void SetParam(int paramsSize, int index, IntPtr value)
-        {
-            WriteStack(GetParamAbsoluteOffset(paramsSize, index), value);
-        }
+        public void SetParam(int paramsSize, int index, long value) => WriteStack(GetParamAbsoluteOffset(paramsSize, index), value);
 
-        public void SetParam(int paramsSize, int index, float value)
-        {
-            WriteStack(GetParamAbsoluteOffset(paramsSize, index), value);
-        }
+        public void SetParam(int paramsSize, int index, IntPtr value) => WriteStack(GetParamAbsoluteOffset(paramsSize, index), value);
 
-        public void SetParam(int paramsSize, int index, double value)
-        {
-            WriteStack(GetParamAbsoluteOffset(paramsSize, index), value);
-        }
+        public void SetParam(int paramsSize, int index, float value) => WriteStack(GetParamAbsoluteOffset(paramsSize, index), value);
+
+        public void SetParam(int paramsSize, int index, double value) => WriteStack(GetParamAbsoluteOffset(paramsSize, index), value);
 
         public void Pause()
         {
             lock (breakpoints)
             {
-                paused = true;
+                Paused = true;
             }
         }
 
@@ -925,7 +908,7 @@ namespace vm
             {
                 steppingMode = SteppingMode.RUN;
                 runToIP = -1;
-                paused = false;
+                Paused = false;
                 Monitor.PulseAll(breakpoints);
             }
         }
@@ -936,7 +919,7 @@ namespace vm
             {
                 steppingMode = SteppingMode.OVER;
                 runToIP = -1;
-                paused = false;
+                Paused = false;
                 Monitor.PulseAll(breakpoints);
             }
         }
@@ -947,7 +930,7 @@ namespace vm
             {
                 steppingMode = SteppingMode.INTO;
                 runToIP = -1;
-                paused = false;
+                Paused = false;
                 Monitor.PulseAll(breakpoints);
             }
         }
@@ -958,7 +941,7 @@ namespace vm
             {
                 steppingMode = SteppingMode.OUT;
                 runToIP = -1;
-                paused = false;
+                Paused = false;
                 Monitor.PulseAll(breakpoints);
             }
         }
@@ -969,7 +952,7 @@ namespace vm
             {
                 steppingMode = SteppingMode.RUN_TO_IP;
                 runToIP = ip;
-                paused = false;
+                Paused = false;
                 Monitor.PulseAll(breakpoints);
             }
         }
@@ -978,34 +961,34 @@ namespace vm
         {
             lock (breakpoints)
             {
-                paused = true;
+                Paused = true;
 
                 OnStep?.Invoke(lastIP, steppingMode);
 
-                while (paused)
+                while (Paused)
                     Monitor.Wait(breakpoints);
             }
         }
 
         private bool CheckPaused()
         {
-            if (paused || runToIP == lastIP)
+            if (Paused || runToIP == lastIP)
             {
                 lock (breakpoints)
                 {
-                    if (paused || runToIP == lastIP)
+                    if (Paused || runToIP == lastIP)
                     {
-                        paused = true;
+                        Paused = true;
                         calls = 0;
                         runToIP = -1;
                         steppingMode = SteppingMode.RUN;
 
-                        if (paused)
+                        if (Paused)
                             OnPause?.Invoke(lastIP);
                         else
                             OnStep?.Invoke(lastIP, SteppingMode.RUN_TO_IP);
 
-                        while (paused)
+                        while (Paused)
                             Monitor.Wait(breakpoints);
                     }
                 }
@@ -1033,11 +1016,11 @@ namespace vm
                         calls = 0;
                         steppingMode = SteppingMode.RUN;
                         runToIP = -1;
-                        paused = true;
+                        Paused = true;
 
                         OnBreakpoint(bp);
 
-                        while (paused)
+                        while (Paused)
                             Monitor.Wait(breakpoints);
 
                         if (bp.Temporary)
@@ -1071,107 +1054,118 @@ namespace vm
                     steppingMode = SteppingMode.RUN;
                 }
 
-                paused = false;
+                Paused = false;
             }
 
+            SP = initialSP;
             ip = 0;
-            bp = sp;
+            BP = SP;
             calls = 0;
 
-            while (ip < code.Length)
+            FreeAllocatedStrings();
+            KernelZeroMemory(stack + initialSP, StackSize - initialSP);
+
+            try
             {
-                SteppingMode oldSteppingMode = steppingMode;
-                switch (steppingMode)
+                while (ip < code.Length)
                 {
-                    case SteppingMode.RUN:
-                    case SteppingMode.RUN_TO_IP:
-                        while (ip < code.Length)
-                        {
-                            lastIP = ip;
-                            int op = ReadCodeByte(ref ip) & 0xff;
-                            Opcode opcode = (Opcode) op;
-
-                            if (!CheckPaused())
-                                CheckBreak(ref opcode);
-
-                            if (!SingleStep(opcode))
-                                return;
-
-                            if (steppingMode != oldSteppingMode)
-                                break;
-                        }
-
-                        break;
-
-                    case SteppingMode.OVER:
-                        while (ip < code.Length)
-                        {
-                            lastIP = ip;
-                            int op = ReadCodeByte(ref ip) & 0xff;
-                            Opcode opcode = (Opcode) op;
-
-                            if (calls == 0)
+                    SteppingMode oldSteppingMode = steppingMode;
+                    switch (steppingMode)
+                    {
+                        case SteppingMode.RUN:
+                        case SteppingMode.RUN_TO_IP:
+                            while (ip < code.Length)
                             {
-                                this.runToIP = -1;
-                                Step();
+                                lastIP = ip;
+                                int op = ReadCodeByte(ref ip) & 0xff;
+                                var opcode = (Opcode) op;
+
+                                if (!CheckPaused())
+                                    CheckBreak(ref opcode);
+
+                                if (!SingleStep(opcode))
+                                    return;
+
+                                if (steppingMode != oldSteppingMode)
+                                    break;
                             }
-                            else if (!CheckPaused())
-                                CheckBreak(ref opcode);
 
-                            if (!SingleStep(opcode))
-                                return;
+                            break;
 
-                            if (steppingMode != oldSteppingMode)
-                                break;
-                        }
-
-                        break;
-
-                    case SteppingMode.INTO:
-                        while (ip < code.Length)
-                        {
-                            lastIP = ip;
-                            int op = ReadCodeByte(ref ip) & 0xff;
-                            Opcode opcode = (Opcode) op;
-
-                            this.runToIP = -1;
-                            calls = 0;
-                            Step();
-
-                            if (!SingleStep(opcode))
-                                return;
-
-                            if (steppingMode != oldSteppingMode)
-                                break;
-                        }
-
-                        break;
-
-                    case SteppingMode.OUT:
-                        while (ip < code.Length)
-                        {
-                            lastIP = ip;
-                            int op = ReadCodeByte(ref ip) & 0xff;
-                            Opcode opcode = (Opcode) op;
-
-                            if (calls < 0)
+                        case SteppingMode.OVER:
+                            while (ip < code.Length)
                             {
+                                lastIP = ip;
+                                int op = ReadCodeByte(ref ip) & 0xff;
+                                var opcode = (Opcode) op;
+
+                                if (calls == 0)
+                                {
+                                    this.runToIP = -1;
+                                    Step();
+                                }
+                                else if (!CheckPaused())
+                                    CheckBreak(ref opcode);
+
+                                if (!SingleStep(opcode))
+                                    return;
+
+                                if (steppingMode != oldSteppingMode)
+                                    break;
+                            }
+
+                            break;
+
+                        case SteppingMode.INTO:
+                            while (ip < code.Length)
+                            {
+                                lastIP = ip;
+                                int op = ReadCodeByte(ref ip) & 0xff;
+                                var opcode = (Opcode) op;
+
                                 this.runToIP = -1;
                                 calls = 0;
                                 Step();
+
+                                if (!SingleStep(opcode))
+                                    return;
+
+                                if (steppingMode != oldSteppingMode)
+                                    break;
                             }
-                            else if (!CheckPaused())
-                                CheckBreak(ref opcode);
 
-                            if (!SingleStep(opcode))
-                                return;
+                            break;
 
-                            if (steppingMode != oldSteppingMode)
-                                break;
-                        }
+                        case SteppingMode.OUT:
+                            while (ip < code.Length)
+                            {
+                                lastIP = ip;
+                                int op = ReadCodeByte(ref ip) & 0xff;
+                                var opcode = (Opcode) op;
 
-                        break;
+                                if (calls < 0)
+                                {
+                                    this.runToIP = -1;
+                                    calls = 0;
+                                    Step();
+                                }
+                                else if (!CheckPaused())
+                                    CheckBreak(ref opcode);
+
+                                if (!SingleStep(opcode))
+                                    return;
+
+                                if (steppingMode != oldSteppingMode)
+                                    break;
+                            }
+
+                            break;
+                    }
                 }
+            }
+            finally
+            {
+                FreeAllocatedStrings();
             }
         }
 
@@ -1225,13 +1219,13 @@ namespace vm
 
                 case Opcode.LSP:
                 {
-                    Push(sp);
+                    Push(SP);
                     break;
                 }
 
                 case Opcode.LBP:
                 {
-                    Push(bp);
+                    Push(BP);
                     break;
                 }
 
@@ -1243,27 +1237,27 @@ namespace vm
 
                 case Opcode.SSP:
                 {
-                    sp = Pop();
+                    SP = Pop();
                     break;
                 }
 
                 case Opcode.SBP:
                 {
-                    bp = Pop();
+                    BP = Pop();
                     break;
                 }
 
                 case Opcode.ADDSP:
                 {
                     int offset = ReadCodeInt(ref ip);
-                    sp += offset;
+                    SP += offset;
                     break;
                 }
 
                 case Opcode.SUBSP:
                 {
                     int offset = ReadCodeInt(ref ip);
-                    sp -= offset;
+                    SP -= offset;
                     break;
                 }
 
@@ -1284,14 +1278,14 @@ namespace vm
                 case Opcode.LLHA:
                 {
                     int offset = ReadCodeInt(ref ip);
-                    Push(ResidentToHostAddr(bp + offset));
+                    Push(ResidentToHostAddr(BP + offset));
                     break;
                 }
 
                 case Opcode.LLRA:
                 {
                     int offset = ReadCodeInt(ref ip);
-                    Push(bp + offset);
+                    Push(BP + offset);
                     break;
                 }
 
@@ -1432,7 +1426,7 @@ namespace vm
                 case Opcode.LL8:
                 {
                     int offset = ReadCodeInt(ref ip);
-                    byte value = ReadStackByte(bp + offset);
+                    byte value = ReadStackByte(BP + offset);
                     Push(value);
                     break;
                 }
@@ -1440,7 +1434,7 @@ namespace vm
                 case Opcode.LL16:
                 {
                     int offset = ReadCodeInt(ref ip);
-                    short value = ReadStackShort(bp + offset);
+                    short value = ReadStackShort(BP + offset);
                     Push(value);
                     break;
                 }
@@ -1448,7 +1442,7 @@ namespace vm
                 case Opcode.LL32:
                 {
                     int offset = ReadCodeInt(ref ip);
-                    int value = ReadStackInt(bp + offset);
+                    int value = ReadStackInt(BP + offset);
                     Push(value);
                     break;
                 }
@@ -1456,7 +1450,7 @@ namespace vm
                 case Opcode.LL64:
                 {
                     int offset = ReadCodeInt(ref ip);
-                    long value = ReadStackLong(bp + offset);
+                    long value = ReadStackLong(BP + offset);
                     Push(value);
                     break;
                 }
@@ -1464,7 +1458,7 @@ namespace vm
                 case Opcode.LLPTR:
                 {
                     int offset = ReadCodeInt(ref ip);
-                    IntPtr value = ReadStackPtr(bp + offset);
+                    IntPtr value = ReadStackPtr(BP + offset);
                     Push(value);
                     break;
                 }
@@ -1513,7 +1507,7 @@ namespace vm
                 {
                     int offset = ReadCodeInt(ref ip);
                     int value = Pop();
-                    WriteStack(bp + offset, (byte) value);
+                    WriteStack(BP + offset, (byte) value);
                     break;
                 }
 
@@ -1521,7 +1515,7 @@ namespace vm
                 {
                     int offset = ReadCodeInt(ref ip);
                     int value = Pop();
-                    WriteStack(bp + offset, (short) value);
+                    WriteStack(BP + offset, (short) value);
                     break;
                 }
 
@@ -1529,7 +1523,7 @@ namespace vm
                 {
                     int offset = ReadCodeInt(ref ip);
                     int value = Pop();
-                    WriteStack(bp + offset, value);
+                    WriteStack(BP + offset, value);
                     break;
                 }
 
@@ -1537,7 +1531,7 @@ namespace vm
                 {
                     int offset = ReadCodeInt(ref ip);
                     long value = PopLong();
-                    WriteStack(bp + offset, value);
+                    WriteStack(BP + offset, value);
                     break;
                 }
 
@@ -1545,7 +1539,7 @@ namespace vm
                 {
                     int offset = ReadCodeInt(ref ip);
                     IntPtr value = PopPtr();
-                    WriteStack(bp + offset, value);
+                    WriteStack(BP + offset, value);
                     break;
                 }
 
@@ -2048,7 +2042,7 @@ namespace vm
                 case Opcode.I32PTR:
                 {
                     int operand = Pop();
-                    IntPtr result = (IntPtr) operand;
+                    var result = (IntPtr) operand;
                     Push(result);
                     break;
                 }
@@ -2056,7 +2050,7 @@ namespace vm
                 case Opcode.I64PTR:
                 {
                     long operand = PopLong();
-                    IntPtr result = (IntPtr) operand;
+                    var result = (IntPtr) operand;
                     Push(result);
                     break;
                 }
@@ -2316,11 +2310,7 @@ namespace vm
                     IntPtr operand2 = PopPtr();
                     IntPtr operand1 = PopPtr();
 
-                    bool result;
-                    if (IntPtr.Size == sizeof(int))
-                        result = (int) operand1 > (int) operand2;
-                    else
-                        result = (long) operand1 > (long) operand2;
+                    bool result = IntPtr.Size == sizeof(int) ? (int) operand1 > (int) operand2 : (long) operand1 > (long) operand2;
 
                     Push(result ? 1 : 0);
                     break;
@@ -2331,11 +2321,7 @@ namespace vm
                     IntPtr operand2 = PopPtr();
                     IntPtr operand1 = PopPtr();
 
-                    bool result;
-                    if (IntPtr.Size == sizeof(int))
-                        result = (int) operand1 >= (int) operand2;
-                    else
-                        result = (long) operand1 >= (long) operand2;
+                    bool result = IntPtr.Size == sizeof(int) ? (int) operand1 >= (int) operand2 : (long) operand1 >= (long) operand2;
 
                     Push(result ? 1 : 0);
                     break;
@@ -2346,11 +2332,7 @@ namespace vm
                     IntPtr operand2 = PopPtr();
                     IntPtr operand1 = PopPtr();
 
-                    bool result;
-                    if (IntPtr.Size == sizeof(int))
-                        result = (int) operand1 < (int) operand2;
-                    else
-                        result = (long) operand1 < (long) operand2;
+                    bool result = IntPtr.Size == sizeof(int) ? (int) operand1 < (int) operand2 : (long) operand1 < (long) operand2;
 
                     Push(result ? 1 : 0);
                     break;
@@ -2361,11 +2343,7 @@ namespace vm
                     IntPtr operand2 = PopPtr();
                     IntPtr operand1 = PopPtr();
 
-                    bool result;
-                    if (IntPtr.Size == sizeof(int))
-                        result = (int) operand1 <= (int) operand2;
-                    else
-                        result = (long) operand1 <= (long) operand2;
+                    bool result = IntPtr.Size == sizeof(int) ? (int) operand1 <= (int) operand2 : (long) operand1 <= (long) operand2;
 
                     Push(result ? 1 : 0);
                     break;
@@ -2462,14 +2440,14 @@ namespace vm
                 {
                     int offset = ReadCodeInt(ref ip);
                     Push(ip);
-                    Push(bp);
-                    bp = sp;
+                    Push(BP);
+                    BP = SP;
                     ip = lastIP + offset;
 
-                    if (steppingMode == SteppingMode.OVER || steppingMode == SteppingMode.OUT)
+                    if (steppingMode is SteppingMode.OVER or SteppingMode.OUT)
                         lock (breakpoints)
                         {
-                            if (steppingMode == SteppingMode.OVER || steppingMode == SteppingMode.OUT)
+                            if (steppingMode is SteppingMode.OVER or SteppingMode.OUT)
                                 calls++;
                         }
 
@@ -2480,14 +2458,14 @@ namespace vm
                 {
                     int offset = Pop();
                     Push(ip);
-                    Push(bp);
-                    bp = sp;
+                    Push(BP);
+                    BP = SP;
                     ip = lastIP + offset;
 
-                    if (steppingMode == SteppingMode.OVER || steppingMode == SteppingMode.OUT)
+                    if (steppingMode is SteppingMode.OVER or SteppingMode.OUT)
                         lock (breakpoints)
                         {
-                            if (steppingMode == SteppingMode.OVER || steppingMode == SteppingMode.OUT)
+                            if (steppingMode is SteppingMode.OVER or SteppingMode.OUT)
                                 calls++;
                         }
 
@@ -2500,28 +2478,28 @@ namespace vm
                     ExternalFunctionEntry entry = externalFunctions[index];
 
                     Push(ip);
-                    Push(bp);
-                    bp = sp;
+                    Push(BP);
+                    BP = SP;
 
                     entry.handler(this);
 
-                    sp = bp;
-                    bp = Pop();
+                    SP = BP;
+                    BP = Pop();
                     ip = Pop();
-                    sp -= entry.paramSize;
+                    SP -= entry.paramSize;
 
                     break;
                 }
 
                 case Opcode.RET:
                 {
-                    bp = Pop();
+                    BP = Pop();
                     ip = Pop();
 
-                    if (steppingMode == SteppingMode.OVER || steppingMode == SteppingMode.OUT)
+                    if (steppingMode is SteppingMode.OVER or SteppingMode.OUT)
                         lock (breakpoints)
                         {
-                            if (steppingMode == SteppingMode.OVER || steppingMode == SteppingMode.OUT)
+                            if (steppingMode is SteppingMode.OVER or SteppingMode.OUT)
                                 calls--;
                         }
 
@@ -2531,14 +2509,14 @@ namespace vm
                 case Opcode.RETN:
                 {
                     int count = ReadCodeInt(ref ip);
-                    bp = Pop();
+                    BP = Pop();
                     ip = Pop();
-                    sp -= count;
+                    SP -= count;
 
-                    if (steppingMode == SteppingMode.OVER || steppingMode == SteppingMode.OUT)
+                    if (steppingMode is SteppingMode.OVER or SteppingMode.OUT)
                         lock (breakpoints)
                         {
-                            if (steppingMode == SteppingMode.OVER || steppingMode == SteppingMode.OUT)
+                            if (steppingMode is SteppingMode.OVER or SteppingMode.OUT)
                                 calls--;
                         }
 
@@ -2551,9 +2529,9 @@ namespace vm
                     string str = ReadFromConsole();
                     try
                     {
-                        if (str == "verdade" || str == "1")
+                        if (str is "verdade" or "1")
                             WritePointer(addr, 1);
-                        else if (str == "falso" || str == "0")
+                        else if (str is "falso" or "0")
                             WritePointer(addr, 0);
                         else
                         {
@@ -2561,7 +2539,7 @@ namespace vm
                             WritePointer(addr, value ? 1 : 0);
                         }
                     }
-                    catch (Exception e) when (e is FormatException || e is OverflowException)
+                    catch (Exception e) when (e is FormatException or OverflowException)
                     {
                         WritePointer(addr, (byte) 0);
                     }
@@ -2578,7 +2556,7 @@ namespace vm
                         int value = int.Parse(str, CultureInfo.InvariantCulture);
                         WritePointer(addr, (byte) value);
                     }
-                    catch (Exception e) when (e is FormatException || e is OverflowException)
+                    catch (Exception e) when (e is FormatException or OverflowException)
                     {
                         WritePointer(addr, (byte) 0);
                     }
@@ -2607,7 +2585,7 @@ namespace vm
                         int value = int.Parse(str, CultureInfo.InvariantCulture);
                         WritePointer(addr, (short) value);
                     }
-                    catch (Exception e) when (e is FormatException || e is OverflowException)
+                    catch (Exception e) when (e is FormatException or OverflowException)
                     {
                         WritePointer(addr, (short) 0);
                     }
@@ -2624,7 +2602,7 @@ namespace vm
                         int value = int.Parse(str, CultureInfo.InvariantCulture);
                         WritePointer(addr, value);
                     }
-                    catch (Exception e) when (e is FormatException || e is OverflowException)
+                    catch (Exception e) when (e is FormatException or OverflowException)
                     {
                         WritePointer(addr, 0);
                     }
@@ -2641,7 +2619,7 @@ namespace vm
                         long value = long.Parse(str, CultureInfo.InvariantCulture);
                         WritePointer(addr, value);
                     }
-                    catch (Exception e) when (e is FormatException || e is OverflowException)
+                    catch (Exception e) when (e is FormatException or OverflowException)
                     {
                         WritePointer(addr, 0L);
                     }
@@ -2658,7 +2636,7 @@ namespace vm
                         float value = float.Parse(str, CultureInfo.InvariantCulture);
                         WritePointer(addr, value);
                     }
-                    catch (Exception e) when (e is FormatException || e is OverflowException)
+                    catch (Exception e) when (e is FormatException or OverflowException)
                     {
                         WritePointer(addr, 0F);
                     }
@@ -2675,7 +2653,7 @@ namespace vm
                         double value = double.Parse(str, CultureInfo.InvariantCulture);
                         WritePointer(addr, value);
                     }
-                    catch (Exception e) when (e is FormatException || e is OverflowException)
+                    catch (Exception e) when (e is FormatException or OverflowException)
                     {
                         WritePointer(addr, 0.0);
                     }
@@ -2736,7 +2714,7 @@ namespace vm
                 case Opcode.PRINTSTR:
                 {
                     IntPtr addr = PopPtr();
-                    string value = addr != null ? ReadPointerString(addr) : "nulo";
+                    string value = addr != IntPtr.Zero ? ReadPointerString(addr) : "nulo";
                     Print(value);
                     break;
                 }
@@ -2751,34 +2729,14 @@ namespace vm
             return true;
         }
 
-        private string ReadFromConsole()
-        {
-            return OnConsoleRead != null ? OnConsoleRead() : Console.ReadLine();
-        }
+        private string ReadFromConsole() => OnConsoleRead != null ? OnConsoleRead() : Console.ReadLine();
 
         private static readonly char[] HEX_DIGITS = { 'a', 'b', 'c', 'd', 'e', 'f' };
-
-        private string ToHex(int n)
-        {
-            string result = "";
-            return result;
-        }
 
         private string Format(int n, int digits)
         {
             string result = n.ToString();
             ;
-            int diff = digits - result.Length;
-            if (diff > 0)
-                for (int i = 0; i < diff; i++)
-                    result = "0" + result;
-
-            return result;
-        }
-
-        private string FormatHex(int n, int digits)
-        {
-            string result = ToHex(n);
             int diff = digits - result.Length;
             if (diff > 0)
                 for (int i = 0; i < diff; i++)
@@ -2811,15 +2769,9 @@ namespace vm
                 Console.Write(message);
         }
 
-        private void PrintDisassembledLine()
-        {
-            OnDisassemblyLine?.Invoke(-1, null);
-        }
+        private void PrintDisassembledLine() => OnDisassemblyLine?.Invoke(-1, null);
 
-        private void PrintDisassembledLine(int ip, int op, string s)
-        {
-            OnDisassemblyLine?.Invoke(ip, Format(ip, 8) + "  " + Format(op, 3) + "  " + s);
-        }
+        private void PrintDisassembledLine(int ip, int op, string s) => OnDisassemblyLine?.Invoke(ip, Format(ip, 8) + "  " + Format(op, 3) + "  " + s);
 
         public void Print()
         {
@@ -2828,7 +2780,7 @@ namespace vm
             {
                 int lastIP = ip;
                 int op = ReadCodeByte(ref ip) & 0xff;
-                Opcode Opcode = (Opcode) op;
+                var Opcode = (Opcode) op;
 
                 switch (Opcode)
                 {

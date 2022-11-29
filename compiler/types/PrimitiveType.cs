@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace compiler.types
 {
@@ -21,277 +17,145 @@ namespace compiler.types
 
     public class PrimitiveType : AbstractType
     {
-        public static readonly PrimitiveType VOID = new PrimitiveType(Primitive.VOID);
-        public static readonly PrimitiveType BOOL = new PrimitiveType(Primitive.BOOL);
-        public static readonly PrimitiveType BYTE = new PrimitiveType(Primitive.BYTE);
-        public static readonly PrimitiveType CHAR = new PrimitiveType(Primitive.CHAR);
-        public static readonly PrimitiveType SHORT = new PrimitiveType(Primitive.SHORT);
-        public static readonly PrimitiveType INT = new PrimitiveType(Primitive.INT);
-        public static readonly PrimitiveType LONG = new PrimitiveType(Primitive.LONG);
-        public static readonly PrimitiveType FLOAT = new PrimitiveType(Primitive.FLOAT);
-        public static readonly PrimitiveType DOUBLE = new PrimitiveType(Primitive.DOUBLE);
+        public static readonly PrimitiveType VOID = new(Primitive.VOID);
+        public static readonly PrimitiveType BOOL = new(Primitive.BOOL);
+        public static readonly PrimitiveType BYTE = new(Primitive.BYTE);
+        public static readonly PrimitiveType CHAR = new(Primitive.CHAR);
+        public static readonly PrimitiveType SHORT = new(Primitive.SHORT);
+        public static readonly PrimitiveType INT = new(Primitive.INT);
+        public static readonly PrimitiveType LONG = new(Primitive.LONG);
+        public static readonly PrimitiveType FLOAT = new(Primitive.FLOAT);
+        public static readonly PrimitiveType DOUBLE = new(Primitive.DOUBLE);
 
-        public static bool IsPrimitiveVoid(PrimitiveType type)
+        public static PrimitiveType FromPrimitive(Primitive primitive) => primitive switch
         {
-            return type.primitive == Primitive.VOID;
+            Primitive.VOID => VOID,
+            Primitive.BOOL => BOOL,
+            Primitive.BYTE => BYTE,
+            Primitive.CHAR => CHAR,
+            Primitive.SHORT => SHORT,
+            Primitive.INT => INT,
+            Primitive.LONG => LONG,
+            Primitive.FLOAT => FLOAT,
+            Primitive.DOUBLE => DOUBLE,
+            _ => null,
+        };
+
+        public static bool IsPrimitiveVoid(PrimitiveType type) => type.Primitive == Primitive.VOID;
+
+        public static bool IsPrimitiveVoid(AbstractType type) => type is PrimitiveType p && IsPrimitiveVoid(p);
+
+        public static bool IsPrimitiveBool(PrimitiveType type) => type.Primitive == Primitive.BOOL;
+
+        public static bool IsPrimitiveBool(AbstractType type) => type is PrimitiveType p && IsPrimitiveBool(p);
+
+        public static bool IsPrimitiveNumber(PrimitiveType type) => IsPrimitiveInteger(type) || IsPrimitiveFloat(type);
+
+        public static bool IsPrimitiveNumber(AbstractType type) => type is PrimitiveType p && IsPrimitiveNumber(p);
+
+        public static bool IsPrimitiveInteger(PrimitiveType type) => type.Primitive is Primitive.BYTE or Primitive.SHORT or Primitive.INT or Primitive.LONG;
+
+        public static bool IsPrimitiveInteger(AbstractType type) => type is PrimitiveType p && IsPrimitiveInteger(p);
+
+        public static bool IsPrimitiveChar(PrimitiveType type) => type.Primitive == Primitive.CHAR;
+
+        public static bool IsPrimitiveChar(AbstractType type) => type is PrimitiveType p && IsPrimitiveChar(p);
+
+        public static bool IsPrimitiveFloat(PrimitiveType type) => type.Primitive is Primitive.FLOAT or Primitive.DOUBLE;
+
+        public static bool IsPrimitiveFloat(AbstractType type) => type is PrimitiveType p && IsPrimitiveFloat(p);
+
+        public static bool IsUpTo32BitsInt(PrimitiveType type) => type.Primitive is Primitive.BYTE or Primitive.SHORT or Primitive.INT;
+
+        public static bool IsUpTo32BitsInt(AbstractType type) => type is PrimitiveType p && IsUpTo32BitsInt(p);
+
+        public static bool Is64BitsInt(PrimitiveType type) => type.Primitive == Primitive.LONG;
+
+        public static bool Is64BitsInt(AbstractType type) => type is PrimitiveType p && Is64BitsInt(p);
+
+        public static bool Is32BitsFloat(PrimitiveType type) => type.Primitive == Primitive.FLOAT;
+
+        public static bool Is32BitsFloat(AbstractType type) => type is PrimitiveType p && Is32BitsFloat(p);
+
+        public static bool Is64BitsFloat(PrimitiveType type) => type.Primitive == Primitive.DOUBLE;
+
+        public static bool Is64BitsFloat(AbstractType type) => type is PrimitiveType p && Is64BitsFloat(p);
+
+        public Primitive Primitive
+        {
+            get;
         }
 
-        public static bool IsPrimitiveVoid(AbstractType type)
+        private PrimitiveType(Primitive primitive) => Primitive = primitive;
+
+        public override bool Equals(object obj) => ReferenceEquals(this, obj) || obj != null && obj is PrimitiveType p && Primitive == p.Primitive;
+
+        public override string ToString() => Primitive switch
         {
-            if (type is PrimitiveType p)
-                return IsPrimitiveVoid(p);
+            Primitive.VOID => "void",
+            Primitive.BOOL => "bool",
+            Primitive.BYTE => "byte",
+            Primitive.CHAR => "char",
+            Primitive.SHORT => "short",
+            Primitive.INT => "int",
+            Primitive.LONG => "long",
+            Primitive.FLOAT => "float",
+            Primitive.DOUBLE => "real",
+            _ => throw new Exception("Unknow primitive type."),
+        };
 
-            return false;
-        }
-
-        public static bool IsPrimitiveBool(PrimitiveType type)
+        protected override int GetSize() => Primitive switch
         {
-            return type.primitive == Primitive.BOOL;
-        }
-
-        public static bool IsPrimitiveBool(AbstractType type)
-        {
-            if (type is PrimitiveType p)
-                return IsPrimitiveBool(p);
-
-            return false;
-        }
-
-        public static bool IsPrimitiveNumber(PrimitiveType type)
-        {
-            return IsPrimitiveInteger(type) || IsPrimitiveFloat(type);
-        }
-
-        public static bool IsPrimitiveNumber(AbstractType type)
-        {
-            if (type is PrimitiveType p)
-                return IsPrimitiveNumber(p);
-
-            return false;
-        }
-
-        public static bool IsPrimitiveInteger(PrimitiveType type)
-        {
-            return type.primitive == Primitive.BYTE || type.primitive == Primitive.SHORT || type.primitive == Primitive.INT || type.primitive == Primitive.LONG;
-        }
-
-        public static bool IsPrimitiveInteger(AbstractType type)
-        {
-            if (type is PrimitiveType p)
-                return IsPrimitiveInteger(p);
-
-            return false;
-        }
-
-        public static bool IsPrimitiveChar(PrimitiveType type)
-        {
-            return type.primitive == Primitive.CHAR;
-        }
-
-        public static bool IsPrimitiveChar(AbstractType type)
-        {
-            if (type is PrimitiveType p)
-                return IsPrimitiveChar(p);
-
-            return false;
-        }
-
-        public static bool IsPrimitiveFloat(PrimitiveType type)
-        {
-            return type.primitive == Primitive.FLOAT || type.primitive == Primitive.DOUBLE;
-        }
-
-        public static bool IsPrimitiveFloat(AbstractType type)
-        {
-            if (type is PrimitiveType p)
-                return IsPrimitiveFloat(p);
-
-            return false;
-        }
-
-        public static bool IsUpTo32BitsInt(PrimitiveType type)
-        {
-            return type.primitive == Primitive.BYTE || type.primitive == Primitive.SHORT || type.primitive == Primitive.INT;
-        }
-
-        public static bool IsUpTo32BitsInt(AbstractType type)
-        {
-            if (type is PrimitiveType p)
-                return IsUpTo32BitsInt(p);
-
-            return false;
-        }
-
-        public static bool Is64BitsInt(PrimitiveType type)
-        {
-            return type.primitive == Primitive.LONG;
-        }
-
-        public static bool Is64BitsInt(AbstractType type)
-        {
-            if (type is PrimitiveType p)
-                return Is64BitsInt(p);
-
-            return false;
-        }
-
-        public static bool Is32BitsFloat(PrimitiveType type)
-        {
-            return type.primitive == Primitive.FLOAT;
-        }
-
-        public static bool Is32BitsFloat(AbstractType type)
-        {
-            if (type is PrimitiveType p)
-                return Is32BitsFloat(p);
-
-            return false;
-        }
-
-        public static bool Is64BitsFloat(PrimitiveType type)
-        {
-            return type.primitive == Primitive.DOUBLE;
-        }
-
-        public static bool Is64BitsFloat(AbstractType type)
-        {
-            if (type is PrimitiveType p)
-                return Is64BitsFloat(p);
-
-            return false;
-        }
-
-        private Primitive primitive;
-
-        public Primitive Primitive => primitive;
-
-        internal PrimitiveType(Primitive primitive)
-        {
-            this.primitive = primitive;
-        }
-
-        public override bool Equals(object obj)
-        {
-            if (ReferenceEquals(this, obj))
-                return true;
-
-            if (obj == null)
-                return false;
-
-            if (obj is PrimitiveType p)
-                return primitive == p.primitive;
-
-            return false;
-        }
-
-        public override string ToString()
-        {
-            switch (primitive)
-            {
-                case Primitive.VOID:
-                    return "void";
-
-                case Primitive.BOOL:
-                    return "bool";
-
-                case Primitive.BYTE:
-                    return "byte";
-
-                case Primitive.CHAR:
-                    return "char";
-
-                case Primitive.SHORT:
-                    return "short";
-
-                case Primitive.INT:
-                    return "int";
-
-                case Primitive.LONG:
-                    return "long";
-
-                case Primitive.FLOAT:
-                    return "float";
-
-                case Primitive.DOUBLE:
-                    return "real";
-            }
-
-            throw new Exception("Unknow primitive type.");
-        }
-
-        public override int Size()
-        {
-            switch (primitive)
-            {
-                case Primitive.VOID:
-                    return 0;
-
-                case Primitive.BOOL:
-                    return sizeof(bool);
-
-                case Primitive.BYTE:
-                    return sizeof(byte);
-
-                case Primitive.CHAR:
-                    return sizeof(char);
-
-                case Primitive.SHORT:
-                    return sizeof(short);
-
-                case Primitive.INT:
-                    return sizeof(int);
-
-                case Primitive.LONG:
-                    return sizeof(long);
-
-                case Primitive.FLOAT:
-                    return sizeof(float);
-
-                case Primitive.DOUBLE:
-                    return sizeof(double);
-            }
-
-            throw new Exception("Unknow primitive type.");
-        }
+            Primitive.VOID => 0,
+            Primitive.BOOL => sizeof(bool),
+            Primitive.BYTE => sizeof(byte),
+            Primitive.CHAR => sizeof(char),
+            Primitive.SHORT => sizeof(short),
+            Primitive.INT => sizeof(int),
+            Primitive.LONG => sizeof(long),
+            Primitive.FLOAT => sizeof(float),
+            Primitive.DOUBLE => sizeof(double),
+            _ => throw new Exception("Unknow primitive type."),
+        };
 
         public override bool CoerceWith(AbstractType other, bool isExplicit)
         {
             if (other is PrimitiveType o)
             {
-                switch (primitive)
+                switch (Primitive)
                 {
                     case Primitive.VOID:
                         return false;
 
                     case Primitive.BOOL:
-                        return isExplicit ? true : o.primitive == Primitive.BOOL;
+                        return isExplicit || o.Primitive == Primitive.BOOL;
 
                     case Primitive.BYTE:
-                        return isExplicit ? o.primitive != Primitive.BOOL : o.primitive >= Primitive.BYTE && o.primitive != Primitive.CHAR;
+                        return isExplicit ? o.Primitive != Primitive.BOOL : o.Primitive is >= Primitive.BYTE and not Primitive.CHAR;
 
                     case Primitive.CHAR:
-                        return isExplicit ? o.primitive != Primitive.BOOL : o.primitive == Primitive.CHAR;
+                        return isExplicit ? o.Primitive != Primitive.BOOL : o.Primitive == Primitive.CHAR;
 
                     case Primitive.SHORT:
-                        return isExplicit ? o.primitive != Primitive.BOOL : o.primitive >= Primitive.SHORT;
+                        return isExplicit ? o.Primitive != Primitive.BOOL : o.Primitive >= Primitive.SHORT;
 
                     case Primitive.INT:
-                        return isExplicit ? o.primitive != Primitive.BOOL : o.primitive >= Primitive.INT;
+                        return isExplicit ? o.Primitive != Primitive.BOOL : o.Primitive >= Primitive.INT;
 
                     case Primitive.LONG:
-                        return isExplicit ? o.primitive != Primitive.BOOL : o.primitive >= Primitive.LONG;
+                        return isExplicit ? o.Primitive != Primitive.BOOL : o.Primitive >= Primitive.LONG;
 
                     case Primitive.FLOAT:
-                        return isExplicit ? o.primitive != Primitive.BOOL : o.primitive >= Primitive.FLOAT;
+                        return isExplicit ? o.Primitive != Primitive.BOOL : o.Primitive >= Primitive.FLOAT;
 
                     case Primitive.DOUBLE:
-                        return isExplicit ? o.primitive != Primitive.BOOL : o.primitive == Primitive.DOUBLE;
+                        return isExplicit ? o.Primitive != Primitive.BOOL : o.Primitive == Primitive.DOUBLE;
                 }
             }
 
             if (other is PointerType)
             {
-                switch (primitive)
+                switch (Primitive)
                 {
                     case Primitive.VOID:
                     case Primitive.BOOL:
@@ -315,31 +179,13 @@ namespace compiler.types
             return false;
         }
 
-        public override int GetHashCode()
-        {
-            return 1968834918 + primitive.GetHashCode();
-        }
+        public override int GetHashCode() => 1968834918 + Primitive.GetHashCode();
 
-        public static bool operator ==(PrimitiveType t1, PrimitiveType t2)
-        {
-            if (ReferenceEquals(t1, t2))
-                return true;
+        public static bool operator ==(PrimitiveType t1, PrimitiveType t2) => ReferenceEquals(t1, t2) || t1 is not null && t2 is not null && t1.Equals(t2);
 
-            if (((object) t1) == null || ((object) t2) == null)
-                return false;
+        public static bool operator !=(PrimitiveType t1, PrimitiveType t2) => !(t1 == t2);
 
-            return t1.Equals(t2);
-        }
-
-        public static bool operator !=(PrimitiveType t1, PrimitiveType t2)
-        {
-            return !(t1 == t2);
-        }
-
-        public override bool IsUnresolved()
-        {
-            return false;
-        }
+        public override bool IsUnresolved() => false;
 
         protected override void UncheckedResolve()
         {

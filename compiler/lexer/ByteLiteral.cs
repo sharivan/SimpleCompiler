@@ -1,55 +1,26 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace compiler.lexer
+﻿namespace compiler.lexer
 {
     public class ByteLiteral : NumericLiteral
     {
-        private byte value;
-
-        public byte Value => value;
-
-        internal ByteLiteral(SourceInterval interval, byte value) : base(interval)
+        public byte Value
         {
-            this.value = value;
+            get;
         }
 
-        public override string ToString()
-        {
-            return value.ToString();
-        }
+        internal ByteLiteral(SourceInterval interval, byte value) : base(interval) => Value = value;
 
-        public override byte AsByte()
-        {
-            return value;
-        }
+        public override string ToString() => Value.ToString();
 
-        public override short AsShort()
-        {
-            return value;
-        }
+        public override byte AsByte() => Value;
 
-        public override int AsInt()
-        {
-            return value;
-        }
+        public override short AsShort() => Value;
 
-        public override long AsLong()
-        {
-            return value;
-        }
+        public override int AsInt() => Value;
 
-        public override float AsFloat()
-        {
-            return value;
-        }
+        public override long AsLong() => Value;
 
-        public override double AsDouble()
-        {
-            return value;
-        }
+        public override float AsFloat() => Value;
+
+        public override double AsDouble() => Value;
     }
 }

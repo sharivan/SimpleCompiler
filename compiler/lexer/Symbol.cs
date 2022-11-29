@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace compiler.lexer
+﻿namespace compiler.lexer
 {
     public class Symbol : Token
     {
@@ -74,23 +70,15 @@ namespace compiler.lexer
             return false;
         }
 
-        public static bool IsSymbol(char c)
+        public static bool IsSymbol(char c) => IsSymbol(c.ToString());
+
+        public string Value
         {
-            return IsSymbol(c.ToString());
+            get;
         }
 
-        private string value;
+        internal Symbol(SourceInterval interval, string value) : base(interval) => Value = value;
 
-        public string Value => value;
-
-        internal Symbol(SourceInterval interval, string value) : base(interval)
-        {
-            this.value = value;
-        }
-
-        public override string ToString()
-        {
-            return "symbol '" + value + "'";
-        }
+        public override string ToString() => "symbol '" + Value + "'";
     }
 }

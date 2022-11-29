@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace compiler.types
 {
@@ -21,20 +17,11 @@ namespace compiler.types
         {
         }
 
-        public override bool CoerceWith(AbstractType other, bool isExplicit)
-        {
-            throw new NotImplementedException();
-        }
+        public override bool CoerceWith(AbstractType other, bool isExplicit) => throw new NotImplementedException();
 
-        public override int Size()
-        {
-            throw new NotImplementedException();
-        }
+        protected override int GetSize() => throw new NotImplementedException();
 
-        public override bool IsUnresolved()
-        {
-            return referencedType == null;
-        }
+        public override bool IsUnresolved() => referencedType == null;
 
         protected override void UncheckedResolve()
         {

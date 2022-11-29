@@ -1,18 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace compiler.lexer
+﻿namespace compiler.lexer
 {
     public class Identifier : Token
     {
-        public static bool IsLetter(char c)
-        {
-            return 'A' <= c && c <= 'Z' ||
-                'a' <= c && c <= 'z' ||
-                c != '\u00d7' && '\u00c0' <= c && c <= '\u00dd' ||
-                c != '\u00f7' && '\u00e0' <= c && c <= '\u00ff';
-        }
+        public static bool IsLetter(char c) => c is >= 'A' and <= 'Z' or
+                >= 'a' and <= 'z' or
+                not '\u00d7' and >= '\u00c0' and <= '\u00dd' or
+                not '\u00f7' and >= '\u00e0' and <= '\u00ff';
 
         public static bool CanBeAVariableIntentifier(string name)
         {
@@ -32,18 +25,13 @@ namespace compiler.lexer
             return true;
         }
 
-        private string name;
-
-        public string Name => name;
-
-        internal Identifier(SourceInterval interval, string name) : base(interval)
+        public string Name
         {
-            this.name = name;
+            get;
         }
 
-        public override string ToString()
-        {
-            return "identifier '" + name + "'";
-        }
+        internal Identifier(SourceInterval interval, string name) : base(interval) => Name = name;
+
+        public override string ToString() => "identifier '" + Name + "'";
     }
 }

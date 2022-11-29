@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using compiler.types;
+﻿using compiler.types;
 using assembler;
 
 namespace compiler
@@ -39,19 +33,19 @@ namespace compiler
                 }
             }
 
-            if (type is StructType s)
+            if (type is StructType)
             {
                 // TODO Implementar
                 return;
             }
 
-            if (type is ArrayType a)
+            if (type is ArrayType)
             {
                 // TODO Implementar
                 return;
             }
 
-            if (type is PointerType)
+            if (type is PointerType or StringType)
             {
                 assembler.EmitLoadStackPtr();
                 return;
@@ -88,19 +82,19 @@ namespace compiler
                 }
             }
 
-            if (type is StructType s)
+            if (type is StructType)
             {
                 // TODO Implementar
                 return;
             }
 
-            if (type is ArrayType a)
+            if (type is ArrayType)
             {
                 // TODO Implementar
                 return;
             }
 
-            if (type is PointerType)
+            if (type is PointerType or StringType)
             {
                 assembler.EmitLoadPointerPtr();
                 return;
@@ -119,7 +113,7 @@ namespace compiler
                     case Primitive.BOOL:
                     case Primitive.BYTE:
                         if (loadVar is GlobalVariable)
-                            assembler.EmitLoadGlobal8(loadVar.Offset);
+                            assembler.EmitLoadGlobal8(unity.GlobalStartOffset + loadVar.Offset);
                         else if (loadVar is Parameter param && param.ByRef)
                         {
                             assembler.EmitLoadLocalPtr(loadVar.Offset);
@@ -133,7 +127,7 @@ namespace compiler
                     case Primitive.CHAR:
                     case Primitive.SHORT:
                         if (loadVar is GlobalVariable)
-                            assembler.EmitLoadGlobal16(loadVar.Offset);
+                            assembler.EmitLoadGlobal16(unity.GlobalStartOffset + loadVar.Offset);
                         else if (loadVar is Parameter param && param.ByRef)
                         {
                             assembler.EmitLoadLocalPtr(loadVar.Offset);
@@ -147,7 +141,7 @@ namespace compiler
                     case Primitive.INT:
                     case Primitive.FLOAT:
                         if (loadVar is GlobalVariable)
-                            assembler.EmitLoadGlobal32(loadVar.Offset);
+                            assembler.EmitLoadGlobal32(unity.GlobalStartOffset + loadVar.Offset);
                         else if (loadVar is Parameter param && param.ByRef)
                         {
                             assembler.EmitLoadLocalPtr(loadVar.Offset);
@@ -161,7 +155,7 @@ namespace compiler
                     case Primitive.LONG:
                     case Primitive.DOUBLE:
                         if (loadVar is GlobalVariable)
-                            assembler.EmitLoadGlobal64(loadVar.Offset);
+                            assembler.EmitLoadGlobal64(unity.GlobalStartOffset + loadVar.Offset);
                         else if (loadVar is Parameter param && param.ByRef)
                         {
                             assembler.EmitLoadLocalPtr(loadVar.Offset);
@@ -174,10 +168,10 @@ namespace compiler
                 }
             }
 
-            if (type is PointerType)
+            if (type is PointerType or StringType)
             {
                 if (loadVar is GlobalVariable)
-                    assembler.EmitLoadGlobalPtr(loadVar.Offset);
+                    assembler.EmitLoadGlobalPtr(unity.GlobalStartOffset + loadVar.Offset);
                 else if (loadVar is Parameter param && param.ByRef)
                 {
                     assembler.EmitLoadLocalPtr(loadVar.Offset);

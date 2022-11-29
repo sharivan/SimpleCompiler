@@ -1,17 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using compiler.types;
+﻿using compiler.types;
 using assembler;
 
 namespace compiler
 {
     public partial class Compiler
     {
-        private void CompileStoreStack(Assembler assembler, AbstractType type, SourceInterval interval)
+        private void CompileStoreStack(Assembler assembler, Assembler leftAssembler, AbstractType type, SourceInterval interval)
         {
             if (type is PrimitiveType p)
             {
@@ -39,13 +33,13 @@ namespace compiler
                 }
             }
 
-            if (type is StructType s)
+            if (type is StructType)
             {
                 // TODO Implementar
                 return;
             }
 
-            if (type is ArrayType a)
+            if (type is ArrayType)
             {
                 // TODO Implementar
                 return;
@@ -57,10 +51,21 @@ namespace compiler
                 return;
             }
 
+            if (type is StringType)
+            {
+                leftAssembler.EmitResidentToHostAddress();
+                Function f = unitySystem.FindFunction("AtribuiTexto");
+                int index = GetOrAddExternalFunction(f.Name, f.ParameterSize);
+                assembler.EmitExternCall(index);
+                return;
+            }
+
             throw new CompilerException(interval, "Tipo desconhecido: '" + type + "'.");
         }
 
-        private void CompileStorePointer(Assembler assembler, AbstractType type, SourceInterval interval)
+#pragma warning disable IDE0060 // Remover o parâmetro não utilizado
+        private void CompileStorePointer(Assembler assembler, Assembler leftAssembler, AbstractType type, SourceInterval interval)
+#pragma warning restore IDE0060 // Remover o parâmetro não utilizado
         {
             if (type is PrimitiveType p)
             {
@@ -88,13 +93,13 @@ namespace compiler
                 }
             }
 
-            if (type is StructType s)
+            if (type is StructType)
             {
                 // TODO Implementar
                 return;
             }
 
-            if (type is ArrayType a)
+            if (type is ArrayType)
             {
                 // TODO Implementar
                 return;
@@ -109,7 +114,7 @@ namespace compiler
             throw new CompilerException(interval, "Tipo desconhecido: '" + type + "'.");
         }
 
-        private void CompileStoreGlobal(Assembler assembler, AbstractType type, int offset, SourceInterval interval)
+        private void CompileStoreGlobal(Assembler assembler, Assembler leftAssembler, AbstractType type, int offset, SourceInterval interval)
         {
             if (type is PrimitiveType p)
             {
@@ -143,10 +148,19 @@ namespace compiler
                 return;
             }
 
+            if (type is StringType)
+            {
+                leftAssembler.EmitLoadGlobalHostAddress(offset);
+                Function f = unitySystem.FindFunction("AtribuiTexto");
+                int index = GetOrAddExternalFunction(f.Name, f.ParameterSize);
+                assembler.EmitExternCall(index);
+                return;
+            }
+
             throw new CompilerException(interval, "Tipo desconhecido: '" + type + "'.");
         }
 
-        private void CompileStoreLocal(Assembler assembler, AbstractType type, int offset, SourceInterval interval)
+        private void CompileStoreLocal(Assembler assembler, Assembler leftAssembler, AbstractType type, int offset, SourceInterval interval)
         {
             if (type is PrimitiveType p)
             {
@@ -180,15 +194,24 @@ namespace compiler
                 return;
             }
 
+            if (type is StringType)
+            {
+                leftAssembler.EmitLoadLocalHostAddress(offset);
+                Function f = unitySystem.FindFunction("AtribuiTexto");
+                int index = GetOrAddExternalFunction(f.Name, f.ParameterSize);
+                assembler.EmitExternCall(index);
+                return;
+            }
+
             throw new CompilerException(interval, "Tipo desconhecido: '" + type + "'.");
         }
 
-        private void CompileStore(Assembler assembler, Variable storeVar, SourceInterval interval)
+        private void CompileStore(Assembler assembler, Assembler leftAssembler, Variable storeVar, SourceInterval interval)
         {
             if (storeVar is GlobalVariable)
-                CompileStoreGlobal(assembler, storeVar.Type, storeVar.Offset, interval);
+                CompileStoreGlobal(assembler, leftAssembler, storeVar.Type, unity.GlobalStartOffset + storeVar.Offset, interval);
             else
-                CompileStoreLocal(assembler, storeVar.Type, storeVar.Offset, interval);
+                CompileStoreLocal(assembler, leftAssembler, storeVar.Type, storeVar.Offset, interval);
         }
 
         private void CompileStoreStackAdd(Assembler assembler, AbstractType type, SourceInterval interval)
@@ -298,7 +321,7 @@ namespace compiler
                         assembler.EmitAdd();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal8(storeVar.Offset);
+                            assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal8(storeVar.Offset);
 
@@ -308,7 +331,7 @@ namespace compiler
                         assembler.EmitAdd();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal16(storeVar.Offset);
+                            assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal16(storeVar.Offset);
 
@@ -318,7 +341,7 @@ namespace compiler
                         assembler.EmitAdd();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal32(storeVar.Offset);
 
@@ -328,7 +351,7 @@ namespace compiler
                         assembler.EmitAdd64();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal64(storeVar.Offset);
 
@@ -338,7 +361,7 @@ namespace compiler
                         assembler.EmitFAdd();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal32(storeVar.Offset);
 
@@ -348,7 +371,7 @@ namespace compiler
                         assembler.EmitFAdd64();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal64(storeVar.Offset);
 
@@ -361,7 +384,7 @@ namespace compiler
                 assembler.EmitAdd();
 
                 if (storeVar is GlobalVariable)
-                    assembler.EmitStoreGlobalPtr(storeVar.Offset);
+                    assembler.EmitStoreGlobalPtr(unity.GlobalStartOffset + storeVar.Offset);
                 else
                     assembler.EmitStoreLocalPtr(storeVar.Offset);
 
@@ -478,7 +501,7 @@ namespace compiler
                         assembler.EmitSub();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal8(storeVar.Offset);
+                            assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal8(storeVar.Offset);
 
@@ -488,7 +511,7 @@ namespace compiler
                         assembler.EmitSub();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal16(storeVar.Offset);
+                            assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal16(storeVar.Offset);
 
@@ -498,7 +521,7 @@ namespace compiler
                         assembler.EmitSub();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal32(storeVar.Offset);
 
@@ -508,7 +531,7 @@ namespace compiler
                         assembler.EmitSub64();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal64(storeVar.Offset);
 
@@ -518,7 +541,7 @@ namespace compiler
                         assembler.EmitFSub();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal32(storeVar.Offset);
 
@@ -528,7 +551,7 @@ namespace compiler
                         assembler.EmitFSub64();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal64(storeVar.Offset);
 
@@ -541,7 +564,7 @@ namespace compiler
                 assembler.EmitSub();
 
                 if (storeVar is GlobalVariable)
-                    assembler.EmitStoreGlobalPtr(storeVar.Offset);
+                    assembler.EmitStoreGlobalPtr(unity.GlobalStartOffset + storeVar.Offset);
                 else
                     assembler.EmitStoreLocalPtr(storeVar.Offset);
 
@@ -644,7 +667,7 @@ namespace compiler
                         assembler.EmitMul();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal8(storeVar.Offset);
+                            assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal8(storeVar.Offset);
 
@@ -654,7 +677,7 @@ namespace compiler
                         assembler.EmitMul();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal16(storeVar.Offset);
+                            assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal16(storeVar.Offset);
 
@@ -664,7 +687,7 @@ namespace compiler
                         assembler.EmitMul();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal32(storeVar.Offset);
 
@@ -674,7 +697,7 @@ namespace compiler
                         assembler.EmitMul64();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal64(storeVar.Offset);
 
@@ -684,7 +707,7 @@ namespace compiler
                         assembler.EmitFMul();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal32(storeVar.Offset);
 
@@ -694,7 +717,7 @@ namespace compiler
                         assembler.EmitFMul64();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal64(storeVar.Offset);
 
@@ -798,7 +821,7 @@ namespace compiler
                         assembler.EmitDiv();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal8(storeVar.Offset);
+                            assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal8(storeVar.Offset);
 
@@ -808,17 +831,16 @@ namespace compiler
                         assembler.EmitDiv();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal16(storeVar.Offset);
+                            assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal16(storeVar.Offset);
-
 
                         return;
                     case Primitive.INT:
                         assembler.EmitDiv();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal32(storeVar.Offset);
 
@@ -828,7 +850,7 @@ namespace compiler
                         assembler.EmitDiv64();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal64(storeVar.Offset);
 
@@ -838,7 +860,7 @@ namespace compiler
                         assembler.EmitFDiv();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal32(storeVar.Offset);
 
@@ -848,7 +870,7 @@ namespace compiler
                         assembler.EmitFDiv64();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal64(storeVar.Offset);
 
@@ -932,7 +954,7 @@ namespace compiler
                         assembler.EmitMod();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal8(storeVar.Offset);
+                            assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal8(storeVar.Offset);
 
@@ -942,7 +964,7 @@ namespace compiler
                         assembler.EmitMod();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal16(storeVar.Offset);
+                            assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal16(storeVar.Offset);
 
@@ -952,7 +974,7 @@ namespace compiler
                         assembler.EmitMod();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal32(storeVar.Offset);
 
@@ -962,7 +984,7 @@ namespace compiler
                         assembler.EmitMod64();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal64(storeVar.Offset);
 
@@ -1049,7 +1071,7 @@ namespace compiler
                         assembler.EmitAnd();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal8(storeVar.Offset);
+                            assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal8(storeVar.Offset);
 
@@ -1059,7 +1081,7 @@ namespace compiler
                         assembler.EmitAnd();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal16(storeVar.Offset);
+                            assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal16(storeVar.Offset);
 
@@ -1069,7 +1091,7 @@ namespace compiler
                         assembler.EmitAnd();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal32(storeVar.Offset);
 
@@ -1079,7 +1101,7 @@ namespace compiler
                         assembler.EmitAnd64();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal64(storeVar.Offset);
 
@@ -1166,7 +1188,7 @@ namespace compiler
                         assembler.EmitOr();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal8(storeVar.Offset);
+                            assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal8(storeVar.Offset);
 
@@ -1176,7 +1198,7 @@ namespace compiler
                         assembler.EmitOr();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal16(storeVar.Offset);
+                            assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal16(storeVar.Offset);
 
@@ -1186,7 +1208,7 @@ namespace compiler
                         assembler.EmitOr();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal32(storeVar.Offset);
 
@@ -1196,7 +1218,7 @@ namespace compiler
                         assembler.EmitOr64();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal64(storeVar.Offset);
 
@@ -1283,7 +1305,7 @@ namespace compiler
                         assembler.EmitXor();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal8(storeVar.Offset);
+                            assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal8(storeVar.Offset);
 
@@ -1293,17 +1315,16 @@ namespace compiler
                         assembler.EmitXor();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal16(storeVar.Offset);
+                            assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal16(storeVar.Offset);
-
 
                         return;
                     case Primitive.INT:
                         assembler.EmitXor();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal32(storeVar.Offset);
 
@@ -1313,7 +1334,7 @@ namespace compiler
                         assembler.EmitXor64();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal64(storeVar.Offset);
 
@@ -1397,7 +1418,7 @@ namespace compiler
                         assembler.EmitShl();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal8(storeVar.Offset);
+                            assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal8(storeVar.Offset);
 
@@ -1407,7 +1428,7 @@ namespace compiler
                         assembler.EmitShl();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal16(storeVar.Offset);
+                            assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal16(storeVar.Offset);
 
@@ -1417,7 +1438,7 @@ namespace compiler
                         assembler.EmitShl();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal32(storeVar.Offset);
 
@@ -1427,7 +1448,7 @@ namespace compiler
                         assembler.EmitShl64();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal64(storeVar.Offset);
 
@@ -1511,7 +1532,7 @@ namespace compiler
                         assembler.EmitShr();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal8(storeVar.Offset);
+                            assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal8(storeVar.Offset);
 
@@ -1521,7 +1542,7 @@ namespace compiler
                         assembler.EmitShr();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal16(storeVar.Offset);
+                            assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal16(storeVar.Offset);
 
@@ -1531,7 +1552,7 @@ namespace compiler
                         assembler.EmitShr();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal32(storeVar.Offset);
 
@@ -1541,7 +1562,7 @@ namespace compiler
                         assembler.EmitShr64();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal64(storeVar.Offset);
 
@@ -1625,7 +1646,7 @@ namespace compiler
                         assembler.EmitUShr();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal8(storeVar.Offset);
+                            assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal8(storeVar.Offset);
 
@@ -1635,7 +1656,7 @@ namespace compiler
                         assembler.EmitUShr();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal16(storeVar.Offset);
+                            assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal16(storeVar.Offset);
 
@@ -1645,7 +1666,7 @@ namespace compiler
                         assembler.EmitUShr();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(storeVar.Offset);
+                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal32(storeVar.Offset);
 
@@ -1655,7 +1676,7 @@ namespace compiler
                         assembler.EmitUShr64();
 
                         if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(storeVar.Offset);
+                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
                         else
                             assembler.EmitStoreLocal64(storeVar.Offset);
 

@@ -1,25 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace compiler.lexer
+﻿namespace compiler.lexer
 {
     public class StringLiteral : Literal
     {
-        private string value;
-
-        public string Value => value;
-
-        internal StringLiteral(SourceInterval interval, string value) : base(interval)
+        public string Value
         {
-            this.value = value;
+            get;
         }
 
-        public override string ToString()
-        {
-            return value;
-        }
+        internal StringLiteral(SourceInterval interval, string value) : base(interval) => Value = value;
+
+        public override string ToString() => Value;
     }
 }

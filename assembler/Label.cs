@@ -1,8 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace assembler
 {
@@ -55,9 +52,6 @@ namespace assembler
             bindedIP = ip;
         }
 
-        internal void AddReference(Assembler assembler, int ip)
-        {
-            references.Add(new Tuple<Assembler, int>(assembler, ip));
-        }
+        internal void AddReference(Assembler assembler, int ip) => references.Add(new Tuple<Assembler, int>(assembler, ip));
     }
 }

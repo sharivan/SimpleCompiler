@@ -1,8 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using compiler.types;
 
@@ -10,14 +7,12 @@ namespace compiler
 {
     public abstract class Expression
     {
-        private SourceInterval interval;
-
-        public SourceInterval Interval => interval;
-
-        protected Expression(SourceInterval interval)
+        public SourceInterval Interval
         {
-            this.interval = interval;
+            get;
         }
+
+        protected Expression(SourceInterval interval) => Interval = interval;
     }
 
     public enum UnaryOperation
@@ -35,17 +30,20 @@ namespace compiler
 
     public class UnaryExpression : Expression
     {
-        private UnaryOperation operation;
-        private Expression operand;
+        public UnaryOperation Operation
+        {
+            get;
+        }
 
-        public UnaryOperation Operation => operation;
-
-        public Expression Operand => operand;
+        public Expression Operand
+        {
+            get;
+        }
 
         internal UnaryExpression(SourceInterval interval, UnaryOperation operation, Expression operand) : base(interval)
         {
-            this.operation = operation;
-            this.operand = operand;
+            Operation = operation;
+            Operand = operand;
         }
     }
 
@@ -87,46 +85,56 @@ namespace compiler
 
     public class BinaryExpression : Expression
     {
-        private BinaryOperation operation;
-        private Expression leftOperand;
-        private Expression rightOperand;
+        public BinaryOperation Operation
+        {
+            get;
+        }
 
-        public BinaryOperation Operation => operation;
+        public Expression LeftOperand
+        {
+            get;
+        }
 
-        public Expression LeftOperand => leftOperand;
-
-        public Expression RightOperand => rightOperand;
+        public Expression RightOperand
+        {
+            get;
+        }
 
         internal BinaryExpression(SourceInterval interval, BinaryOperation operation, Expression leftOperand, Expression rightOperand) : base(interval)
         {
-            this.operation = operation;
-            this.leftOperand = leftOperand;
-            this.rightOperand = rightOperand;
+            Operation = operation;
+            LeftOperand = leftOperand;
+            RightOperand = rightOperand;
         }
     }
 
     public class FieldAcessorExpression : Expression
     {
-        private Expression operand;
-        private string field;
+        public Expression Operand
+        {
+            get;
+        }
 
-        public Expression Operand => operand;
-
-        public string Field => field;
+        public string Field
+        {
+            get;
+        }
 
         internal FieldAcessorExpression(SourceInterval interval, Expression operand, string field) : base(interval)
         {
-            this.operand = operand;
-            this.field = field;
+            Operand = operand;
+            Field = field;
         }
     }
 
     public class ArrayAccessorExpression : Expression
     {
-        private Expression operand;
-        private List<Expression> indexers;
+        private readonly List<Expression> indexers;
 
-        public Expression Operand => operand;
+        public Expression Operand
+        {
+            get;
+        }
 
         public int IndexerCount => indexers.Count;
 
@@ -134,23 +142,22 @@ namespace compiler
 
         internal ArrayAccessorExpression(SourceInterval interval, Expression operand) : base(interval)
         {
-            this.operand = operand;
+            Operand = operand;
 
             indexers = new List<Expression>();
         }
 
-        internal void AddIndexer(Expression indexer)
-        {
-            indexers.Add(indexer);
-        }
+        internal void AddIndexer(Expression indexer) => indexers.Add(indexer);
     }
 
     public class CallExpression : Expression
     {
-        private Expression operand;
-        private List<Expression> parameters;
+        private readonly List<Expression> parameters;
 
-        public Expression Operand => operand;
+        public Expression Operand
+        {
+            get;
+        }
 
         public int ParameterCount => parameters.Count;
 
@@ -158,36 +165,32 @@ namespace compiler
 
         internal CallExpression(SourceInterval interval, Expression operand) : base(interval)
         {
-            this.operand = operand;
+            Operand = operand;
 
             parameters = new List<Expression>();
         }
 
-        internal void AddParameter(Expression parameter)
-        {
-            parameters.Add(parameter);
-        }
+        internal void AddParameter(Expression parameter) => parameters.Add(parameter);
     }
 
     public class CastExpression : Expression
     {
         private AbstractType type;
-        private Expression operand;
 
         public AbstractType Type => type;
 
-        public Expression Operand => operand;
+        public Expression Operand
+        {
+            get;
+        }
 
         internal CastExpression(SourceInterval interval, AbstractType type, Expression operand) : base(interval)
         {
             this.type = type;
-            this.operand = operand;
+            Operand = operand;
         }
 
-        internal void Resolve()
-        {
-            AbstractType.Resolve(ref type);
-        }
+        internal void Resolve() => AbstractType.Resolve(ref type);
     }
 
     public enum PrimaryType
@@ -207,15 +210,13 @@ namespace compiler
 
     public abstract class PrimaryExpression : Expression
     {
-        private PrimaryType primaryType;
-
-        public PrimaryType PrimaryType => primaryType;
+        public PrimaryType PrimaryType
+        {
+            get;
+        }
 
         public AbstractType Type => GetType();
-        protected PrimaryExpression(SourceInterval interval, PrimaryType primaryType) : base(interval)
-        {
-            this.primaryType = primaryType;
-        }
+        protected PrimaryExpression(SourceInterval interval, PrimaryType primaryType) : base(interval) => PrimaryType = primaryType;
 
 #pragma warning disable CS0108 // O membro oculta o membro herdado; nova palavra-chave ausente
         protected abstract AbstractType GetType();
@@ -224,155 +225,110 @@ namespace compiler
 
     public class BoolLiteralExpression : PrimaryExpression
     {
-        private bool value;
-
-        public bool Value => value;
-
-        internal BoolLiteralExpression(SourceInterval interval, bool value) : base(interval, PrimaryType.BOOL_LITERAL)
+        public bool Value
         {
-            this.value = value;
+            get;
         }
 
-        protected override AbstractType GetType()
-        {
-            return PrimitiveType.BOOL;
-        }
+        internal BoolLiteralExpression(SourceInterval interval, bool value) : base(interval, PrimaryType.BOOL_LITERAL) => Value = value;
+
+        protected override AbstractType GetType() => PrimitiveType.BOOL;
     }
 
     public class ByteLiteralExpression : PrimaryExpression
     {
-        private byte value;
-
-        public byte Value => value;
-
-        internal ByteLiteralExpression(SourceInterval interval, byte value) : base(interval, PrimaryType.BYTE_LITERAL)
+        public byte Value
         {
-            this.value = value;
+            get;
         }
 
-        protected override AbstractType GetType()
-        {
-            return PrimitiveType.BYTE;
-        }
+        internal ByteLiteralExpression(SourceInterval interval, byte value) : base(interval, PrimaryType.BYTE_LITERAL) => Value = value;
+
+        protected override AbstractType GetType() => PrimitiveType.BYTE;
     }
 
     public class CharLiteralExpression : PrimaryExpression
     {
-        private char value;
-
-        public char Value => value;
-
-        internal CharLiteralExpression(SourceInterval interval, char value) : base(interval, PrimaryType.CHAR_LITERAL)
+        public char Value
         {
-            this.value = value;
+            get;
         }
 
-        protected override AbstractType GetType()
-        {
-            return PrimitiveType.CHAR;
-        }
+        internal CharLiteralExpression(SourceInterval interval, char value) : base(interval, PrimaryType.CHAR_LITERAL) => Value = value;
+
+        protected override AbstractType GetType() => PrimitiveType.CHAR;
     }
 
     public class ShortLiteralExpression : PrimaryExpression
     {
-        private short value;
-
-        public short Value => value;
-
-        internal ShortLiteralExpression(SourceInterval interval, short value) : base(interval, PrimaryType.SHORT_LITERAL)
+        public short Value
         {
-            this.value = value;
+            get;
         }
 
-        protected override AbstractType GetType()
-        {
-            return PrimitiveType.SHORT;
-        }
+        internal ShortLiteralExpression(SourceInterval interval, short value) : base(interval, PrimaryType.SHORT_LITERAL) => Value = value;
+
+        protected override AbstractType GetType() => PrimitiveType.SHORT;
     }
 
     public class IntLiteralExpression : PrimaryExpression
     {
-        private int value;
-
-        public int Value => value;
-
-        internal IntLiteralExpression(SourceInterval interval, int value) : base(interval, PrimaryType.INT_LITERAL)
+        public int Value
         {
-            this.value = value;
+            get;
         }
 
-        protected override AbstractType GetType()
-        {
-            return PrimitiveType.INT;
-        }
+        internal IntLiteralExpression(SourceInterval interval, int value) : base(interval, PrimaryType.INT_LITERAL) => Value = value;
+
+        protected override AbstractType GetType() => PrimitiveType.INT;
     }
 
     public class LongLiteralExpression : PrimaryExpression
     {
-        private long value;
-
-        public long Value => value;
-
-        internal LongLiteralExpression(SourceInterval interval, long value) : base(interval, PrimaryType.LONG_LITERAL)
+        public long Value
         {
-            this.value = value;
+            get;
         }
 
-        protected override AbstractType GetType()
-        {
-            return PrimitiveType.LONG;
-        }
+        internal LongLiteralExpression(SourceInterval interval, long value) : base(interval, PrimaryType.LONG_LITERAL) => Value = value;
+
+        protected override AbstractType GetType() => PrimitiveType.LONG;
     }
 
     public class FloatLiteralExpression : PrimaryExpression
     {
-        private float value;
-
-        public float Value => value;
-
-        internal FloatLiteralExpression(SourceInterval interval, float value) : base(interval, PrimaryType.FLOAT_LITERAL)
+        public float Value
         {
-            this.value = value;
+            get;
         }
 
-        protected override AbstractType GetType()
-        {
-            return PrimitiveType.FLOAT;
-        }
+        internal FloatLiteralExpression(SourceInterval interval, float value) : base(interval, PrimaryType.FLOAT_LITERAL) => Value = value;
+
+        protected override AbstractType GetType() => PrimitiveType.FLOAT;
     }
 
     public class DoubleLiteralExpression : PrimaryExpression
     {
-        private double value;
-
-        public double Value => value;
-
-        internal DoubleLiteralExpression(SourceInterval interval, double value) : base(interval, PrimaryType.DOUBLE_LITERAL)
+        public double Value
         {
-            this.value = value;
+            get;
         }
 
-        protected override AbstractType GetType()
-        {
-            return PrimitiveType.DOUBLE;
-        }
+        internal DoubleLiteralExpression(SourceInterval interval, double value) : base(interval, PrimaryType.DOUBLE_LITERAL) => Value = value;
+
+        protected override AbstractType GetType() => PrimitiveType.DOUBLE;
     }
 
     public class StringLiteralExpression : PrimaryExpression
     {
-        private string value;
-
-        public string Value => value;
-
-        internal StringLiteralExpression(SourceInterval interval, string value) : base(interval, PrimaryType.STRING_LITERAL)
+        public string Value
         {
-            this.value = value;
+            get;
         }
 
-        protected override AbstractType GetType()
-        {
-            return PointerType.STRING;
-        }
+        internal StringLiteralExpression(SourceInterval interval, string value) : base(interval, PrimaryType.STRING_LITERAL) => Value = value;
+
+        protected override AbstractType GetType() => PointerType.STRING;
     }
 
     public class NullLiteralExpression : PrimaryExpression
@@ -381,26 +337,18 @@ namespace compiler
         {
         }
 
-        protected override AbstractType GetType()
-        {
-            return PointerType.NULL;
-        }
+        protected override AbstractType GetType() => PointerType.NULL;
     }
 
     public class IdentifierExpression : PrimaryExpression
     {
-        private string name;
-
-        public string Name => name;
-
-        internal IdentifierExpression(SourceInterval interval, string name) : base(interval, PrimaryType.IDENTIFIER)
+        public string Name
         {
-            this.name = name;
+            get;
         }
 
-        protected override AbstractType GetType()
-        {
-            throw new InvalidOperationException("Tipo desconhecido do identififcador '" + name + "'.");
-        }
+        internal IdentifierExpression(SourceInterval interval, string name) : base(interval, PrimaryType.IDENTIFIER) => Name = name;
+
+        protected override AbstractType GetType() => throw new InvalidOperationException("Tipo desconhecido do identififcador '" + Name + "'.");
     }
 }

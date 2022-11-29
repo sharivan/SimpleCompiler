@@ -1,19 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
 namespace compiler.types
 {
     public class StructType : NamedType
     {
-        private int fieldAlignSize;
-
-        private List<Field> fields;
+        private readonly List<Field> fields;
         private int size;
 
-        public int FieldAlignSize => fieldAlignSize;
+        public int FieldAlignSize
+        {
+            get;
+        }
 
         public int FieldCount => fields.Count;
 
@@ -21,7 +18,7 @@ namespace compiler.types
 
         internal StructType(CompilationUnity unity, string name, SourceInterval interval, int fieldAlignSize = sizeof(byte)) : base(unity, name, interval)
         {
-            this.fieldAlignSize = fieldAlignSize;
+            FieldAlignSize = fieldAlignSize;
 
             fields = new List<Field>();
 
@@ -96,8 +93,8 @@ namespace compiler.types
                 }
 
                 field.Offset = this.size;
-                int size = type.Size();
-                this.size += Compiler.GetAlignedSize(size, fieldAlignSize);
+                int size = type.Size;
+                this.size += Compiler.GetAlignedSize(size, FieldAlignSize);
             }
         }
 
@@ -111,15 +108,9 @@ namespace compiler.types
             return result + "}";
         }
 
-        public override int Size()
-        {
-            return size;
-        }
+        protected override int GetSize() => size;
 
-        public override bool CoerceWith(AbstractType other, bool isExplicit)
-        {
-            return Equals(other);
-        }
+        public override bool CoerceWith(AbstractType other, bool isExplicit) => Equals(other);
 
         public override int GetHashCode()
         {
@@ -129,9 +120,6 @@ namespace compiler.types
             return hashCode;
         }
 
-        public override bool IsUnresolved()
-        {
-            return false;
-        }
+        public override bool IsUnresolved() => false;
     }
 }

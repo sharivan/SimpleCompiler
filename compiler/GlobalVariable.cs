@@ -1,55 +1,47 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using compiler.types;
+﻿using compiler.types;
 
 namespace compiler
 {
     public class GlobalVariable : Variable
     {
-        private CompilationUnity unity;
-        private bool initialValueSet;
-        private object initialValue;
-
-        public CompilationUnity Unity => unity;
-
-        public bool HasInitialValue => initialValueSet;
-
-        public object InitialValue
+        public CompilationUnity Unity
         {
-            get => initialValue;
-
-            internal set => initialValue = value;
+            get;
         }
 
-        public bool InitialValueBool => (bool) initialValue;
+        public bool HasInitialValue
+        {
+            get;
+        }
 
-        public byte InitialValueByte => (byte) initialValue;
+        public object InitialValue { get;
+            internal set; }
 
-        public char InitialValueChar => (char) initialValue;
+        public bool InitialValueBool => (bool) InitialValue;
 
-        public short InitialValueShort => (short) initialValue;
+        public byte InitialValueByte => (byte) InitialValue;
 
-        public int InitialValueInt => (int) initialValue;
+        public char InitialValueChar => (char) InitialValue;
 
-        public long InitialValueLong => (long) initialValue;
+        public short InitialValueShort => (short) InitialValue;
 
-        public float InitialValueFloat => (float) initialValue;
+        public int InitialValueInt => (int) InitialValue;
 
-        public double InitialValueDouble => (double) initialValue;
+        public long InitialValueLong => (long) InitialValue;
 
-        public string InitialValueString => (string) initialValue;
+        public float InitialValueFloat => (float) InitialValue;
+
+        public double InitialValueDouble => (double) InitialValue;
+
+        public string InitialValueString => (string) InitialValue;
 
         internal GlobalVariable(CompilationUnity unity, string name, AbstractType type, SourceInterval interval, int offset = -1, object initialValue = null) : 
             base(name, type, interval, offset)
         {
-            this.unity = unity;
-            this.initialValue = initialValue;
+            Unity = unity;
+            InitialValue = initialValue;
 
-            initialValueSet = true;
+            HasInitialValue = true;
         }
     }
 }

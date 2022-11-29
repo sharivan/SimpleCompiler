@@ -1,18 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace compiler.lexer
+﻿namespace compiler.lexer
 {
     public abstract class Token
     {
-        private SourceInterval interval;
-
-        public SourceInterval Interval => interval;
-
-        protected Token(SourceInterval interval)
+        public SourceInterval Interval
         {
-            this.interval = interval;
+            get;
         }
+
+        protected Token(SourceInterval interval) => Interval = interval;
     }
 }

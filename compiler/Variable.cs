@@ -1,49 +1,35 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using compiler.types;
+﻿using compiler.types;
 
 namespace compiler
 {
     public abstract class Variable
     {
-        private string name;
         private AbstractType type;
-        private SourceInterval interval;
-        private int offset;
 
-        public string Name => name;
+        public string Name
+        {
+            get;
+        }
 
         public AbstractType Type => type;
 
-        public SourceInterval Interval => interval;
-
-        public int Offset
+        public SourceInterval Interval
         {
-            get => offset;
-
-            internal set => offset = value;
+            get;
         }
+
+        public int Offset { get; internal set; }
 
         protected Variable(string name, AbstractType type, SourceInterval interval, int offset = -1)
         {
-            this.name = name;
+            Name = name;
             this.type = type;
-            this.interval = interval;
-            this.offset = offset;
+            Interval = interval;
+            Offset = offset;
         }
 
-        public override string ToString()
-        {
-            return name + ":" + type + " (" + offset + ")";
-        }
+        public override string ToString() => Name + ":" + type + " (" + Offset + ")";
 
-        internal void Resolve()
-        {
-            AbstractType.Resolve(ref type);
-        }
+        internal void Resolve() => AbstractType.Resolve(ref type);
     }
 }

@@ -51,6 +51,7 @@
 			<Word>long</Word>
 			<Word>float</Word>
 			<Word>real</Word>
+			<Word>texto</Word>
 		</Keywords>
 		
 		<!-- Digits -->

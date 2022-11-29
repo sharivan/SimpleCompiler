@@ -77,8 +77,12 @@
     <Compile Include="compiler\lexer\Literal.cs" />
     <Compile Include="compiler\LocalVariable.cs" />
     <Compile Include="compiler\types\NamedType.cs" />
+    <Compile Include="compiler\types\StringType.cs" />
     <Compile Include="compiler\types\TypeSetType.cs" />
     <Compile Include="compiler\types\UnresolvedType.cs" />
+    <None Include="examples\TesteAritimetico.sl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <Compile Include="vm\Breakpoint.cs" />
     <Compile Include="vm\Opcode.cs" />
     <Compile Include="compiler\Compiler.cs" />
@@ -152,6 +156,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="examples\TesteQuickSort.sl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="examples\TesteString.sl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="examples\TesteUnidades.sl">

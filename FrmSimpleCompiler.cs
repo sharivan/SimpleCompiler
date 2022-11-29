@@ -1,17 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Data;
 using System.Drawing;
-using System.Globalization;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Threading;
 
 using compiler;
-using compiler.types;
 using assembler;
 using vm;
 using System.IO;
@@ -43,23 +38,14 @@ namespace SimpleCompiler
             {
             }
 
-            public DocumentConfigElement(string fileName)
-            {
-                FileName = fileName;
-            }
+            public DocumentConfigElement(string fileName) => FileName = fileName;
 
             [ConfigurationProperty("filename", IsRequired = true, IsKey = true)]
             public string FileName
             {
-                get
-                {
-                    return (string) this["filename"];
-                }
+                get => (string) this["filename"];
 
-                set
-                {
-                    this["filename"] = value;
-                }
+                set => this["filename"] = value;
             }
 
             [ConfigurationProperty("tabindex",
@@ -68,15 +54,9 @@ namespace SimpleCompiler
                 )]
             public int TabIndex
             {
-                get
-                {
-                    return (int) this["tabindex"];
-                }
+                get => (int) this["tabindex"];
 
-                set
-                {
-                    this["tabindex"] = value;
-                }
+                set => this["tabindex"] = value;
             }
         }
 
@@ -99,21 +79,9 @@ namespace SimpleCompiler
                 }
             }
 
-            public DocumentConfigElement this[int index]
-            {
-                get
-                {
-                    return (DocumentConfigElement) BaseGet(index);
-                }
-            }
+            public DocumentConfigElement this[int index] => (DocumentConfigElement) BaseGet(index);
 
-            protected override string ElementName
-            {
-                get
-                {
-                    return "document";
-                }
-            }
+            protected override string ElementName => "document";
 
             public int IndexOf(string name)
             {
@@ -126,28 +94,13 @@ namespace SimpleCompiler
                 return -1;
             }
 
-            public override ConfigurationElementCollectionType CollectionType
-            {
-                get
-                {
-                    return ConfigurationElementCollectionType.BasicMap;
-                }
-            }
+            public override ConfigurationElementCollectionType CollectionType => ConfigurationElementCollectionType.BasicMap;
 
-            protected override ConfigurationElement CreateNewElement()
-            {
-                return new DocumentConfigElement();
-            }
+            protected override ConfigurationElement CreateNewElement() => new DocumentConfigElement();
 
-            protected override object GetElementKey(ConfigurationElement element)
-            {
-                return ((DocumentConfigElement) element).FileName;
-            }
+            protected override object GetElementKey(ConfigurationElement element) => ((DocumentConfigElement) element).FileName;
 
-            public void Clear()
-            {
-                BaseClear();
-            }
+            public void Clear() => BaseClear();
         }
 
         public sealed class ProgramConfiguratinSection : ConfigurationSection
@@ -162,15 +115,9 @@ namespace SimpleCompiler
                 )]
             public int Left
             {
-                get
-                {
-                    return (int) this["left"];
-                }
+                get => (int) this["left"];
 
-                set
-                {
-                    this["left"] = value;
-                }
+                set => this["left"] = value;
             }
 
             [ConfigurationProperty("top",
@@ -179,15 +126,9 @@ namespace SimpleCompiler
                 )]
             public int Top
             {
-                get
-                {
-                    return (int) this["top"];
-                }
+                get => (int) this["top"];
 
-                set
-                {
-                    this["top"] = value;
-                }
+                set => this["top"] = value;
             }
 
             [ConfigurationProperty("width",
@@ -196,15 +137,9 @@ namespace SimpleCompiler
                 )]
             public int Width
             {
-                get
-                {
-                    return (int) this["width"];
-                }
+                get => (int) this["width"];
 
-                set
-                {
-                    this["width"] = value;
-                }
+                set => this["width"] = value;
             }
 
             [ConfigurationProperty("height",
@@ -213,15 +148,9 @@ namespace SimpleCompiler
                 )]
             public int Height
             {
-                get
-                {
-                    return (int) this["height"];
-                }
+                get => (int) this["height"];
 
-                set
-                {
-                    this["height"] = value;
-                }
+                set => this["height"] = value;
             }
 
             [ConfigurationProperty("maximized",
@@ -230,15 +159,9 @@ namespace SimpleCompiler
                 )]
             public bool Maximized
             {
-                get
-                {
-                    return (bool) this["maximized"];
-                }
+                get => (bool) this["maximized"];
 
-                set
-                {
-                    this["maximized"] = value;
-                }
+                set => this["maximized"] = value;
             }
 
             [ConfigurationProperty("stackviewalignsize",
@@ -247,25 +170,13 @@ namespace SimpleCompiler
                 )]
             public int StackViewAlignSize
             {
-                get
-                {
-                    return (int) this["stackviewalignsize"];
-                }
+                get => (int) this["stackviewalignsize"];
 
-                set
-                {
-                    this["stackviewalignsize"] = value;
-                }
+                set => this["stackviewalignsize"] = value;
             }
 
             [ConfigurationProperty("documents", IsDefaultCollection = true)]
-            public DocumentCollection Documents
-            {
-                get
-                {
-                    return (DocumentCollection) base["documents"];
-                }
-            }
+            public DocumentCollection Documents => (DocumentCollection) base["documents"];
         }
 
         private delegate void ParsingDelegate(int lineNumber);
@@ -284,25 +195,25 @@ namespace SimpleCompiler
             }
         }
 
-        private struct Interval
+        private readonly struct Interval
         {
-            private int start;
-            private int end;
+            public int Start
+            {
+                get;
+            }
 
-            public int Start => start;
-
-            public int End => end;
+            public int End
+            {
+                get;
+            }
 
             public Interval(int start, int end)
             {
-                this.start = start;
-                this.end = end;
+                Start = start;
+                End = end;
             }
 
-            public override int GetHashCode()
-            {
-                return (start << 16) + end;
-            }
+            public override int GetHashCode() => (Start << 16) + End;
 
             public override bool Equals(object o)
             {
@@ -312,55 +223,34 @@ namespace SimpleCompiler
                 if (ReferenceEquals(this, 0))
                     return true;
 
-                Interval? interval = o as Interval?;
-                if (interval == null)
-                    return false;
-
-                return this == interval;
+                var interval = o as Interval?;
+                return interval != null && this == interval;
             }
 
-            public static bool operator ==(Interval left, Interval right)
-            {
-                return left.start == right.start && left.end == right.end;
-            }
+            public static bool operator ==(Interval left, Interval right) => left.Start == right.Start && left.End == right.End;
 
-            public static bool operator !=(Interval left, Interval right)
-            {
-                return left.start != right.start || left.end != right.end;
-            }
+            public static bool operator !=(Interval left, Interval right) => left.Start != right.Start || left.End != right.End;
 
-            public static bool operator <(Interval left, Interval right)
-            {
-                return left.start > right.start && left.end < right.end;
-            }
+            public static bool operator <(Interval left, Interval right) => left.Start > right.Start && left.End < right.End;
 
-            public static bool operator >(Interval left, Interval right)
-            {
-                return right.start > left.start && right.end < left.end;
-            }
+            public static bool operator >(Interval left, Interval right) => right.Start > left.Start && right.End < left.End;
 
-            public static bool operator <=(Interval left, Interval right)
-            {
-                return left.start >= right.start && left.end <= right.end;
-            }
+            public static bool operator <=(Interval left, Interval right) => left.Start >= right.Start && left.End <= right.End;
 
-            public static bool operator >=(Interval left, Interval right)
-            {
-                return right.start >= left.start && right.end <= left.end;
-            }
+            public static bool operator >=(Interval left, Interval right) => right.Start >= left.Start && right.End <= left.End;
 
             public static Interval operator &(Interval left, Interval right)
             {
-                int min = Math.Max(left.start, right.start);
-                int max = Math.Min(left.end, right.end);
+                int min = Math.Max(left.Start, right.Start);
+                int max = Math.Min(left.End, right.End);
 
                 return new Interval(min, max);
             }
 
             public static Interval operator |(Interval left, Interval right)
             {
-                int min = Math.Min(left.start, right.start);
-                int max = Math.Max(left.end, right.end);
+                int min = Math.Min(left.Start, right.Start);
+                int max = Math.Max(left.End, right.End);
 
                 return new Interval(min, max);
             }
@@ -368,8 +258,8 @@ namespace SimpleCompiler
 
         internal class ErrorRenderer : IBackgroundRenderer
         {
-            private static System.Windows.Media.Pen pen;
-            private static SolidColorBrush errorBackground;
+            private static readonly System.Windows.Media.Pen pen;
+            private static readonly SolidColorBrush errorBackground;
 
             static ErrorRenderer()
             {
@@ -381,7 +271,7 @@ namespace SimpleCompiler
                 pen = new System.Windows.Media.Pen(blackBrush, 0.0);
             }
 
-            private TextView view;
+            private readonly TextView view;
             private bool enabled;
             private int start;
             private int end;
@@ -465,7 +355,6 @@ namespace SimpleCompiler
                     if (s != -1)
                     {
                         var rcs = BackgroundGeometryBuilder.GetRectsFromVisualSegment(textView, v, s - v.FirstDocumentLine.Offset, e - v.FirstDocumentLine.Offset);
-
                         foreach (var rc in rcs)
                         {
                             var brush = errorBackground;
@@ -478,16 +367,16 @@ namespace SimpleCompiler
 
         internal class SteppingRenderer : IBackgroundRenderer
         {
-            private static System.Windows.Media.Pen pen;
-            private static SolidColorBrush steppingBackground;
+            private static readonly System.Windows.Media.Pen pen;
+            private static readonly SolidColorBrush steppingBackground;
 
-            private TextView view;
+            private readonly TextView view;
             private bool enabled;
             private int lineNumber;
 
             static SteppingRenderer()
             {
-                steppingBackground = new SolidColorBrush(System.Windows.Media.Color.FromArgb(0x22, 0x00, 0x00, 0xff));
+                steppingBackground = new SolidColorBrush(System.Windows.Media.Color.FromArgb(0xbe, 0x00, 0x00, 0xff));
                 steppingBackground.Freeze();
 
                 var blackBrush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(0xff, 0x00, 0x00, 0x00));
@@ -551,8 +440,8 @@ namespace SimpleCompiler
         {
             private const int margin = 20;
 
-            private FrmSimpleCompiler form;
-            private Dictionary<int, Breakpoint> breakpoints;
+            private readonly FrmSimpleCompiler form;
+            private readonly Dictionary<int, Breakpoint> breakpoints;
 
             public KnownLayer Layer => KnownLayer.Background;
 
@@ -563,15 +452,9 @@ namespace SimpleCompiler
                 breakpoints = new Dictionary<int, Breakpoint>();
             }
 
-            protected override HitTestResult HitTestCore(PointHitTestParameters hitTestParameters)
-            {
-                return new PointHitTestResult(this, hitTestParameters.HitPoint);
-            }
+            protected override HitTestResult HitTestCore(PointHitTestParameters hitTestParameters) => new PointHitTestResult(this, hitTestParameters.HitPoint);
 
-            protected override System.Windows.Size MeasureOverride(System.Windows.Size availableSize)
-            {
-                return new System.Windows.Size(margin, 0);
-            }
+            protected override System.Windows.Size MeasureOverride(System.Windows.Size availableSize) => new(margin, 0);
 
             #region OnTextViewChanged
             protected override void OnTextViewChanged(TextView oldTextView, TextView newTextView)
@@ -601,16 +484,13 @@ namespace SimpleCompiler
                 }
             }
 
-            public virtual void Dispose()
-            {
-                TextView = null; // detach from TextView (will also detach from manager)
-            }
+            public virtual void Dispose() => TextView = null; // detach from TextView (will also detach from manager)
             #endregion
 
             protected override void OnRender(DrawingContext drawingContext)
             {
-                TextView textView = this.TextView;
-                System.Windows.Size renderSize = this.RenderSize;
+                TextView textView = TextView;
+                System.Windows.Size renderSize = RenderSize;
                 drawingContext.DrawRectangle(System.Windows.SystemColors.ControlBrush, null, new Rect(0, 0, renderSize.Width, renderSize.Height));
 
                 if (textView != null && textView.VisualLinesValid)
@@ -676,10 +556,7 @@ namespace SimpleCompiler
 
             public bool Saved => saved;
 
-            public SourceTab(FrmSimpleCompiler form)
-            {
-                Initialize(form);
-            }
+            public SourceTab(FrmSimpleCompiler form) => Initialize(form);
 
             public SourceTab(FrmSimpleCompiler form, string fileName)
             {
@@ -696,19 +573,19 @@ namespace SimpleCompiler
 
                 m_Lines = new List<Line>();
 
-                wpfHost = new ElementHost();
-                wpfHost.Dock = DockStyle.Fill;
+                wpfHost = new ElementHost
+                {
+                    Dock = DockStyle.Fill
+                };
 
                 page = new TabPage("Sem nome   ");
                 form.tcSources.TabPages.Add(page);
 
                 page.Controls.Add(wpfHost);
 
-                if (form.enabledImage == null)
-                    form.enabledImage = new BitmapImage(new Uri(@"pack://application:,,,/resources/img/BreakpointEnabled_6584_16x.png"));
+                form.enabledImage ??= new BitmapImage(new Uri(@"pack://application:,,,/resources/img/BreakpointEnabled_6584_16x.png"));
 
-                if (form.disabledImage == null)
-                    form.disabledImage = new BitmapImage(new Uri(@"pack://application:,,,/resources/img/breakpoint_Off_16xMD.png"));
+                form.disabledImage ??= new BitmapImage(new Uri(@"pack://application:,,,/resources/img/breakpoint_Off_16xMD.png"));
 
                 txtSource = new TextEditor();
                 wpfHost.Child = txtSource;
@@ -730,7 +607,9 @@ namespace SimpleCompiler
                 txtSource.TextArea.LeftMargins.Insert(0, breakpointMargin);
             }
 
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
             private void txtSource_Document_OnChanged(object sender, DocumentChangeEventArgs e)
+#pragma warning restore IDE1006 // Estilos de Nomenclatura
             {
                 int delta = e.InsertionLength - e.RemovalLength;
                 Interval intersection = new Interval(e.Offset, e.Offset + delta) & new Interval(errorBackgroundRenderer.Start, errorBackgroundRenderer.End);
@@ -874,15 +753,17 @@ namespace SimpleCompiler
         internal Dictionary<int, SourceTab> sourceTabsMapByID;
         internal Dictionary<string, SourceTab> sourceTabsMapByFileName;
 
+#pragma warning disable IDE0052 // Remover membros particulares não lidos
         private bool compiled = false;
         private int parsedLines;
         private int totalLines;
+#pragma warning restore IDE0052 // Remover membros particulares não lidos
 
-        private TextEditor txtAssembly;
-        private SteppingRenderer lineBackgroundRenderer;
-        private BreakPointMargin breakpointMargin;
-        private Dictionary<int, int> lineNumberToIP;
-        private Dictionary<int, int> ipToLineNumber;
+        private readonly TextEditor txtAssembly;
+        private readonly SteppingRenderer lineBackgroundRenderer;
+        private readonly BreakPointMargin breakpointMargin;
+        private readonly Dictionary<int, int> lineNumberToIP;
+        private readonly Dictionary<int, int> ipToLineNumber;
 
         private Rectangle unmaximizedBounds;
 
@@ -891,8 +772,10 @@ namespace SimpleCompiler
 
         private int stackViewAlignSize = 16;
 
-        private Image addImage;
-        private Image closeImage;
+#pragma warning disable IDE0052 // Remover membros particulares não lidos
+        private readonly Image addImage;
+#pragma warning restore IDE0052 // Remover membros particulares não lidos
+        private readonly Image closeImage;
 
         public FrmSimpleCompiler()
         {
@@ -926,10 +809,8 @@ namespace SimpleCompiler
 
             using (s)
             {
-                using (XmlReader reader = new XmlTextReader(s))
-                {
-                    customHighlighting = ICSharpCode.AvalonEdit.Highlighting.Xshd.HighlightingLoader.Load(reader, HighlightingManager.Instance);
-                }
+                using XmlReader reader = new XmlTextReader(s);
+                customHighlighting = ICSharpCode.AvalonEdit.Highlighting.Xshd.HighlightingLoader.Load(reader, HighlightingManager.Instance);
             }
 
             // and register it in the HighlightingManager
@@ -961,28 +842,25 @@ namespace SimpleCompiler
             tcSources.HandleCreated += tcSources_HandleCreated;
         }
 
-        private void OnCompileError(SourceInterval interval, string message)
-        {
-            BeginInvoke((MethodInvoker) delegate
-            {
-                if (interval.IsValid())
-                {
-                    ConsolePrintLn("Erro de compilação na linha " + interval.Line + ": " + message);
+        private void OnCompileError(SourceInterval interval, string message) => BeginInvoke((MethodInvoker) delegate
+                                                                                         {
+                                                                                             if (interval.IsValid())
+                                                                                             {
+                                                                                                 ConsolePrintLn("Erro de compilação na linha " + interval.Line + ": " + message);
 
-                    if (interval.FileName != null && interval.Start >= 0)
-                    {
-                        SourceTab tab = SelectSourceTab(interval.FileName, true);
-                        if (tab != null)
-                        {
-                            tab.txtSource.SelectionStart = interval.Start;
-                            tab.txtSource.SelectionLength = interval.Length;
-                        }
-                    }
-                }
-                else
-                    ConsolePrintLn("Erro de compilação: " + message);
-            });
-        }
+                                                                                                 if (interval.FileName != null && interval.Start >= 0)
+                                                                                                 {
+                                                                                                     SourceTab tab = SelectSourceTab(interval.FileName, true);
+                                                                                                     if (tab != null)
+                                                                                                     {
+                                                                                                         tab.txtSource.SelectionStart = interval.Start;
+                                                                                                         tab.txtSource.SelectionLength = interval.Length;
+                                                                                                     }
+                                                                                                 }
+                                                                                             }
+                                                                                             else
+                                                                                                 ConsolePrintLn("Erro de compilação: " + message);
+                                                                                         });
 
         private void DisassemblyLine(int ip, string line)
         {
@@ -1067,141 +945,124 @@ namespace SimpleCompiler
             }
         }
 
-        private void ConsolePrintLn(string message)
-        {
-            ConsolePrint(message + "\n");
-        }
+        private void ConsolePrintLn(string message) => ConsolePrint(message + "\n");
 
-        private void OnPause(int ip)
-        {
-            BeginInvoke((MethodInvoker) delegate
-            {
-                paused = true;
+        private void OnPause(int ip) => BeginInvoke((MethodInvoker) delegate
+                                                 {
+                                                     paused = true;
 
-                statusBar.Items["statusText"].Text = "Pausado";
-               
-                btnRun.Enabled = true;
-                btnPause.Enabled = false;
-                btnStop.Enabled = true;
-                btnStepOver.Enabled = true;
-                btnStepInto.Enabled = true;
-                btnStepReturn.Enabled = true;
-                btnRunToCursor.Enabled = true;
+                                                     statusBar.Items["statusText"].Text = "Pausado";
 
-                FetchStackData();
+                                                     btnRun.Enabled = true;
+                                                     btnPause.Enabled = false;
+                                                     btnStop.Enabled = true;
+                                                     btnStepOver.Enabled = true;
+                                                     btnStepInto.Enabled = true;
+                                                     btnStepReturn.Enabled = true;
+                                                     btnRunToCursor.Enabled = true;
 
-                if (!ipToLineNumber.TryGetValue(ip, out int lineNumber))
-                    return;
+                                                     FetchStackData();
 
-                lineBackgroundRenderer.Enabled = true;
-                lineBackgroundRenderer.LineNumber = lineNumber;
-                var visualLine = txtAssembly.TextArea.TextView.VisualLines.FirstOrDefault(line => line.FirstDocumentLine.LineNumber == lineNumber);
+                                                     if (!ipToLineNumber.TryGetValue(ip, out int lineNumber))
+                                                         return;
 
-                if (visualLine == null)
-                    txtAssembly.ScrollToLine(lineNumber);
-            });
-        }
+                                                     lineBackgroundRenderer.Enabled = true;
+                                                     lineBackgroundRenderer.LineNumber = lineNumber;
+                                                     var visualLine = txtAssembly.TextArea.TextView.VisualLines.FirstOrDefault(line => line.FirstDocumentLine.LineNumber == lineNumber);
 
-        private void OnStep(int ip, SteppingMode mode)
-        {
-            BeginInvoke((MethodInvoker) delegate
-            {
-                paused = true;
+                                                     if (visualLine == null)
+                                                         txtAssembly.ScrollToLine(lineNumber);
+                                                 });
 
-                statusBar.Items["statusText"].Text = "Executando passo a passo (" + mode switch
-                {
-                    SteppingMode.RUN => "pausado",
-                    SteppingMode.INTO => "entrando em funções",
-                    SteppingMode.OVER => "pulando funções",
-                    SteppingMode.OUT => "saindo da função",
-                    SteppingMode.RUN_TO_IP => "executado até o ip atual",
-                    _ => throw new NotImplementedException()
-                } + ")";
+        private void OnStep(int ip, SteppingMode mode) => BeginInvoke((MethodInvoker) delegate
+                                                                   {
+                                                                       paused = true;
 
-                btnRun.Enabled = true;
-                btnPause.Enabled = false;
-                btnStop.Enabled = true;
-                btnStepOver.Enabled = true;
-                btnStepInto.Enabled = true;
-                btnStepReturn.Enabled = true;
-                btnRunToCursor.Enabled = true;
+                                                                       statusBar.Items["statusText"].Text = "Executando passo a passo (" + mode switch
+                                                                       {
+                                                                           SteppingMode.RUN => "pausado",
+                                                                           SteppingMode.INTO => "entrando em funções",
+                                                                           SteppingMode.OVER => "pulando funções",
+                                                                           SteppingMode.OUT => "saindo da função",
+                                                                           SteppingMode.RUN_TO_IP => "executado até o ip atual",
+                                                                           _ => throw new NotImplementedException()
+                                                                       } + ")";
 
-                FetchStackData();
+                                                                       btnRun.Enabled = true;
+                                                                       btnPause.Enabled = false;
+                                                                       btnStop.Enabled = true;
+                                                                       btnStepOver.Enabled = true;
+                                                                       btnStepInto.Enabled = true;
+                                                                       btnStepReturn.Enabled = true;
+                                                                       btnRunToCursor.Enabled = true;
 
-                if (!ipToLineNumber.TryGetValue(ip, out int lineNumber))
-                    return;
+                                                                       FetchStackData();
 
-                lineBackgroundRenderer.Enabled = true;
-                lineBackgroundRenderer.LineNumber = lineNumber;
-                var visualLine = txtAssembly.TextArea.TextView.VisualLines.FirstOrDefault(line => line.FirstDocumentLine.LineNumber == lineNumber);
+                                                                       if (!ipToLineNumber.TryGetValue(ip, out int lineNumber))
+                                                                           return;
 
-                if (visualLine == null)
-                    txtAssembly.ScrollToLine(lineNumber);
-            });
-        }
+                                                                       lineBackgroundRenderer.Enabled = true;
+                                                                       lineBackgroundRenderer.LineNumber = lineNumber;
+                                                                       var visualLine = txtAssembly.TextArea.TextView.VisualLines.FirstOrDefault(line => line.FirstDocumentLine.LineNumber == lineNumber);
 
-        private void OnBreakpoint(Breakpoint bp)
-        {
-            BeginInvoke((MethodInvoker) delegate
-            {
-                paused = true;
+                                                                       if (visualLine == null)
+                                                                           txtAssembly.ScrollToLine(lineNumber);
+                                                                   });
 
-                statusBar.Items["statusText"].Text = "Ponto de interrupção encontrado";
+        private void OnBreakpoint(Breakpoint bp) => BeginInvoke((MethodInvoker) delegate
+                                                             {
+                                                                 paused = true;
 
-                btnRun.Enabled = true;
-                btnPause.Enabled = false;
-                btnStop.Enabled = true;
-                btnStepOver.Enabled = true;
-                btnStepInto.Enabled = true;
-                btnStepReturn.Enabled = true;
-                btnRunToCursor.Enabled = true;
+                                                                 statusBar.Items["statusText"].Text = "Ponto de interrupção encontrado";
 
-                FetchStackData();
+                                                                 btnRun.Enabled = true;
+                                                                 btnPause.Enabled = false;
+                                                                 btnStop.Enabled = true;
+                                                                 btnStepOver.Enabled = true;
+                                                                 btnStepInto.Enabled = true;
+                                                                 btnStepReturn.Enabled = true;
+                                                                 btnRunToCursor.Enabled = true;
 
-                if (!ipToLineNumber.TryGetValue(bp.IP, out int lineNumber))
-                    return;
+                                                                 FetchStackData();
 
-                lineBackgroundRenderer.Enabled = true;
-                lineBackgroundRenderer.LineNumber = lineNumber;
-                var visualLine = txtAssembly.TextArea.TextView.VisualLines.FirstOrDefault(line => line.FirstDocumentLine.LineNumber == lineNumber);
+                                                                 if (!ipToLineNumber.TryGetValue(bp.IP, out int lineNumber))
+                                                                     return;
 
-                if (visualLine == null)
-                    txtAssembly.ScrollToLine(lineNumber);
-            });
-        }
+                                                                 lineBackgroundRenderer.Enabled = true;
+                                                                 lineBackgroundRenderer.LineNumber = lineNumber;
+                                                                 var visualLine = txtAssembly.TextArea.TextView.VisualLines.FirstOrDefault(line => line.FirstDocumentLine.LineNumber == lineNumber);
 
-        private void btnClearConsole_Click(object sender, EventArgs e)
-        {
-            txtConsole.Clear();
-        }
+                                                                 if (visualLine == null)
+                                                                     txtAssembly.ScrollToLine(lineNumber);
+                                                             });
 
-        private void PostRun(bool success, bool aborted, Exception exception)
-        {
-            BeginInvoke((MethodInvoker) delegate
-            {
-                vmRunning = false;
-                paused = true;
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
+        private void btnClearConsole_Click(object sender, EventArgs e) => txtConsole.Clear();
 
-                if (success)
-                    statusBar.Items["statusText"].Text = "Programa terminado com sucesso.";
-                else if (aborted)
-                    statusBar.Items["statusText"].Text = "Programa abortado.";
-                else
-                {
-                    statusBar.Items["statusText"].Text = "Programa terminado com falha: " + exception.Message;
-                    ConsolePrintLn(exception.StackTrace);
-                }
+        private void PostRun(bool success, bool aborted, Exception exception) => BeginInvoke((MethodInvoker) delegate
+                                                                                          {
+                                                                                              vmRunning = false;
+                                                                                              paused = true;
 
-                btnCompile.Enabled = true;
-                btnRun.Enabled = true;
-                btnPause.Enabled = false;
-                btnStop.Enabled = false;
-                btnStepOver.Enabled = true;
-                btnStepInto.Enabled = false;
-                btnStepReturn.Enabled = false;
-                btnRunToCursor.Enabled = true;
-            });
-        }
+                                                                                              if (success)
+                                                                                                  statusBar.Items["statusText"].Text = "Programa terminado com sucesso.";
+                                                                                              else if (aborted)
+                                                                                                  statusBar.Items["statusText"].Text = "Programa abortado.";
+                                                                                              else
+                                                                                              {
+                                                                                                  statusBar.Items["statusText"].Text = "Programa terminado com falha: " + exception.Message;
+                                                                                                  ConsolePrintLn(exception.StackTrace);
+                                                                                              }
+
+                                                                                              btnCompile.Enabled = true;
+                                                                                              btnRun.Enabled = true;
+                                                                                              btnPause.Enabled = false;
+                                                                                              btnStop.Enabled = false;
+                                                                                              btnStepOver.Enabled = true;
+                                                                                              btnStepInto.Enabled = false;
+                                                                                              btnStepReturn.Enabled = false;
+                                                                                              btnRunToCursor.Enabled = true;
+                                                                                          });
 
         public void VMRun(bool stepping, int runToIP)
         {
@@ -1235,11 +1096,13 @@ namespace SimpleCompiler
             string view = "";
             byte oldValue = 0;
 
+            nint dataValue = 0;
             for (int col = 0; col < stackViewAlignSize; col++)
             {
                 if (addr >= 0 && addr < vm.StackSize)
                 {
                     byte value = vm.ReadStackByte(addr++);
+                    dataValue |= ((nint) (value & 0xff)) << (8 * col);
 
                     data += string.Format("{0:x2}", value) + " ";
 
@@ -1255,17 +1118,30 @@ namespace SimpleCompiler
                 }
             }
 
-            string address = string.Format("{0:x8}", row * stackViewAlignSize);
+            if (vm.IsStackHostAddr((IntPtr) dataValue))
+            {
+                int residentAddr = vm.HostToResidentAddr((IntPtr) dataValue);
+                view = "=>" + string.Format("{0:x8}", residentAddr);
+            }
+
+            string residentAddress = string.Format("{0:x8}", row * stackViewAlignSize);
 
             if (vm.BP == firstAddr)
-                address += "[BP]";
+                residentAddress += "[BP]";
 
             if (vm.SP == firstAddr)
-                address += "[SP]";
+            {
+                residentAddress += "[SP]";
+                dgvStack.Rows[row].Selected = true;
+                dgvStack.CurrentCell = dgvStack[0, row];
+            }
 
-            dgvStack[0, row].Value = address;
-            dgvStack[1, row].Value = data;
-            dgvStack[2, row].Value = view;
+            string hostAddress = vm.ResidentToHostAddr(row * stackViewAlignSize).ToString("x8");
+
+            dgvStack[0, row].Value = residentAddress;
+            dgvStack[1, row].Value = hostAddress;
+            dgvStack[2, row].Value = data;
+            dgvStack[3, row].Value = view;
         }
 
         private void FetchStackData()
@@ -1281,7 +1157,7 @@ namespace SimpleCompiler
             if (firstDisplayedRowIndex < 0)
                 firstDisplayedRowIndex = 0;
 
-            int lastvisibleRowIndex = (firstDisplayedRowIndex + visibleRowsCount) + 1;
+            int lastvisibleRowIndex = firstDisplayedRowIndex + visibleRowsCount + 1;
             if (lastvisibleRowIndex >= dgvStack.RowCount)
                 lastvisibleRowIndex = dgvStack.RowCount - 1;
 
@@ -1297,22 +1173,21 @@ namespace SimpleCompiler
         private void StartVM(bool stepping = false, int runToIP = -1)
         {
             SetupStackView();
-            FetchStackData();
+            //FetchStackData();
 
             vmRunning = true;
             vmThread = new Thread(() => VMRun(stepping, runToIP));
             vmThread.Start();
         }
 
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
         private void btnRun_Click(object sender, EventArgs e)
+#pragma warning restore IDE1006 // Estilos de Nomenclatura
         {
             paused = false;
 
-            for (int i = 0; i < sourceTabs.Count; i++)
-            {
-                SourceTab sourceTab = sourceTabs[i];
+            foreach (var sourceTab in sourceTabs)
                 sourceTab.lineBackgroundRenderer.Enabled = false;
-            }
 
             lineBackgroundRenderer.Enabled = false;
 
@@ -1333,7 +1208,9 @@ namespace SimpleCompiler
                 vm.Resume();
         }
 
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
         private void btnCompile_Click(object sender, EventArgs e)
+#pragma warning restore IDE1006 // Estilos de Nomenclatura
         {
             int currentPageIndex = tcSources.SelectedIndex;
             if (currentPageIndex == -1)
@@ -1372,17 +1249,15 @@ namespace SimpleCompiler
             bwCompiler.RunWorkerAsync();
         }
 
-        private void mnuConsoleCopy_Click(object sender, EventArgs e)
-        {
-            System.Windows.Clipboard.SetText(txtConsole.Text);
-        }
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
+        private void mnuConsoleCopy_Click(object sender, EventArgs e) => System.Windows.Clipboard.SetText(txtConsole.Text);
 
-        private void mnuConsoleSelectAll_Click(object sender, EventArgs e)
-        {
-            txtConsole.SelectAll();
-        }
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
+        private void mnuConsoleSelectAll_Click(object sender, EventArgs e) => txtConsole.SelectAll();
 
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
         private void txtConsole_KeyPress(object sender, KeyPressEventArgs e)
+#pragma warning restore IDE1006 // Estilos de Nomenclatura
         {
             if (e.KeyChar == 13)
             {
@@ -1414,7 +1289,7 @@ namespace SimpleCompiler
         public SourceTab NewSourceTab()
         {
             btnCompile.Enabled = true;
-            SourceTab result = new SourceTab(this);
+            SourceTab result = new(this);
             sourceTabs.Add(result);
             sourceTabsMapByID[result.ID] = result;
             return result;
@@ -1477,13 +1352,17 @@ namespace SimpleCompiler
             btnCompile.Enabled = sourceTabs.Count > 0;
         }
 
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
         private void btnNew_Click(object sender, EventArgs e)
+#pragma warning restore IDE1006 // Estilos de Nomenclatura
         {
             SourceTab tab = NewSourceTab();
             tab.Focus();
         }
 
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
         private void btnOpen_Click(object sender, EventArgs e)
+#pragma warning restore IDE1006 // Estilos de Nomenclatura
         {
             DialogResult result = openFileDialog.ShowDialog();
 
@@ -1510,7 +1389,9 @@ namespace SimpleCompiler
             }
         }
 
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
         private void btnReload_Click(object sender, EventArgs e)
+#pragma warning restore IDE1006 // Estilos de Nomenclatura
         {
             int currentPageIndex = tcSources.SelectedIndex;
             if (currentPageIndex != -1)
@@ -1520,7 +1401,9 @@ namespace SimpleCompiler
             }
         }
 
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
         private void btnSave_Click(object sender, EventArgs e)
+#pragma warning restore IDE1006 // Estilos de Nomenclatura
         {
             int currentPageIndex = tcSources.SelectedIndex;
             if (currentPageIndex != -1)
@@ -1530,13 +1413,17 @@ namespace SimpleCompiler
             }
         }
 
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
         private void btnPause_Click(object sender, EventArgs e)
+#pragma warning restore IDE1006 // Estilos de Nomenclatura
         {
             btnPause.Enabled = false;
             vm.Pause();
         }
 
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
         private void btnStop_Click(object sender, EventArgs e)
+#pragma warning restore IDE1006 // Estilos de Nomenclatura
         {
             for (int i = 0; i < sourceTabs.Count; i++)
             {
@@ -1559,7 +1446,9 @@ namespace SimpleCompiler
             vmThread.Abort();
         }
 
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
         private void btnStepOver_Click(object sender, EventArgs e)
+#pragma warning restore IDE1006 // Estilos de Nomenclatura
         {
             paused = false;
 
@@ -1588,7 +1477,9 @@ namespace SimpleCompiler
                 StartVM(true);
         }
 
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
         private void btnStepInto_Click(object sender, EventArgs e)
+#pragma warning restore IDE1006 // Estilos de Nomenclatura
         {
             paused = false;
 
@@ -1613,7 +1504,9 @@ namespace SimpleCompiler
             vm.StepInto();
         }
 
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
         private void btnStepReturn_Click(object sender, EventArgs e)
+#pragma warning restore IDE1006 // Estilos de Nomenclatura
         {
             paused = false;
 
@@ -1637,7 +1530,9 @@ namespace SimpleCompiler
             vm.StepReturn();
         }
 
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
         private void btnRunToCursor_Click(object sender, EventArgs e)
+#pragma warning restore IDE1006 // Estilos de Nomenclatura
         {
             paused = false;
 
@@ -1698,7 +1593,9 @@ namespace SimpleCompiler
                 vm.RunToLine(currentSourceTab.ID, line.LineNumber);*/
         }
 
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
         private void btnToggleBreakpoint_Click(object sender, EventArgs e)
+#pragma warning restore IDE1006 // Estilos de Nomenclatura
         {
             if (wpfAssemblyHost.Focused)
             {
@@ -1734,7 +1631,9 @@ namespace SimpleCompiler
                 sourceTab.breakpointMargin.RemoveBreakpoint(line.LineNumber);*/
         }
 
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
         private void bwCompiler_DoWork(object sender, DoWorkEventArgs e)
+#pragma warning restore IDE1006 // Estilos de Nomenclatura
         {
             totalLines = 0;
             parsedLines = 0;
@@ -1747,6 +1646,7 @@ namespace SimpleCompiler
                 {
                     statusBar.Items["statusText"].Text = "Compilado";
 
+                    vm.Free();
                     vm.Initialize(assembler);
                     vm.Print();
 
@@ -1779,8 +1679,7 @@ namespace SimpleCompiler
         private void FrmSimpleCompiler_Load(object sender, EventArgs e)
         {
             Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
-            ProgramConfiguratinSection section = config.Sections["ProgramConfiguratinSection"] as ProgramConfiguratinSection;
-            if (section == null)
+            if (config.Sections["ProgramConfiguratinSection"] is not ProgramConfiguratinSection section)
             {
                 section = new ProgramConfiguratinSection();
                 config.Sections.Add("ProgramConfiguratinSection", section);
@@ -1818,8 +1717,7 @@ namespace SimpleCompiler
                 vmThread.Abort();
 
             Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
-            ProgramConfiguratinSection section = config.Sections["ProgramConfiguratinSection"] as ProgramConfiguratinSection;
-            if (section == null)
+            if (config.Sections["ProgramConfiguratinSection"] is not ProgramConfiguratinSection section)
             {
                 section = new ProgramConfiguratinSection();
                 config.Sections.Add("ProgramConfiguratinSection", section);
@@ -1859,35 +1757,39 @@ namespace SimpleCompiler
             config.Save();
         }
 
-        private void dgvStack_Scroll(object sender, ScrollEventArgs e)
-        {
-            FetchStackData();
-        }
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
+        private void dgvStack_Scroll(object sender, ScrollEventArgs e) => FetchStackData();
 
-        private void dgvStack_Resize(object sender, EventArgs e)
-        {
-            FetchStackData();
-        }
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
+        private void dgvStack_Resize(object sender, EventArgs e) => FetchStackData();
 
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
         private void mnuStackViewAlign16_Click(object sender, EventArgs e)
+#pragma warning restore IDE1006 // Estilos de Nomenclatura
         {
             stackViewAlignSize = 16;
             FetchStackData();
         }
 
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
         private void mnuStackViewAlign8_Click(object sender, EventArgs e)
+#pragma warning restore IDE1006 // Estilos de Nomenclatura
         {
             stackViewAlignSize = 8;
             FetchStackData();
         }
 
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
         private void mnuStackViewAlign4_Click(object sender, EventArgs e)
+#pragma warning restore IDE1006 // Estilos de Nomenclatura
         {
             stackViewAlignSize = 4;
             FetchStackData();
         }
 
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
         private void tcSources_DrawItem(object sender, DrawItemEventArgs e)
+#pragma warning restore IDE1006 // Estilos de Nomenclatura
         {
             try
             {
@@ -1908,11 +1810,15 @@ namespace SimpleCompiler
             }
         }
 
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
         private void tcSources_SelectedIndexChanged(object sender, EventArgs e)
+#pragma warning restore IDE1006 // Estilos de Nomenclatura
         {
         }
 
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
         private void tcSources_MouseDown(object sender, MouseEventArgs e)
+#pragma warning restore IDE1006 // Estilos de Nomenclatura
         {
             for (int i = 0; i < tcSources.TabPages.Count; i++)
             {
@@ -1932,9 +1838,7 @@ namespace SimpleCompiler
             }
         }
 
-        private void tcSources_HandleCreated(object sender, EventArgs e)
-        {
-            SendMessage(tcSources.Handle, TCM_SETMINTABWIDTH, IntPtr.Zero, (IntPtr) 16);
-        }
+#pragma warning disable IDE1006 // Estilos de Nomenclatura
+        private void tcSources_HandleCreated(object sender, EventArgs e) => SendMessage(tcSources.Handle, TCM_SETMINTABWIDTH, IntPtr.Zero, (IntPtr) 16);
     }
 }

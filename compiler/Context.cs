@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
 using compiler.types;
 using assembler;
@@ -11,24 +7,29 @@ namespace compiler
 {
     public class Context
     {
-        private Function function;
-        private Context parent;
-        private List<Variable> variables;
-        private Dictionary<string, Variable> variableTable;
+        private readonly List<Variable> variables;
+        private readonly List<LocalVariable> temporaryVariables;
+        private readonly Dictionary<string, Variable> variableTable;
         private int offset;
-        private Stack<Label> breakLabels;
+        private readonly Stack<Label> breakLabels;
 
-        public Function Function => function;
+        public Function Function
+        {
+            get;
+        }
 
-        public Context Parent => parent;
+        public Context Parent
+        {
+            get;
+        }
 
         public int RealOffset
         {
             get
             {
                 int result = offset;
-                if (parent != null)
-                    result += parent.RealOffset;
+                if (Parent != null)
+                    result += Parent.RealOffset;
 
                 return result;
             }
@@ -36,10 +37,11 @@ namespace compiler
 
         internal Context(Function function, Context parent = null)
         {
-            this.function = function;
-            this.parent = parent;
+            Function = function;
+            Parent = parent;
             
             variables = new List<Variable>();
+            temporaryVariables = new List<LocalVariable>();
             variableTable = new Dictionary<string, Variable>();
             breakLabels = new Stack<Label>();
 
@@ -49,25 +51,45 @@ namespace compiler
                 AddParams(function);
         }
 
-        public bool IsRoot()
-        {
-            return parent == null;
-        }
+        public bool IsRoot() => Parent == null;
 
         internal Variable DeclareLocalVariable(Function function, string name, AbstractType type, SourceInterval interval, bool recursive = true)
         {
             if (variableTable.TryGetValue(name, out Variable result))
                 return result;
 
-            if (recursive && parent != null && parent.FindVariable(name, true) != null)
+            if (recursive && Parent != null && Parent.FindVariable(name, true) != null)
                 return null;
 
             result = new LocalVariable(function, name, type, interval, RealOffset);
-            offset += Compiler.GetAlignedSize(type.Size());
+            offset += Compiler.GetAlignedSize(type.Size);
             function.CheckLocalVariableOffset(RealOffset);
             variables.Add(result);
             variableTable.Add(name, result);
             return result;
+        }
+
+        internal LocalVariable DeclareTemporaryVariable(Function function, AbstractType type, SourceInterval interval)
+        {
+            var tempVar = (LocalVariable) DeclareLocalVariable(function, "@tempvar" + temporaryVariables.Count, type, interval);
+            tempVar.Temporary = true;
+            return tempVar;
+        }
+
+        internal LocalVariable AcquireTemporaryVariable(Function function, AbstractType type, SourceInterval interval)
+        {
+            foreach (var tempVar in temporaryVariables)
+            {
+                if (!tempVar.Acquired && tempVar.Type == type)
+                {
+                    tempVar.Acquired = true;
+                    return tempVar;
+                }
+            }
+
+            LocalVariable tempVar2 = DeclareTemporaryVariable(function, type, interval);
+            tempVar2.Acquired = true;
+            return tempVar2;
         }
 
         internal void AddParams(Function function)
@@ -80,38 +102,30 @@ namespace compiler
             }
         }
 
-        public Variable FindVariable(string name, bool recursive = true)
+        public Variable FindVariable(string name, bool recursive = true) => variableTable.TryGetValue(name, out Variable result)
+                ? result
+                : recursive && Parent != null ? Parent.FindVariable(name, true) : null;
+
+        internal void PushBreakLabel(Label label) => breakLabels.Push(label);
+
+        internal void DropBreakLabel() => breakLabels.Pop();
+
+        public Label FindNearestBreakLabel() => breakLabels.Count == 0 ? Parent?.FindNearestBreakLabel() : breakLabels.Pop();
+
+        public void Release(Assembler assembler)
         {
-            if (variableTable.TryGetValue(name, out Variable result))
-                return result;
-
-            if (recursive && parent != null)
-                return parent.FindVariable(name, true);
-
-            return null;
-        }
-
-        internal void PushBreakLabel(Label label)
-        {
-            breakLabels.Push(label);
-        }
-
-        internal void DropBreakLabel()
-        {
-            breakLabels.Pop();
-        }
-
-        public Label FindNearestBreakLabel()
-        {
-            if (breakLabels.Count == 0)
+            Compiler comp = Function.Unity.Compiler;
+            foreach (Variable v in variables)
             {
-                if (parent != null)
-                    return parent.FindNearestBreakLabel();
-
-                return null;
+                AbstractType type = v.Type;
+                if (type is StringType)
+                {
+                    Function f = comp.unitySystem.FindFunction("DecrementaReferenciaTexto");
+                    int index = comp.GetOrAddExternalFunction(f.Name, f.ParameterSize);
+                    assembler.EmitLoadLocalHostAddress(v.Offset);
+                    assembler.EmitExternCall(index);
+                }
             }
-
-            return breakLabels.Pop();
         }
     }
 }

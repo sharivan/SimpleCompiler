@@ -29,4 +29,24 @@ unidade System
 	função externa AlocarMemória(len:int):*void;
 
 	função externa DesalocarMemória(ptr:*void);
+	
+	// Suporte para strings contadas por referência
+	
+	função externa NovoTexto(str:*char):texto;
+	
+	função externa NovoTexto2(&dst:texto, str:*char);
+	
+	função externa CopiaTexto(src:*char, dst:texto);
+	
+	função externa ComprimentoTexto(str:texto):int;
+	
+	função externa ConcatenaTextos(str1:texto, str2:texto):texto;
+	
+	função externa ConcatenaTextos2(&dst:texto, str1:texto, str2:texto);
+	
+	função externa AtribuiTexto(&dst:texto, src:texto);
+	
+	função externa IncrementaReferenciaTexto(str:texto);
+	
+	função externa DecrementaReferenciaTexto(&str:texto);
 }

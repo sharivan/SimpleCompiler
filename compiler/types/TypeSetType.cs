@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace compiler.types
+﻿namespace compiler.types
 {
     public class TypeSetType : NamedType
     {
@@ -12,25 +6,13 @@ namespace compiler.types
 
         public AbstractType Type => type;
 
-        internal TypeSetType(CompilationUnity unity, string name, AbstractType type, SourceInterval interval) : base(unity, name, interval)
-        {
-            this.type = type;
-        }
+        internal TypeSetType(CompilationUnity unity, string name, AbstractType type, SourceInterval interval) : base(unity, name, interval) => this.type = type;
 
-        public override bool CoerceWith(AbstractType other, bool isExplicit)
-        {
-            return type.CoerceWith(other, isExplicit);
-        }
+        public override bool CoerceWith(AbstractType other, bool isExplicit) => type.CoerceWith(other, isExplicit);
 
-        public override int Size()
-        {
-            return type.Size();
-        }
+        protected override int GetSize() => type.Size;
 
-        public override bool IsUnresolved()
-        {
-            return type.IsUnresolved();
-        }
+        public override bool IsUnresolved() => type.IsUnresolved();
 
         internal void Resolve()
         {

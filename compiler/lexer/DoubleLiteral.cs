@@ -1,56 +1,28 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Globalization;
 
 namespace compiler.lexer
 {
     public class DoubleLiteral : NumericLiteral
     {
-        private double value;
-
-        public double Value => value;
-
-        internal DoubleLiteral(SourceInterval interval, double value) : base(interval)
+        public double Value
         {
-            this.value = value;
+            get;
         }
 
-        public override string ToString()
-        {
-            return value.ToString(CultureInfo.InvariantCulture);
-        }
+        internal DoubleLiteral(SourceInterval interval, double value) : base(interval) => Value = value;
 
-        public override byte AsByte()
-        {
-            return (byte) value;
-        }
+        public override string ToString() => Value.ToString(CultureInfo.InvariantCulture);
 
-        public override short AsShort()
-        {
-            return (short) value;
-        }
+        public override byte AsByte() => (byte) Value;
 
-        public override int AsInt()
-        {
-            return (int) value;
-        }
+        public override short AsShort() => (short) Value;
 
-        public override long AsLong()
-        {
-            return (long) value;
-        }
+        public override int AsInt() => (int) Value;
 
-        public override float AsFloat()
-        {
-            return (float) value;
-        }
+        public override long AsLong() => (long) Value;
 
-        public override double AsDouble()
-        {
-            return value;
-        }
+        public override float AsFloat() => (float) Value;
+
+        public override double AsDouble() => Value;
     }
 }

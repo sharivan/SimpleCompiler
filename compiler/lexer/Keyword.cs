@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace compiler.lexer
+﻿namespace compiler.lexer
 {
     public class Keyword : Token
     {
@@ -19,6 +13,7 @@ namespace compiler.lexer
             "long",
             "float",
             "real", // double
+            "texto",
             // conversão de tipo
             "cast",
             // declarações
@@ -59,18 +54,13 @@ namespace compiler.lexer
             return false;
         }
 
-        private string value;
-
-        public string Value => value;
-
-        internal Keyword(SourceInterval interval, string value) : base(interval)
+        public string Value
         {
-            this.value = value;
+            get;
         }
 
-        public override string ToString()
-        {
-            return "keyword '" + value + "'";
-        }
+        internal Keyword(SourceInterval interval, string value) : base(interval) => Value = value;
+
+        public override string ToString() => "keyword '" + Value + "'";
     }
 }

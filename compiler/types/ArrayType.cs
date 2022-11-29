@@ -1,15 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
 namespace compiler.types
 {
     public class ArrayType : AbstractType
     {
         private AbstractType type;
-        private List<int> boundaries;
+        private readonly List<int> boundaries;
 
         public AbstractType Type => type;
 
@@ -24,10 +20,7 @@ namespace compiler.types
             boundaries = new List<int>();
         }
 
-        internal void AddBoundary(int boundary)
-        {
-            boundaries.Add(boundary);
-        }
+        internal void AddBoundary(int boundary) => boundaries.Add(boundary);
 
         public override bool Equals(object obj)
         {
@@ -69,19 +62,16 @@ namespace compiler.types
             return result + "]";
         }
 
-        public override int Size()
+        protected override int GetSize()
         {
-            int result = type.Size();
+            int result = type.Size;
             for (int i = 0; i < boundaries.Count; i++)
                 result *= boundaries[i];
 
             return result;
         }
 
-        public override bool CoerceWith(AbstractType other, bool isExplicit)
-        {
-            return Equals(other);
-        }
+        public override bool CoerceWith(AbstractType other, bool isExplicit) => Equals(other);
 
         public override int GetHashCode()
         {
@@ -91,26 +81,11 @@ namespace compiler.types
             return hashCode;
         }
 
-        public static bool operator ==(ArrayType t1, ArrayType t2)
-        {
-            if (ReferenceEquals(t1, t2))
-                return true;
+        public static bool operator ==(ArrayType t1, ArrayType t2) => ReferenceEquals(t1, t2) || t1 is not null && t2 is not null && t1.Equals(t2);
 
-            if (((object) t1) == null || ((object) t2) == null)
-                return false;
+        public static bool operator !=(ArrayType t1, ArrayType t2) => !(t1 == t2);
 
-            return t1.Equals(t2);
-        }
-
-        public static bool operator !=(ArrayType t1, ArrayType t2)
-        {
-            return !(t1 == t2);
-        }
-
-        public override bool IsUnresolved()
-        {
-            return type.IsUnresolved();
-        }
+        public override bool IsUnresolved() => type.IsUnresolved();
 
         internal void Resolve()
         {
