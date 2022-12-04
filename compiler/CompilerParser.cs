@@ -14,79 +14,82 @@ namespace compiler
             if (token == null)
                 throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos), "Fim do arquivo encontrado mas token esperado.");
 
-            if (token is Keyword kw)
+            switch (token)
             {
-                switch (kw.Value)
-                {
-                    case "verdade":
-                        return new BoolLiteralExpression(kw.Interval, true);
-
-                    case "falso":
-                        return new BoolLiteralExpression(kw.Interval, false);
-
-                    case "nulo":
-                        return new NullLiteralExpression(kw.Interval);
-                }
-            }
-
-            if (token is ByteLiteral b)
-                return new ByteLiteralExpression(token.Interval, b.Value);
-
-            if (token is CharLiteral c)
-                return new CharLiteralExpression(token.Interval, c.Value);
-
-            if (token is ShortLiteral s)
-                return new ShortLiteralExpression(token.Interval, s.Value);
-
-            if (token is IntLiteral i)
-                return new IntLiteralExpression(token.Interval, i.Value);
-
-            if (token is LongLiteral l)
-                return new LongLiteralExpression(token.Interval, l.Value);
-
-            if (token is FloatLiteral f)
-                return new FloatLiteralExpression(token.Interval, f.Value);
-
-            if (token is DoubleLiteral d)
-                return new DoubleLiteralExpression(token.Interval, d.Value);
-
-            if (token is StringLiteral str)
-                return new StringLiteralExpression(token.Interval, str.Value);
-
-            if (token is Identifier id)
-            {
-                if (lexer.NextSymbol("(", false) != null)
-                {
-                    CallExpression result = new(id.Interval, new IdentifierExpression(id.Interval, id.Name));
-
-                    if (lexer.NextSymbol(")", false) != null)
-                        return result;
-
-                    do
+                case Keyword kw:
+                    switch (kw.Value)
                     {
-                        Expression parameter = ParseExpression();
-                        result.AddParameter(parameter);
+                        case "verdade":
+                            return new BoolLiteralExpression(kw.Interval, true);
+
+                        case "falso":
+                            return new BoolLiteralExpression(kw.Interval, false);
+
+                        case "nulo":
+                            return new NullLiteralExpression(kw.Interval);
                     }
-                    while (lexer.NextSymbol(",", false) != null);
+
+                    break;
+
+                case ByteLiteral b:
+                    return new ByteLiteralExpression(token.Interval, b.Value);
+
+                case CharLiteral c:
+                    return new CharLiteralExpression(token.Interval, c.Value);
+
+                case ShortLiteral s:
+                    return new ShortLiteralExpression(token.Interval, s.Value);
+
+                case IntLiteral i:
+                    return new IntLiteralExpression(token.Interval, i.Value);
+
+                case LongLiteral l:
+                    return new LongLiteralExpression(token.Interval, l.Value);
+
+                case FloatLiteral f:
+                    return new FloatLiteralExpression(token.Interval, f.Value);
+
+                case DoubleLiteral d:
+                    return new DoubleLiteralExpression(token.Interval, d.Value);
+
+                case StringLiteral str:
+                    return new StringLiteralExpression(token.Interval, str.Value);
+
+                case Identifier id:
+                {
+                    if (lexer.NextSymbol("(", false) != null)
+                    {
+                        CallExpression result = new(id.Interval, new IdentifierExpression(id.Interval, id.Name));
+
+                        if (lexer.NextSymbol(")", false) != null)
+                            return result;
+
+                        do
+                        {
+                            Expression parameter = ParseExpression();
+                            result.AddParameter(parameter);
+                        }
+                        while (lexer.NextSymbol(",", false) != null);
+
+                        lexer.NextSymbol(")");
+
+                        return result;
+                    }
+
+                    return new IdentifierExpression(id.Interval, id.Name);
+                }
+
+                case Symbol symbol:
+                {
+                    if (symbol.Value != "(")
+                        throw new CompilerException(symbol.Interval, "'(' esperado mas '" + symbol.Value + "' encontrado.");
+
+                    Expression result = ParseExpression();
 
                     lexer.NextSymbol(")");
 
                     return result;
                 }
-
-                return new IdentifierExpression(id.Interval, id.Name);
-            }
-
-            if (token is Symbol symbol)
-            {
-                if (symbol.Value != "(")
-                    throw new CompilerException(symbol.Interval, "'(' esperado mas '" + symbol.Value + "' encontrado.");
-
-                Expression result = ParseExpression();
-
-                lexer.NextSymbol(")");
-
-                return result;
             }
 
             throw new CompilerException(token.Interval, "Token não esperado: " + token);
@@ -111,7 +114,7 @@ namespace compiler
                 case ".":
                 {
                     Identifier id = lexer.NextIdentifier();
-                    return new FieldAcessorExpression(SourceInterval.Merge(operand.Interval, id.Interval), operand, id.Name);
+                    return new FieldAccessorExpression(SourceInterval.Merge(operand.Interval, id.Interval), operand, id.Name);
                 }
 
                 case "[":
@@ -595,7 +598,7 @@ namespace compiler
                         lexer.NextSymbol("]");
 
                         result = a;
-                    }     
+                    }
                 }
                 else
                 {
@@ -867,7 +870,7 @@ namespace compiler
             lexer.NextSymbol(":");
             AbstractType type = ParseType();
 
-            Expression initializer = null;               
+            Expression initializer = null;
             if (allowInitializer && lexer.NextSymbol("=", false) != null)
                 initializer = ParseExpression();
 
@@ -1018,7 +1021,7 @@ namespace compiler
         {
             CompilationUnity oldUnity = unity;
             Lexer oldLexer = lexer;
-            
+
             using (lexer = Lexer.CreateFromReader(fileName, input))
             {
                 bool isUnity = false;
@@ -1059,7 +1062,7 @@ namespace compiler
                 if (token != null)
                     throw new CompilerException(token.Interval, "Fim do arquivo esperado mas " + token + " encontrado.");
 
-                globalVariableOffset += unity.GlobalVariableSize;  
+                globalVariableOffset += unity.GlobalVariableSize;
             }
 
             CompilationUnity result = unity;

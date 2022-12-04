@@ -108,7 +108,7 @@ namespace compiler
         }
     }
 
-    public class FieldAcessorExpression : Expression
+    public class FieldAccessorExpression : Expression
     {
         public Expression Operand
         {
@@ -120,7 +120,7 @@ namespace compiler
             get;
         }
 
-        internal FieldAcessorExpression(SourceInterval interval, Expression operand, string field) : base(interval)
+        internal FieldAccessorExpression(SourceInterval interval, Expression operand, string field) : base(interval)
         {
             Operand = operand;
             Field = field;

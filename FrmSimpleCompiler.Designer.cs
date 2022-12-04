@@ -78,10 +78,18 @@ namespace SimpleCompiler
             this.openFileDialog = new System.Windows.Forms.OpenFileDialog();
             this.imageList = new System.Windows.Forms.ImageList(this.components);
             this.bwCompiler = new System.ComponentModel.BackgroundWorker();
+            this.splitContainerData = new System.Windows.Forms.SplitContainer();
+            this.gbStack = new System.Windows.Forms.GroupBox();
+            this.gbStrings = new System.Windows.Forms.GroupBox();
+            this.dgvStrings = new System.Windows.Forms.DataGridView();
             this.RA = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.HA = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.Value = new System.Windows.Forms.DataGridViewButtonColumn();
             this.View = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.StringHA = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.StringRefCount = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.StringLen = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.StringValue = new System.Windows.Forms.DataGridViewButtonColumn();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainerMain)).BeginInit();
             this.splitContainerMain.Panel1.SuspendLayout();
             this.splitContainerMain.Panel2.SuspendLayout();
@@ -103,6 +111,13 @@ namespace SimpleCompiler
             this.mnuStackView.SuspendLayout();
             this.statusBar.SuspendLayout();
             this.toolBar.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.splitContainerData)).BeginInit();
+            this.splitContainerData.Panel1.SuspendLayout();
+            this.splitContainerData.Panel2.SuspendLayout();
+            this.splitContainerData.SuspendLayout();
+            this.gbStack.SuspendLayout();
+            this.gbStrings.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.dgvStrings)).BeginInit();
             this.SuspendLayout();
             // 
             // splitContainerMain
@@ -293,7 +308,7 @@ namespace SimpleCompiler
             // 
             // splitContainer1.Panel2
             // 
-            this.splitContainer1.Panel2.Controls.Add(this.dgvStack);
+            this.splitContainer1.Panel2.Controls.Add(this.splitContainerData);
             this.splitContainer1.Size = new System.Drawing.Size(1462, 206);
             this.splitContainer1.SplitterDistance = 793;
             this.splitContainer1.SplitterWidth = 10;
@@ -325,10 +340,10 @@ namespace SimpleCompiler
             this.View});
             this.dgvStack.ContextMenuStrip = this.mnuStackView;
             this.dgvStack.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dgvStack.Location = new System.Drawing.Point(0, 0);
+            this.dgvStack.Location = new System.Drawing.Point(3, 16);
             this.dgvStack.Name = "dgvStack";
             this.dgvStack.ReadOnly = true;
-            this.dgvStack.Size = new System.Drawing.Size(659, 206);
+            this.dgvStack.Size = new System.Drawing.Size(394, 187);
             this.dgvStack.TabIndex = 1;
             this.dgvStack.Scroll += new System.Windows.Forms.ScrollEventHandler(this.dgvStack_Scroll);
             this.dgvStack.Resize += new System.EventHandler(this.dgvStack_Resize);
@@ -600,18 +615,77 @@ namespace SimpleCompiler
             // 
             this.bwCompiler.DoWork += new System.ComponentModel.DoWorkEventHandler(this.bwCompiler_DoWork);
             // 
+            // splitContainerData
+            // 
+            this.splitContainerData.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitContainerData.Location = new System.Drawing.Point(0, 0);
+            this.splitContainerData.Name = "splitContainerData";
+            // 
+            // splitContainerData.Panel1
+            // 
+            this.splitContainerData.Panel1.Controls.Add(this.gbStack);
+            // 
+            // splitContainerData.Panel2
+            // 
+            this.splitContainerData.Panel2.Controls.Add(this.gbStrings);
+            this.splitContainerData.Size = new System.Drawing.Size(659, 206);
+            this.splitContainerData.SplitterDistance = 400;
+            this.splitContainerData.TabIndex = 3;
+            // 
+            // gbStack
+            // 
+            this.gbStack.Controls.Add(this.dgvStack);
+            this.gbStack.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.gbStack.Location = new System.Drawing.Point(0, 0);
+            this.gbStack.Name = "gbStack";
+            this.gbStack.Size = new System.Drawing.Size(400, 206);
+            this.gbStack.TabIndex = 0;
+            this.gbStack.TabStop = false;
+            this.gbStack.Text = "Pilha";
+            // 
+            // gbStrings
+            // 
+            this.gbStrings.Controls.Add(this.dgvStrings);
+            this.gbStrings.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.gbStrings.Location = new System.Drawing.Point(0, 0);
+            this.gbStrings.Name = "gbStrings";
+            this.gbStrings.Size = new System.Drawing.Size(255, 206);
+            this.gbStrings.TabIndex = 0;
+            this.gbStrings.TabStop = false;
+            this.gbStrings.Text = "Textos";
+            // 
+            // dgvStrings
+            // 
+            this.dgvStrings.AllowUserToAddRows = false;
+            this.dgvStrings.AllowUserToDeleteRows = false;
+            this.dgvStrings.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.dgvStrings.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
+            this.StringHA,
+            this.StringRefCount,
+            this.StringLen,
+            this.StringValue});
+            this.dgvStrings.ContextMenuStrip = this.mnuStackView;
+            this.dgvStrings.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.dgvStrings.Location = new System.Drawing.Point(3, 16);
+            this.dgvStrings.Name = "dgvStrings";
+            this.dgvStrings.ReadOnly = true;
+            this.dgvStrings.Size = new System.Drawing.Size(249, 187);
+            this.dgvStrings.TabIndex = 3;
+            // 
             // RA
             // 
             this.RA.HeaderText = "RA";
             this.RA.Name = "RA";
             this.RA.ReadOnly = true;
             this.RA.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            this.RA.ToolTipText = "Endereço Residente";
             // 
             // HA
             // 
             this.HA.HeaderText = "HA";
             this.HA.Name = "HA";
             this.HA.ReadOnly = true;
+            this.HA.ToolTipText = "Endereço Host";
             // 
             // Value
             // 
@@ -628,6 +702,42 @@ namespace SimpleCompiler
             this.View.ReadOnly = true;
             this.View.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.View.Width = 200;
+            // 
+            // StringHA
+            // 
+            this.StringHA.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.DisplayedCells;
+            this.StringHA.HeaderText = "HA";
+            this.StringHA.Name = "StringHA";
+            this.StringHA.ReadOnly = true;
+            this.StringHA.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            this.StringHA.ToolTipText = "Endereço Host";
+            this.StringHA.Width = 28;
+            // 
+            // StringRefCount
+            // 
+            this.StringRefCount.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.DisplayedCells;
+            this.StringRefCount.HeaderText = "#Referências";
+            this.StringRefCount.Name = "StringRefCount";
+            this.StringRefCount.ReadOnly = true;
+            this.StringRefCount.ToolTipText = "Número de Referências";
+            this.StringRefCount.Width = 96;
+            // 
+            // StringLen
+            // 
+            this.StringLen.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.DisplayedCells;
+            this.StringLen.HeaderText = "Tamanho";
+            this.StringLen.Name = "StringLen";
+            this.StringLen.ReadOnly = true;
+            this.StringLen.ToolTipText = "Comprimento do Texto";
+            this.StringLen.Width = 77;
+            // 
+            // StringValue
+            // 
+            this.StringValue.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.DisplayedCells;
+            this.StringValue.HeaderText = "Valor";
+            this.StringValue.Name = "StringValue";
+            this.StringValue.ReadOnly = true;
+            this.StringValue.Width = 37;
             // 
             // FrmSimpleCompiler
             // 
@@ -665,6 +775,13 @@ namespace SimpleCompiler
             this.statusBar.PerformLayout();
             this.toolBar.ResumeLayout(false);
             this.toolBar.PerformLayout();
+            this.splitContainerData.Panel1.ResumeLayout(false);
+            this.splitContainerData.Panel2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.splitContainerData)).EndInit();
+            this.splitContainerData.ResumeLayout(false);
+            this.gbStack.ResumeLayout(false);
+            this.gbStrings.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.dgvStrings)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -719,10 +836,18 @@ namespace SimpleCompiler
         private System.Windows.Forms.ToolStripMenuItem mnuStackViewAlign16;
         private System.Windows.Forms.ToolStripMenuItem mnuStackViewAlign8;
         private System.Windows.Forms.ToolStripMenuItem mnuStackViewAlign4;
+        private System.Windows.Forms.SplitContainer splitContainerData;
+        private System.Windows.Forms.GroupBox gbStack;
+        private System.Windows.Forms.GroupBox gbStrings;
+        private System.Windows.Forms.DataGridView dgvStrings;
         private System.Windows.Forms.DataGridViewTextBoxColumn RA;
         private System.Windows.Forms.DataGridViewTextBoxColumn HA;
         private System.Windows.Forms.DataGridViewButtonColumn Value;
         private System.Windows.Forms.DataGridViewTextBoxColumn View;
+        private System.Windows.Forms.DataGridViewTextBoxColumn StringHA;
+        private System.Windows.Forms.DataGridViewTextBoxColumn StringRefCount;
+        private System.Windows.Forms.DataGridViewTextBoxColumn StringLen;
+        private System.Windows.Forms.DataGridViewButtonColumn StringValue;
     }
 }
 

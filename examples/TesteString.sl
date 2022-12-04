@@ -13,6 +13,8 @@ programa TesteString
 			123abcdef
 			193
 			123cbcdef
+			9
+			9
 		*/
 	
 		var s2: texto;
@@ -36,5 +38,10 @@ programa TesteString
 		
 		s[3] = s3[2];
 		escrevaln s;
+
+		escrevaln s.tamanho;
+
+		var l:int = s2.tamanho + s3.tamanho;
+		escrevaln l;
 	}
 }

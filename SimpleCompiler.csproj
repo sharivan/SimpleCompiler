@@ -59,10 +59,13 @@
     <Reference Include="WindowsFormsIntegration" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="compiler\expression\CompilerBinaryExpression.cs" />
     <Compile Include="compiler\CompilationUnity.cs" />
+    <Compile Include="compiler\expression\CompilerExpression.cs" />
     <Compile Include="compiler\CompilerLoad.cs" />
     <Compile Include="compiler\CompilerParser.cs" />
     <Compile Include="compiler\CompilerStore.cs" />
+    <Compile Include="compiler\expression\CompilerUnaryExpression.cs" />
     <Compile Include="compiler\types\ArrayType.cs" />
     <Compile Include="assembler\Assembler.cs" />
     <Compile Include="compiler\lexer\ByteLiteral.cs" />

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 
 using compiler.types;
@@ -29,7 +30,7 @@ namespace compiler
         }
     }
 
-    public class DeclarationStatement : InitializerStatement
+    public class DeclarationStatement : InitializerStatement, IEnumerable<Tuple<string, Expression>>
     {
         private AbstractType type;
         private readonly List<Tuple<string, Expression>> vars;
@@ -60,20 +61,22 @@ namespace compiler
         internal void AddVariable(string name, Expression initializer = null) => vars.Add(new Tuple<string, Expression>(name, initializer));
 
         internal void Resolve() => AbstractType.Resolve(ref type);
+
+        public IEnumerator<Tuple<string, Expression>> GetEnumerator() => vars.GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => vars.GetEnumerator();
     }
 
     public class ExpressionStatement : InitializerStatement
     {
-        public Expression Expression { get;
-            internal set; }
+        public Expression Expression { get; internal set; }
 
         internal ExpressionStatement(SourceInterval interval, Expression expression) : base(interval) => Expression = expression;
     }
 
     public class ReturnStatement : Statement
     {
-        public Expression Expression { get;
-            internal set; }
+        public Expression Expression { get; internal set; }
 
         internal ReturnStatement(SourceInterval interval, Expression expression = null) : base(interval) => Expression = expression;
     }
@@ -85,7 +88,7 @@ namespace compiler
         }
     }
 
-    public class ReadStatement : Statement
+    public class ReadStatement : Statement, IEnumerable<Expression>
     {
         private readonly List<Expression> expressions;
 
@@ -101,9 +104,13 @@ namespace compiler
         internal ReadStatement(SourceInterval interval) : base(interval) => expressions = new List<Expression>();
 
         internal void AddExpression(Expression expression) => expressions.Add(expression);
+
+        public IEnumerator<Expression> GetEnumerator() => expressions.GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => expressions.GetEnumerator();
     }
 
-    public class PrintStatement : Statement
+    public class PrintStatement : Statement, IEnumerable<Expression>
     {
         private readonly List<Expression> expressions;
 
@@ -129,18 +136,19 @@ namespace compiler
         }
 
         internal void AddExpression(Expression expression) => expressions.Add(expression);
+
+        public IEnumerator<Expression> GetEnumerator() => expressions.GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => expressions.GetEnumerator();
     }
 
     public class IfStatement : Statement
     {
-        public Expression Expression { get;
-            internal set; }
+        public Expression Expression { get; internal set; }
 
-        public Statement ThenStatement { get;
-            internal set; }
+        public Statement ThenStatement { get; internal set; }
 
-        public Statement ElseStatement { get;
-            internal set; }
+        public Statement ElseStatement { get; internal set; }
 
         internal IfStatement(SourceInterval interval, Expression expression, Statement thenStatement, Statement elseStatement = null) : base(interval)
         {
@@ -152,11 +160,9 @@ namespace compiler
 
     public class WhileStatement : Statement
     {
-        public Expression Expression { get;
-            internal set; }
+        public Expression Expression { get; internal set; }
 
-        public Statement Statement { get;
-            internal set; }
+        public Statement Statement { get; internal set; }
 
         internal WhileStatement(SourceInterval interval, Expression expression, Statement statement) : base(interval)
         {
@@ -167,11 +173,9 @@ namespace compiler
 
     public class DoStatement : Statement
     {
-        public Expression Expression { get;
-            internal set; }
+        public Expression Expression { get; internal set; }
 
-        public Statement Statement { get;
-            internal set; }
+        public Statement Statement { get; internal set; }
 
         internal DoStatement(SourceInterval interval, Expression expression, Statement statement) : base(interval)
         {
@@ -185,15 +189,17 @@ namespace compiler
         private readonly List<InitializerStatement> initializers;
         private readonly List<Expression> updaters;
 
+        public IEnumerable<InitializerStatement> Initializers => initializers;
+
+        public IEnumerable<Expression> Updaters => updaters;
+
         public int InitializerCount => initializers.Count;
 
-        public Expression Expression { get;
-            internal set; }
+        public Expression Expression { get; internal set; }
 
         public int UpdaterCount => updaters.Count;
 
-        public Statement Statement { get;
-            internal set; }
+        public Statement Statement { get; internal set; }
 
         internal ForStatement(SourceInterval interval, Expression expression = null) : base(interval)
         {
@@ -216,7 +222,7 @@ namespace compiler
         internal void SetUpdater(int index, Expression value) => updaters[index] = value;
     }
 
-    public class BlockStatement : Statement
+    public class BlockStatement : Statement, IEnumerable<Statement>
     {
         private readonly List<Statement> statements;
 
@@ -232,5 +238,9 @@ namespace compiler
         internal BlockStatement(SourceInterval interval) : base(interval) => statements = new List<Statement>();
 
         internal void AddStatement(Statement statement) => statements.Add(statement);
+
+        public IEnumerator<Statement> GetEnumerator() => statements.GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => statements.GetEnumerator();
     }
 }

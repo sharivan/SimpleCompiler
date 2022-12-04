@@ -102,8 +102,8 @@ namespace compiler.types
         {
             string result = "estrutura " + Name + "\n{\n";
 
-            for (int i = 0; i < fields.Count; i++)
-                result += "  " + fields[i] + "\n";
+            foreach (Field field in fields)
+                result += "  " + field + "\n";
 
             return result + "}";
         }

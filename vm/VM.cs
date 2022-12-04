@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Security.RightsManagement;
 using System.Threading;
 
 using assembler;
@@ -20,9 +21,18 @@ namespace vm
 
     public class VM
     {
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        public struct StringRec
+        {
+            public IntPtr previous;
+            public IntPtr next;
+            public int refCount;
+            public int len;
+        }
+
         public static readonly int POINTER_SIZE = IntPtr.Size;
         public static readonly int STRING_SIZE = POINTER_SIZE;
-        public static readonly int STRING_REC_SIZE = 2 * POINTER_SIZE + 2 * sizeof(int);
+        public static readonly int STRING_REC_SIZE = Marshal.SizeOf(typeof(StringRec));
 
         /*
          * Estrutura de uma string contada por referência
@@ -82,9 +92,6 @@ namespace vm
         private int calls;
         private SteppingMode steppingMode = SteppingMode.RUN;
         private int runToIP = -1;
-
-        private IntPtr lastString;
-
         private readonly List<Breakpoint> breakpoints;
         private readonly Dictionary<int, int> breakpointTable;
 
@@ -142,6 +149,12 @@ namespace vm
             private set;
         }
 
+        public IntPtr LastString
+        {
+            get;
+            private set;
+        }
+
         public VM()
         {
             code = null;
@@ -181,7 +194,7 @@ namespace vm
             }
 
             initialSP = SP;
-            lastString = IntPtr.Zero;
+            LastString = IntPtr.Zero;
             StringCount = 0;
             AllocatedStringSize = 0;
 
@@ -232,20 +245,29 @@ namespace vm
             try
             {
                 int size = STRING_REC_SIZE + (len + 1) * sizeof(char);
-                IntPtr result = Marshal.AllocHGlobal(size);
+                IntPtr result = Marshal.AllocHGlobal(size);     
                 result += STRING_REC_SIZE;
 
-                WritePointer(result - 2 * sizeof(int) - 2 * POINTER_SIZE, lastString); // anterior
-                WritePointer(result - 2 * sizeof(int) - POINTER_SIZE, IntPtr.Zero); // próximo
+                unsafe
+                {
+                    var rec = (StringRec*) (result - STRING_REC_SIZE).ToPointer();
+                    
 
-                if (lastString != IntPtr.Zero)
-                    WritePointer(lastString - 2 * sizeof(int) - POINTER_SIZE, result); // próximo
+                    rec->previous = LastString;
+                    rec->next = IntPtr.Zero;
 
-                lastString = result;
+                    if (LastString != IntPtr.Zero)
+                    {
+                        var lastStringRec = (StringRec*) (LastString - STRING_REC_SIZE).ToPointer();
+                        lastStringRec->next = result;
+                    }
+
+                    rec->refCount = 1;
+                    rec->len = len;
+                }
                 
-                WritePointer(result - 2 * sizeof(int), 1);
-                WritePointer(result - sizeof(int), len);
                 WritePointer(result, '\0');
+                LastString = result;
 
                 AllocatedStringSize += size;
                 StringCount++;
@@ -265,7 +287,17 @@ namespace vm
             return result;
         }
 
-        public static int StringLength(IntPtr str) => str == IntPtr.Zero ? 0 : ReadPointerInt(str - sizeof(int));
+        public static int StringLength(IntPtr str)
+        {
+            if (str == IntPtr.Zero)
+                return 0;
+
+            unsafe
+            {
+                var rec = (StringRec*) (str - STRING_REC_SIZE).ToPointer();
+                return rec->len;
+            }
+        }
 
         public IntPtr SetStringLength(IntPtr str, int len)
         {
@@ -276,10 +308,16 @@ namespace vm
             {
                 int oldSize = STRING_REC_SIZE + (StringLength(str) + 1) * sizeof(char);
                 int newSize = STRING_REC_SIZE + (len + 1) * sizeof(char);
+
                 str = Marshal.ReAllocHGlobal(str - STRING_REC_SIZE, (IntPtr) newSize);
                 str += STRING_REC_SIZE;
 
-                WritePointer(str - sizeof(int), len);
+                unsafe
+                {
+                    var rec = (StringRec*) (str - STRING_REC_SIZE).ToPointer();
+                    rec->len = len;
+                }
+
                 WritePointer(str + len * sizeof(char), '\0');
 
                 AllocatedStringSize -= oldSize;
@@ -296,10 +334,11 @@ namespace vm
         public static void StringAddRef(IntPtr str)
         {
             if (str != IntPtr.Zero)
-            {
-                int refCount = ReadPointerInt(str - 2 * sizeof(int));
-                WritePointer(str - 2 * sizeof(int), refCount + 1);
-            }
+                unsafe
+                {
+                    var rec = (StringRec*) (str - STRING_REC_SIZE).ToPointer();
+                    rec->refCount++;
+                }
         }
 
         public IntPtr StringRelease(IntPtr str)
@@ -307,29 +346,34 @@ namespace vm
             if (str == IntPtr.Zero)
                 return IntPtr.Zero;
 
-            int refCount = ReadPointerInt(str - 2 * sizeof(int));
-            refCount--;
-            WritePointer(str - 2 * sizeof(int), refCount);
-
-            if (refCount <= 0)
+            unsafe
             {
-                int size = STRING_REC_SIZE + (StringLength(str) + 1) * sizeof(char);
+                var rec = (StringRec*) (str - STRING_REC_SIZE).ToPointer();
+                rec->refCount--;
 
-                IntPtr previous = ReadPointerPtr(str - 2 * sizeof(int) - 2 * POINTER_SIZE);
-                IntPtr next = ReadPointerPtr(str - 2 * sizeof(int) - POINTER_SIZE);
+                if (rec->refCount <= 0)
+                {
+                    int size = STRING_REC_SIZE + (StringLength(str) + 1) * sizeof(char);
 
-                if (previous != IntPtr.Zero)
-                    WritePointer(previous - 2 * sizeof(int) - POINTER_SIZE, next); // próximo
+                    IntPtr previous = rec->previous;
+                    var previousRec = (StringRec*) (previous - STRING_REC_SIZE).ToPointer();
 
-                if (next != IntPtr.Zero)
-                    WritePointer(next - 2 * sizeof(int) - 2 * POINTER_SIZE, previous); // anterior
+                    IntPtr next = rec->next;
+                    var nextRec = (StringRec*) (next - STRING_REC_SIZE).ToPointer();
 
-                if (str == lastString)
-                    lastString = previous;
+                    if (previous != IntPtr.Zero)
+                        previousRec->next = next;
 
-                Marshal.FreeHGlobal(str - STRING_REC_SIZE);
-                AllocatedStringSize -= size;
-                return IntPtr.Zero;
+                    if (next != IntPtr.Zero)
+                        nextRec->previous = previous;
+
+                    if (str == LastString)
+                        LastString = previous;
+
+                    Marshal.FreeHGlobal(str - STRING_REC_SIZE);
+                    AllocatedStringSize -= size;
+                    return IntPtr.Zero;
+                }
             }
 
             return str;
@@ -337,14 +381,14 @@ namespace vm
 
         private void FreeAllocatedStrings()
         {
-            while (lastString != IntPtr.Zero)
+            while (LastString != IntPtr.Zero)
             {
-                IntPtr str = lastString - STRING_REC_SIZE;
-                lastString = ReadPointerPtr(str); // anterior
+                IntPtr str = LastString - STRING_REC_SIZE;
+                LastString = ReadPointerPtr(str); // anterior
                 Marshal.FreeHGlobal(str);
             }
 
-            lastString = IntPtr.Zero;
+            LastString = IntPtr.Zero;
             StringCount = 0;
             AllocatedStringSize = 0;
         }
