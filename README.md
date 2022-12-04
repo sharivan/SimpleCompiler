@@ -23,22 +23,21 @@ programa TesteUnidades
 	{
 		// Teste da unidade padrão System:
 		
-		var str:char[256];
-		CopiaString("abcdefgh", str);
-		ConcatenaStrings(str, str, "1234567890");
-		escrevaln "\"abcdefgh\"+\"1234567890\"=\"", str, '"';
+		var str:texto = "abcdefgh"; // string dinâmica contada por referência
+		str = str + "1234567890";
+		escrevaln "\"abcdefgh\" + \"1234567890\" = \"", str, '"';
 		
-		escrevaln "ComprimentoString(\"", str, "\")=", ComprimentoString(str);
+		escrevaln "Tamanho do texto \"", str, "\" = ", str.tamanho;
 		
-		var str2:char[16];
+		var str2:char[16]; // string estática
 		CopiaString("4567", str2);
 		var str2Int:int;
 		StringParaInt(str2, str2Int);
 		escrevaln "StringParaInt(\"", str2, "\")=", str2Int;
 		
 		// saída esperada:
-		// "abcdefgh"+"1234567890"="abcdefgh1234567890"
-		// ComprimentoString("abcdefgh1234567890")=18;
+		// "abcdefgh" + "1234567890" = "abcdefgh1234567890"
+		// Tamanho do texto "abcdefgh1234567890" =1 8;
 		// StringParaInt("4567")=4567
 		
 		// Teste da unidade Sorts:
@@ -72,6 +71,12 @@ A depuração pode ser feita pelo próprio programa, mas somente sobre o código
 
 Alguns recursos ainda serão inseridos em breve à linguagem:
 
-- Suporte a arrays dinâmicos.
+- Arrays dinâmicos contados por referência.
 
-- Depurador completo.
+- Classes, herança e polimorfismo. As instâncias dessas classes também seriam contadas por referências assim como os textos e arrays dinâmicos.
+
+- Referências fracas (weak references) para evitar vazamentos de memórias por conta de referências cíclicas.
+
+- Bibliotecas auxiliares com funções úteis.
+
+- Depuração no código fonte e não somente no assembly, além de ter suporte à inspeção do valor das variáveis ou de qualquer expressão válida.
