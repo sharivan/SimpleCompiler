@@ -33,47 +33,53 @@ namespace compiler.types
 
         public override bool CoerceWith(AbstractType other, bool isExplicit)
         {
-            if (other is PrimitiveType p)
+            switch (other)
             {
-                switch (p.Primitive)
+                case PrimitiveType p:
+                    switch (p.Primitive)
+                    {
+                        case Primitive.VOID:
+                        case Primitive.BOOL:
+                            return false;
+
+                        case Primitive.BYTE:
+                            return isExplicit;
+
+                        case Primitive.CHAR:
+                            return false;
+
+                        case Primitive.SHORT:
+                            return isExplicit;
+
+                        case Primitive.INT:
+                            return isExplicit;
+
+                        case Primitive.LONG:
+                            return isExplicit;
+
+                        case Primitive.FLOAT:
+                            return isExplicit;
+
+                        case Primitive.DOUBLE:
+                            return isExplicit;
+                    }
+
+                    break;
+
+                case PointerType ptr:
                 {
-                    case Primitive.VOID:
-                    case Primitive.BOOL:
-                        return false;
+                    if (type == null)
+                        return true;
 
-                    case Primitive.BYTE:
-                        return isExplicit;
-
-                    case Primitive.CHAR:
-                        return false;
-
-                    case Primitive.SHORT:
-                        return isExplicit;
-
-                    case Primitive.INT:
-                        return isExplicit;
-
-                    case Primitive.LONG:
-                        return isExplicit;
-
-                    case Primitive.FLOAT:
-                        return isExplicit;
-
-                    case Primitive.DOUBLE:
-                        return isExplicit;
+                    AbstractType otherType = ptr.Type;
+                    return isExplicit || PrimitiveType.IsPrimitiveVoid(otherType) || type == otherType;
                 }
+
+                case StringType:
+                    return type != null && PrimitiveType.IsPrimitiveChar(type);
             }
 
-            if (other is PointerType ptr)
-            {
-                if (type == null)
-                    return true;
-
-                AbstractType otherType = ptr.Type;
-                return isExplicit || PrimitiveType.IsPrimitiveVoid(otherType) || type == otherType;
-            }
-
-            return other is StringType && type != null && PrimitiveType.IsPrimitiveChar(type);
+            return false;
         }
 
         public override int GetHashCode() => 34944597 + EqualityComparer<AbstractType>.Default.GetHashCode(type);

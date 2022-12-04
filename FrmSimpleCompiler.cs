@@ -496,9 +496,7 @@ namespace SimpleCompiler
                 if (textView != null && textView.VisualLinesValid)
                     foreach (VisualLine line in textView.VisualLines)
                         if (breakpoints.ContainsKey(line.FirstDocumentLine.LineNumber))
-                        {
                             drawingContext.DrawImage(form.enabledImage, new Rect(0, line.VisualTop - textView.VerticalOffset, form.enabledImage.Width, form.enabledImage.Height));
-                        }
             }
 
             public void AddBreakpoint(int line, Breakpoint breakpoint)
@@ -843,24 +841,24 @@ namespace SimpleCompiler
         }
 
         private void OnCompileError(SourceInterval interval, string message) => BeginInvoke((MethodInvoker) delegate
-                                                                                         {
-                                                                                             if (interval.IsValid())
-                                                                                             {
-                                                                                                 ConsolePrintLn("Erro de compilação na linha " + interval.Line + ": " + message);
+        {
+            if (interval.IsValid())
+            {
+                ConsolePrintLn("Erro de compilação na linha " + interval.Line + ": " + message);
 
-                                                                                                 if (interval.FileName != null && interval.Start >= 0)
-                                                                                                 {
-                                                                                                     SourceTab tab = SelectSourceTab(interval.FileName, true);
-                                                                                                     if (tab != null)
-                                                                                                     {
-                                                                                                         tab.txtSource.SelectionStart = interval.Start;
-                                                                                                         tab.txtSource.SelectionLength = interval.Length;
-                                                                                                     }
-                                                                                                 }
-                                                                                             }
-                                                                                             else
-                                                                                                 ConsolePrintLn("Erro de compilação: " + message);
-                                                                                         });
+                if (interval.FileName != null && interval.Start >= 0)
+                {
+                    SourceTab tab = SelectSourceTab(interval.FileName, true);
+                    if (tab != null)
+                    {
+                        tab.txtSource.SelectionStart = interval.Start;
+                        tab.txtSource.SelectionLength = interval.Length;
+                    }
+                }
+            }
+            else
+                ConsolePrintLn("Erro de compilação: " + message);
+        });
 
         private void DisassemblyLine(int ip, string line)
         {
@@ -948,121 +946,121 @@ namespace SimpleCompiler
         private void ConsolePrintLn(string message) => ConsolePrint(message + "\n");
 
         private void OnPause(int ip) => BeginInvoke((MethodInvoker) delegate
-                                                 {
-                                                     paused = true;
+        {
+            paused = true;
 
-                                                     statusBar.Items["statusText"].Text = "Pausado";
+            statusBar.Items["statusText"].Text = "Pausado";
 
-                                                     btnRun.Enabled = true;
-                                                     btnPause.Enabled = false;
-                                                     btnStop.Enabled = true;
-                                                     btnStepOver.Enabled = true;
-                                                     btnStepInto.Enabled = true;
-                                                     btnStepReturn.Enabled = true;
-                                                     btnRunToCursor.Enabled = true;
+            btnRun.Enabled = true;
+            btnPause.Enabled = false;
+            btnStop.Enabled = true;
+            btnStepOver.Enabled = true;
+            btnStepInto.Enabled = true;
+            btnStepReturn.Enabled = true;
+            btnRunToCursor.Enabled = true;
 
-                                                     FetchStackData();
+            FetchData();
 
-                                                     if (!ipToLineNumber.TryGetValue(ip, out int lineNumber))
-                                                         return;
+            if (!ipToLineNumber.TryGetValue(ip, out int lineNumber))
+                return;
 
-                                                     lineBackgroundRenderer.Enabled = true;
-                                                     lineBackgroundRenderer.LineNumber = lineNumber;
-                                                     var visualLine = txtAssembly.TextArea.TextView.VisualLines.FirstOrDefault(line => line.FirstDocumentLine.LineNumber == lineNumber);
+            lineBackgroundRenderer.Enabled = true;
+            lineBackgroundRenderer.LineNumber = lineNumber;
+            var visualLine = txtAssembly.TextArea.TextView.VisualLines.FirstOrDefault(line => line.FirstDocumentLine.LineNumber == lineNumber);
 
-                                                     if (visualLine == null)
-                                                         txtAssembly.ScrollToLine(lineNumber);
-                                                 });
+            if (visualLine == null)
+                txtAssembly.ScrollToLine(lineNumber);
+        });
 
         private void OnStep(int ip, SteppingMode mode) => BeginInvoke((MethodInvoker) delegate
-                                                                   {
-                                                                       paused = true;
+        {
+            paused = true;
 
-                                                                       statusBar.Items["statusText"].Text = "Executando passo a passo (" + mode switch
-                                                                       {
-                                                                           SteppingMode.RUN => "pausado",
-                                                                           SteppingMode.INTO => "entrando em funções",
-                                                                           SteppingMode.OVER => "pulando funções",
-                                                                           SteppingMode.OUT => "saindo da função",
-                                                                           SteppingMode.RUN_TO_IP => "executado até o ip atual",
-                                                                           _ => throw new NotImplementedException()
-                                                                       } + ")";
+            statusBar.Items["statusText"].Text = "Executando passo a passo (" + mode switch
+            {
+                SteppingMode.RUN => "pausado",
+                SteppingMode.INTO => "entrando em funções",
+                SteppingMode.OVER => "pulando funções",
+                SteppingMode.OUT => "saindo da função",
+                SteppingMode.RUN_TO_IP => "executado até o ip atual",
+                _ => throw new NotImplementedException()
+            } + ")";
 
-                                                                       btnRun.Enabled = true;
-                                                                       btnPause.Enabled = false;
-                                                                       btnStop.Enabled = true;
-                                                                       btnStepOver.Enabled = true;
-                                                                       btnStepInto.Enabled = true;
-                                                                       btnStepReturn.Enabled = true;
-                                                                       btnRunToCursor.Enabled = true;
+            btnRun.Enabled = true;
+            btnPause.Enabled = false;
+            btnStop.Enabled = true;
+            btnStepOver.Enabled = true;
+            btnStepInto.Enabled = true;
+            btnStepReturn.Enabled = true;
+            btnRunToCursor.Enabled = true;
 
-                                                                       FetchStackData();
+            FetchData();
 
-                                                                       if (!ipToLineNumber.TryGetValue(ip, out int lineNumber))
-                                                                           return;
+            if (!ipToLineNumber.TryGetValue(ip, out int lineNumber))
+                return;
 
-                                                                       lineBackgroundRenderer.Enabled = true;
-                                                                       lineBackgroundRenderer.LineNumber = lineNumber;
-                                                                       var visualLine = txtAssembly.TextArea.TextView.VisualLines.FirstOrDefault(line => line.FirstDocumentLine.LineNumber == lineNumber);
+            lineBackgroundRenderer.Enabled = true;
+            lineBackgroundRenderer.LineNumber = lineNumber;
+            var visualLine = txtAssembly.TextArea.TextView.VisualLines.FirstOrDefault(line => line.FirstDocumentLine.LineNumber == lineNumber);
 
-                                                                       if (visualLine == null)
-                                                                           txtAssembly.ScrollToLine(lineNumber);
-                                                                   });
+            if (visualLine == null)
+                txtAssembly.ScrollToLine(lineNumber);
+        });
 
         private void OnBreakpoint(Breakpoint bp) => BeginInvoke((MethodInvoker) delegate
-                                                             {
-                                                                 paused = true;
+        {
+            paused = true;
 
-                                                                 statusBar.Items["statusText"].Text = "Ponto de interrupção encontrado";
+            statusBar.Items["statusText"].Text = "Ponto de interrupção encontrado";
 
-                                                                 btnRun.Enabled = true;
-                                                                 btnPause.Enabled = false;
-                                                                 btnStop.Enabled = true;
-                                                                 btnStepOver.Enabled = true;
-                                                                 btnStepInto.Enabled = true;
-                                                                 btnStepReturn.Enabled = true;
-                                                                 btnRunToCursor.Enabled = true;
+            btnRun.Enabled = true;
+            btnPause.Enabled = false;
+            btnStop.Enabled = true;
+            btnStepOver.Enabled = true;
+            btnStepInto.Enabled = true;
+            btnStepReturn.Enabled = true;
+            btnRunToCursor.Enabled = true;
 
-                                                                 FetchStackData();
+            FetchData();
 
-                                                                 if (!ipToLineNumber.TryGetValue(bp.IP, out int lineNumber))
-                                                                     return;
+            if (!ipToLineNumber.TryGetValue(bp.IP, out int lineNumber))
+                return;
 
-                                                                 lineBackgroundRenderer.Enabled = true;
-                                                                 lineBackgroundRenderer.LineNumber = lineNumber;
-                                                                 var visualLine = txtAssembly.TextArea.TextView.VisualLines.FirstOrDefault(line => line.FirstDocumentLine.LineNumber == lineNumber);
+            lineBackgroundRenderer.Enabled = true;
+            lineBackgroundRenderer.LineNumber = lineNumber;
+            var visualLine = txtAssembly.TextArea.TextView.VisualLines.FirstOrDefault(line => line.FirstDocumentLine.LineNumber == lineNumber);
 
-                                                                 if (visualLine == null)
-                                                                     txtAssembly.ScrollToLine(lineNumber);
-                                                             });
+            if (visualLine == null)
+                txtAssembly.ScrollToLine(lineNumber);
+        });
 
 #pragma warning disable IDE1006 // Estilos de Nomenclatura
         private void btnClearConsole_Click(object sender, EventArgs e) => txtConsole.Clear();
 
         private void PostRun(bool success, bool aborted, Exception exception) => BeginInvoke((MethodInvoker) delegate
-                                                                                          {
-                                                                                              vmRunning = false;
-                                                                                              paused = true;
+        {
+            vmRunning = false;
+            paused = true;
 
-                                                                                              if (success)
-                                                                                                  statusBar.Items["statusText"].Text = "Programa terminado com sucesso.";
-                                                                                              else if (aborted)
-                                                                                                  statusBar.Items["statusText"].Text = "Programa abortado.";
-                                                                                              else
-                                                                                              {
-                                                                                                  statusBar.Items["statusText"].Text = "Programa terminado com falha: " + exception.Message;
-                                                                                                  ConsolePrintLn(exception.StackTrace);
-                                                                                              }
+            if (success)
+                statusBar.Items["statusText"].Text = "Programa terminado com sucesso.";
+            else if (aborted)
+                statusBar.Items["statusText"].Text = "Programa abortado.";
+            else
+            {
+                statusBar.Items["statusText"].Text = "Programa terminado com falha: " + exception.Message;
+                ConsolePrintLn(exception.StackTrace);
+            }
 
-                                                                                              btnCompile.Enabled = true;
-                                                                                              btnRun.Enabled = true;
-                                                                                              btnPause.Enabled = false;
-                                                                                              btnStop.Enabled = false;
-                                                                                              btnStepOver.Enabled = true;
-                                                                                              btnStepInto.Enabled = false;
-                                                                                              btnStepReturn.Enabled = false;
-                                                                                              btnRunToCursor.Enabled = true;
-                                                                                          });
+            btnCompile.Enabled = true;
+            btnRun.Enabled = true;
+            btnPause.Enabled = false;
+            btnStop.Enabled = false;
+            btnStepOver.Enabled = true;
+            btnStepInto.Enabled = false;
+            btnStepReturn.Enabled = false;
+            btnRunToCursor.Enabled = true;
+        });
 
         public void VMRun(bool stepping, int runToIP)
         {
@@ -1086,6 +1084,8 @@ namespace SimpleCompiler
             int lines = vm.StackSize / stackViewAlignSize;
             dgvStack.RowCount = lines;
         }
+
+        private void SetupStringView() => dgvStrings.RowCount = Math.Max(vm.StringCount, 50);
 
         private void FetchStackViewRow(int row)
         {
@@ -1118,7 +1118,8 @@ namespace SimpleCompiler
                 }
             }
 
-            if (vm.IsStackHostAddr((IntPtr) dataValue))
+            // TODO Isso deveria funcionar pra qualquer valor de alinhamento de pilha, não somente para 4 bytes. Corrigir isso!
+            if (stackViewAlignSize == 4 && vm.IsStackHostAddr((IntPtr) dataValue))
             {
                 int residentAddr = vm.HostToResidentAddr((IntPtr) dataValue);
                 view = "=>" + string.Format("{0:x8}", residentAddr);
@@ -1144,20 +1145,48 @@ namespace SimpleCompiler
             dgvStack[3, row].Value = view;
         }
 
+        private void FetchStringView(int row, IntPtr str)
+        {
+            if (str != IntPtr.Zero)
+                unsafe
+                {
+                    var rec = (VM.StringRec*) (str - VM.STRING_REC_SIZE).ToPointer();
+
+                    dgvStrings[0, row].Value = str.ToString("x8");
+                    dgvStrings[1, row].Value = rec->refCount.ToString();
+                    dgvStrings[2, row].Value = rec->len.ToString();
+                    dgvStrings[3, row].Value = VM.ReadPointerString(str);
+                }
+            else
+            {
+                dgvStrings[0, row].Value = "";
+                dgvStrings[1, row].Value = "";
+                dgvStrings[2, row].Value = "";
+                dgvStrings[3, row].Value = "";
+            }
+        }
+
+        private void FetchData()
+        {
+            FetchStackData();
+            FetchStringData();
+        }
+
         private void FetchStackData()
         {
             if (!paused)
                 return;
 
+            dgvStack.Focus();
             dgvStack.SuspendLayout();
 
             int visibleRowsCount = dgvStack.DisplayedRowCount(true);
 
-            int firstDisplayedRowIndex = dgvStack.FirstDisplayedCell.RowIndex - 1;
+            int firstDisplayedRowIndex = dgvStack.FirstDisplayedCell.RowIndex - 10;
             if (firstDisplayedRowIndex < 0)
                 firstDisplayedRowIndex = 0;
 
-            int lastvisibleRowIndex = firstDisplayedRowIndex + visibleRowsCount + 1;
+            int lastvisibleRowIndex = firstDisplayedRowIndex + visibleRowsCount + 10;
             if (lastvisibleRowIndex >= dgvStack.RowCount)
                 lastvisibleRowIndex = dgvStack.RowCount - 1;
 
@@ -1167,13 +1196,55 @@ namespace SimpleCompiler
                 System.Windows.Forms.Application.DoEvents();
             }
 
-            dgvStack.ResumeLayout();
+            dgvStack.ResumeLayout();           
+        }
+
+        private void FetchStringData()
+        {
+            dgvStrings.SuspendLayout();
+
+            SetupStringView();
+
+            int visibleRowsCount = dgvStrings.DisplayedRowCount(true);
+
+            int firstDisplayedRowIndex = dgvStrings.FirstDisplayedCell.RowIndex - 10;
+            if (firstDisplayedRowIndex < 0)
+                firstDisplayedRowIndex = 0;
+
+            int lastvisibleRowIndex = firstDisplayedRowIndex + visibleRowsCount + 10;
+            if (lastvisibleRowIndex >= dgvStrings.RowCount)
+                lastvisibleRowIndex = dgvStrings.RowCount - 1;
+
+            IntPtr str = vm.LastString;           
+            for (int rowIndex = 0; str != IntPtr.Zero && rowIndex < firstDisplayedRowIndex; rowIndex++)
+            {
+                unsafe
+                {
+                    var rec = (VM.StringRec*) (str - VM.STRING_REC_SIZE).ToPointer();
+                    str = rec->previous;
+                }
+            }
+
+            for (int rowIndex = firstDisplayedRowIndex; rowIndex <= lastvisibleRowIndex; rowIndex++)
+            {
+                FetchStringView(rowIndex, str);
+                System.Windows.Forms.Application.DoEvents();
+                
+                if (str != IntPtr.Zero)
+                    unsafe
+                    {
+                        var rec = (VM.StringRec*) (str - VM.STRING_REC_SIZE).ToPointer();
+                        str = rec->previous;
+                    }
+            }
+
+            dgvStrings.ResumeLayout();
         }
 
         private void StartVM(bool stepping = false, int runToIP = -1)
         {
             SetupStackView();
-            //FetchStackData();
+            SetupStringView();
 
             vmRunning = true;
             vmThread = new Thread(() => VMRun(stepping, runToIP));
@@ -1230,9 +1301,8 @@ namespace SimpleCompiler
 
             sourceFile = currentTab.FileName;
 
-            for (int i = 0; i < sourceTabs.Count; i++)
+            foreach (SourceTab tab in sourceTabs)
             {
-                SourceTab tab = sourceTabs[i];
                 tab.breakpointMargin.ClearBreakpoints();
                 tab.SetSource(tab.txtSource.Text);
                 tab.m_SourceCode = tab.txtSource.Text;
@@ -1452,11 +1522,8 @@ namespace SimpleCompiler
         {
             paused = false;
 
-            for (int i = 0; i < sourceTabs.Count; i++)
-            {
-                SourceTab sourceTab = sourceTabs[i];
+            foreach (SourceTab sourceTab in sourceTabs)
                 sourceTab.lineBackgroundRenderer.Enabled = false;
-            }
 
             lineBackgroundRenderer.Enabled = false;
 
@@ -1483,11 +1550,8 @@ namespace SimpleCompiler
         {
             paused = false;
 
-            for (int i = 0; i < sourceTabs.Count; i++)
-            {
-                SourceTab sourceTab = sourceTabs[i];
+            foreach (SourceTab sourceTab in sourceTabs)
                 sourceTab.lineBackgroundRenderer.Enabled = false;
-            }
 
             lineBackgroundRenderer.Enabled = false;
 
@@ -1510,11 +1574,8 @@ namespace SimpleCompiler
         {
             paused = false;
 
-            for (int i = 0; i < sourceTabs.Count; i++)
-            {
-                SourceTab sourceTab = sourceTabs[i];
+            foreach (SourceTab sourceTab in sourceTabs)
                 sourceTab.lineBackgroundRenderer.Enabled = false;
-            }
 
             lineBackgroundRenderer.Enabled = false;
 
@@ -1536,11 +1597,8 @@ namespace SimpleCompiler
         {
             paused = false;
 
-            for (int i = 0; i < sourceTabs.Count; i++)
-            {
-                SourceTab sourceTab = sourceTabs[i];
+            foreach (SourceTab sourceTab in sourceTabs)
                 sourceTab.lineBackgroundRenderer.Enabled = false;
-            }
 
             lineBackgroundRenderer.Enabled = false;
 
@@ -1768,7 +1826,7 @@ namespace SimpleCompiler
 #pragma warning restore IDE1006 // Estilos de Nomenclatura
         {
             stackViewAlignSize = 16;
-            FetchStackData();
+            FetchData();
         }
 
 #pragma warning disable IDE1006 // Estilos de Nomenclatura
@@ -1776,7 +1834,7 @@ namespace SimpleCompiler
 #pragma warning restore IDE1006 // Estilos de Nomenclatura
         {
             stackViewAlignSize = 8;
-            FetchStackData();
+            FetchData();
         }
 
 #pragma warning disable IDE1006 // Estilos de Nomenclatura
@@ -1784,7 +1842,7 @@ namespace SimpleCompiler
 #pragma warning restore IDE1006 // Estilos de Nomenclatura
         {
             stackViewAlignSize = 4;
-            FetchStackData();
+            FetchData();
         }
 
 #pragma warning disable IDE1006 // Estilos de Nomenclatura

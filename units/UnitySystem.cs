@@ -24,7 +24,7 @@ namespace units
         private static readonly int NEW_STRING_PARAM_SIZE = STRING_SIZE + POINTER_SIZE;
         private static readonly int NEW_STRING2_PARAM_SIZE = 2 * POINTER_SIZE;
         private static readonly int COPY_STRING2_PARAM_SIZE = STRING_SIZE + POINTER_SIZE;
-        private static readonly int STRING_LENGTH2_PARAM_SIZE = STRING_SIZE + sizeof(int);
+        private static readonly int STRING_LENGTH2_PARAM_SIZE = sizeof(int) + STRING_SIZE;
         private static readonly int CONCATENATE_STRING2_PARAM_SIZE = 3 * STRING_SIZE;
         private static readonly int CONCATENATE_STRING3_PARAM_SIZE = POINTER_SIZE + 2 * STRING_SIZE;
         private static readonly int STRING_STORE_PARAM_SIZE = POINTER_SIZE + STRING_SIZE;
@@ -238,7 +238,6 @@ namespace units
             IntPtr dstAddr = vm.LoadParamPtr(NEW_STRING2_PARAM_SIZE, 0);
 
             IntPtr dst = ReadPointerPtr(dstAddr);
-            VM.StringAddRef(result);
             vm.StringRelease(dst);
 
             WritePointer(dstAddr, result);
@@ -276,8 +275,8 @@ namespace units
 
         public static void ConcatenateStrings3(VM vm)
         {
-            IntPtr str1 = vm.LoadParamPtr(CONCATENATE_STRING3_PARAM_SIZE, STRING_COUNT);
-            IntPtr str2 = vm.LoadParamPtr(CONCATENATE_STRING3_PARAM_SIZE, 2 * STRING_COUNT);
+            IntPtr str1 = vm.LoadParamPtr(CONCATENATE_STRING3_PARAM_SIZE, POINTER_COUNT);
+            IntPtr str2 = vm.LoadParamPtr(CONCATENATE_STRING3_PARAM_SIZE, POINTER_COUNT + STRING_COUNT);
 
             string s1 = str1 != IntPtr.Zero ? ReadPointerString(str1) : "";
             string s2 = str2 != IntPtr.Zero ? ReadPointerString(str2) : "";
@@ -288,7 +287,6 @@ namespace units
             IntPtr dstAddr = vm.LoadParamPtr(CONCATENATE_STRING3_PARAM_SIZE, 0);
 
             IntPtr dst = ReadPointerPtr(dstAddr);
-            VM.StringAddRef(result);
             vm.StringRelease(dst);
 
             WritePointer(dstAddr, result);
