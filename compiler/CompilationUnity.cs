@@ -332,7 +332,7 @@ namespace compiler
             {
                 StructType st = FindStruct(type.Name);
 
-                type.ReferencedType = st ?? throw new CompilerException(type.Interval, "Tipo não declarado '" + type.Name + "'.");
+                type.ReferencedType = st ?? throw new CompilerException(type.Interval, $"Tipo não declarado: '{type.Name}'.");
             }
 
             foreach (StructType st in structs)

@@ -7,57 +7,54 @@ namespace compiler
     {
         private void CompileStoreStack(Assembler assembler, Assembler leftAssembler, AbstractType type, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            switch (type)
             {
-                switch (p.Primitive)
+                case PrimitiveType p:
+                    switch (p.Primitive)
+                    {
+                        case Primitive.BOOL:
+                        case Primitive.BYTE:
+                            assembler.EmitStoreStack8();
+                            return;
+
+                        case Primitive.CHAR:
+                        case Primitive.SHORT:
+                            assembler.EmitStoreStack16();
+                            return;
+
+                        case Primitive.INT:
+                        case Primitive.FLOAT:
+                            assembler.EmitStoreStack32();
+                            return;
+
+                        case Primitive.LONG:
+                        case Primitive.DOUBLE:
+                            assembler.EmitStoreStack64();
+                            return;
+                    }
+
+                    break;
+
+                case StructType:
+                    // TODO Implementar
+                    throw new CompilerException(interval, $"Operação não implementada para o tipo '{type}'.");
+
+                case ArrayType:
+                    // TODO Implementar
+                    throw new CompilerException(interval, $"Operação não implementada para o tipo '{type}'.");
+
+                case PointerType:
+                    assembler.EmitStoreStackPtr();
+                    return;
+
+                case StringType:
                 {
-                    case Primitive.BOOL:
-                    case Primitive.BYTE:
-                        assembler.EmitStoreStack8();
-                        return;
-
-                    case Primitive.CHAR:
-                    case Primitive.SHORT:
-                        assembler.EmitStoreStack16();
-                        return;
-
-                    case Primitive.INT:
-                    case Primitive.FLOAT:
-                        assembler.EmitStoreStack32();
-                        return;
-
-                    case Primitive.LONG:
-                    case Primitive.DOUBLE:
-                        assembler.EmitStoreStack64();
-                        return;
+                    leftAssembler.EmitResidentToHostAddress();
+                    Function f = unitySystem.FindFunction("AtribuiTexto");
+                    int index = GetOrAddExternalFunction(f.Name, f.ParameterSize);
+                    assembler.EmitExternCall(index);
+                    return;
                 }
-            }
-
-            if (type is StructType)
-            {
-                // TODO Implementar
-                throw new CompilerException(interval, $"Operação não implementada para o tipo '{type}'.");
-            }
-
-            if (type is ArrayType)
-            {
-                // TODO Implementar
-                throw new CompilerException(interval, $"Operação não implementada para o tipo '{type}'.");
-            }
-
-            if (type is PointerType)
-            {
-                assembler.EmitStoreStackPtr();
-                return;
-            }
-
-            if (type is StringType)
-            {
-                leftAssembler.EmitResidentToHostAddress();
-                Function f = unitySystem.FindFunction("AtribuiTexto");
-                int index = GetOrAddExternalFunction(f.Name, f.ParameterSize);
-                assembler.EmitExternCall(index);
-                return;
             }
 
             throw new CompilerException(interval, $"Tipo desconhecido: '{type}'.");
@@ -67,58 +64,55 @@ namespace compiler
         private void CompileStorePointer(Assembler assembler, Assembler leftAssembler, AbstractType type, SourceInterval interval)
 #pragma warning restore IDE0060 // Remover o parâmetro não utilizado
         {
-            if (type is PrimitiveType p)
+            switch (type)
             {
-                switch (p.Primitive)
+                case PrimitiveType p:
+                    switch (p.Primitive)
+                    {
+                        case Primitive.BOOL:
+                        case Primitive.BYTE:
+                            assembler.EmitStorePointer8();
+                            return;
+
+                        case Primitive.CHAR:
+                        case Primitive.SHORT:
+                            assembler.EmitStorePointer16();
+                            return;
+
+                        case Primitive.INT:
+                        case Primitive.FLOAT:
+                            assembler.EmitStorePointer32();
+                            return;
+
+                        case Primitive.LONG:
+                        case Primitive.DOUBLE:
+                            assembler.EmitStorePointer64();
+                            return;
+                    }
+
+                    break;
+
+                case StructType:
+                    // TODO Implementar
+                    throw new CompilerException(interval, $"Operação não implementada para o tipo '{type}'.");
+
+                case ArrayType:
+                    // TODO Implementar
+                    throw new CompilerException(interval, $"Operação não implementada para o tipo '{type}'.");
+
+                case PointerType:
+                    assembler.EmitStorePointerPtr();
+                    return;
+
+                case StringType:
                 {
-                    case Primitive.BOOL:
-                    case Primitive.BYTE:
-                        assembler.EmitStorePointer8();
-                        return;
-
-                    case Primitive.CHAR:
-                    case Primitive.SHORT:
-                        assembler.EmitStorePointer16();
-                        return;
-
-                    case Primitive.INT:
-                    case Primitive.FLOAT:
-                        assembler.EmitStorePointer32();
-                        return;
-
-                    case Primitive.LONG:
-                    case Primitive.DOUBLE:
-                        assembler.EmitStorePointer64();
-                        return;
+                    // TODO Isto está certo?
+                    leftAssembler.EmitResidentToHostAddress();
+                    Function f = unitySystem.FindFunction("AtribuiTexto");
+                    int index = GetOrAddExternalFunction(f.Name, f.ParameterSize);
+                    assembler.EmitExternCall(index);
+                    return;
                 }
-            }
-
-            if (type is StructType)
-            {
-                // TODO Implementar
-                throw new CompilerException(interval, $"Operação não implementada para o tipo '{type}'.");
-            }
-
-            if (type is ArrayType)
-            {
-                // TODO Implementar
-                throw new CompilerException(interval, $"Operação não implementada para o tipo '{type}'.");
-            }
-
-            if (type is PointerType)
-            {
-                assembler.EmitStorePointerPtr();
-                return;
-            }
-
-            if (type is StringType)
-            {
-                // TODO Isto está certo?
-                leftAssembler.EmitResidentToHostAddress();
-                Function f = unitySystem.FindFunction("AtribuiTexto");
-                int index = GetOrAddExternalFunction(f.Name, f.ParameterSize);
-                assembler.EmitExternCall(index);
-                return;
             }
 
             throw new CompilerException(interval, $"Tipo desconhecido: '{type}'.");
@@ -126,45 +120,46 @@ namespace compiler
 
         private void CompileStoreGlobal(Assembler assembler, Assembler leftAssembler, AbstractType type, int offset, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            switch (type)
             {
-                switch (p.Primitive)
+                case PrimitiveType p:
+                    switch (p.Primitive)
+                    {
+                        case Primitive.BOOL:
+                        case Primitive.BYTE:
+                            assembler.EmitStoreGlobal8(offset);
+                            return;
+
+                        case Primitive.CHAR:
+                        case Primitive.SHORT:
+                            assembler.EmitStoreGlobal16(offset);
+                            return;
+
+                        case Primitive.INT:
+                        case Primitive.FLOAT:
+                            assembler.EmitStoreGlobal32(offset);
+                            return;
+
+                        case Primitive.LONG:
+                        case Primitive.DOUBLE:
+                            assembler.EmitStoreGlobal64(offset);
+                            return;
+                    }
+
+                    break;
+
+                case PointerType:
+                    assembler.EmitStoreGlobalPtr(offset);
+                    return;
+
+                case StringType:
                 {
-                    case Primitive.BOOL:
-                    case Primitive.BYTE:
-                        assembler.EmitStoreGlobal8(offset);
-                        return;
-
-                    case Primitive.CHAR:
-                    case Primitive.SHORT:
-                        assembler.EmitStoreGlobal16(offset);
-                        return;
-
-                    case Primitive.INT:
-                    case Primitive.FLOAT:
-                        assembler.EmitStoreGlobal32(offset);
-                        return;
-
-                    case Primitive.LONG:
-                    case Primitive.DOUBLE:
-                        assembler.EmitStoreGlobal64(offset);
-                        return;
+                    leftAssembler.EmitLoadGlobalHostAddress(offset);
+                    Function f = unitySystem.FindFunction("AtribuiTexto");
+                    int index = GetOrAddExternalFunction(f.Name, f.ParameterSize);
+                    assembler.EmitExternCall(index);
+                    return;
                 }
-            }
-
-            if (type is PointerType)
-            {
-                assembler.EmitStoreGlobalPtr(offset);
-                return;
-            }
-
-            if (type is StringType)
-            {
-                leftAssembler.EmitLoadGlobalHostAddress(offset);
-                Function f = unitySystem.FindFunction("AtribuiTexto");
-                int index = GetOrAddExternalFunction(f.Name, f.ParameterSize);
-                assembler.EmitExternCall(index);
-                return;
             }
 
             throw new CompilerException(interval, $"Tipo desconhecido: '{type}'.");
@@ -172,45 +167,46 @@ namespace compiler
 
         private void CompileStoreLocal(Assembler assembler, Assembler leftAssembler, AbstractType type, int offset, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            switch (type)
             {
-                switch (p.Primitive)
+                case PrimitiveType p:
+                    switch (p.Primitive)
+                    {
+                        case Primitive.BOOL:
+                        case Primitive.BYTE:
+                            assembler.EmitStoreLocal8(offset);
+                            return;
+
+                        case Primitive.CHAR:
+                        case Primitive.SHORT:
+                            assembler.EmitStoreLocal16(offset);
+                            return;
+
+                        case Primitive.INT:
+                        case Primitive.FLOAT:
+                            assembler.EmitStoreLocal32(offset);
+                            return;
+
+                        case Primitive.LONG:
+                        case Primitive.DOUBLE:
+                            assembler.EmitStoreLocal64(offset);
+                            return;
+                    }
+
+                    break;
+
+                case PointerType:
+                    assembler.EmitStoreLocalPtr(offset);
+                    return;
+
+                case StringType:
                 {
-                    case Primitive.BOOL:
-                    case Primitive.BYTE:
-                        assembler.EmitStoreLocal8(offset);
-                        return;
-
-                    case Primitive.CHAR:
-                    case Primitive.SHORT:
-                        assembler.EmitStoreLocal16(offset);
-                        return;
-
-                    case Primitive.INT:
-                    case Primitive.FLOAT:
-                        assembler.EmitStoreLocal32(offset);
-                        return;
-
-                    case Primitive.LONG:
-                    case Primitive.DOUBLE:
-                        assembler.EmitStoreLocal64(offset);
-                        return;
+                    leftAssembler.EmitLoadLocalHostAddress(offset);
+                    Function f = unitySystem.FindFunction("AtribuiTexto");
+                    int index = GetOrAddExternalFunction(f.Name, f.ParameterSize);
+                    assembler.EmitExternCall(index);
+                    return;
                 }
-            }
-
-            if (type is PointerType)
-            {
-                assembler.EmitStoreLocalPtr(offset);
-                return;
-            }
-
-            if (type is StringType)
-            {
-                leftAssembler.EmitLoadLocalHostAddress(offset);
-                Function f = unitySystem.FindFunction("AtribuiTexto");
-                int index = GetOrAddExternalFunction(f.Name, f.ParameterSize);
-                assembler.EmitExternCall(index);
-                return;
             }
 
             throw new CompilerException(interval, $"Tipo desconhecido: '{type}'.");
@@ -436,47 +432,48 @@ namespace compiler
 
         private void CompileStoreStackSub(Assembler assembler, AbstractType type, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            switch (type)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BYTE:
-                        assembler.EmitSub();
-                        assembler.EmitStoreStack8();
-                        return;
+                case PrimitiveType p:
+                    switch (p.Primitive)
+                    {
+                        case Primitive.BYTE:
+                            assembler.EmitSub();
+                            assembler.EmitStoreStack8();
+                            return;
 
-                    case Primitive.SHORT:
-                        assembler.EmitSub();
-                        assembler.EmitStoreStack16();
-                        return;
+                        case Primitive.SHORT:
+                            assembler.EmitSub();
+                            assembler.EmitStoreStack16();
+                            return;
 
-                    case Primitive.INT:
-                        assembler.EmitSub();
-                        assembler.EmitStoreStack32();
-                        return;
+                        case Primitive.INT:
+                            assembler.EmitSub();
+                            assembler.EmitStoreStack32();
+                            return;
 
-                    case Primitive.LONG:
-                        assembler.EmitSub64();
-                        assembler.EmitStoreStack64();
-                        return;
+                        case Primitive.LONG:
+                            assembler.EmitSub64();
+                            assembler.EmitStoreStack64();
+                            return;
 
-                    case Primitive.FLOAT:
-                        assembler.EmitFSub();
-                        assembler.EmitStoreStack32();
-                        return;
+                        case Primitive.FLOAT:
+                            assembler.EmitFSub();
+                            assembler.EmitStoreStack32();
+                            return;
 
-                    case Primitive.DOUBLE:
-                        assembler.EmitFSub64();
-                        assembler.EmitStoreStack64();
-                        return;
-                }
-            }
+                        case Primitive.DOUBLE:
+                            assembler.EmitFSub64();
+                            assembler.EmitStoreStack64();
+                            return;
+                    }
 
-            if (type is PointerType)
-            {
-                assembler.EmitSub();
-                assembler.EmitStoreStackPtr();
-                return;
+                    break;
+
+                case PointerType:
+                    assembler.EmitSub();
+                    assembler.EmitStoreStackPtr();
+                    return;
             }
 
             throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
@@ -484,47 +481,48 @@ namespace compiler
 
         private void CompileStorePointerSub(Assembler assembler, AbstractType type, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            switch (type)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BYTE:
-                        assembler.EmitSub();
-                        assembler.EmitStorePointer8();
-                        return;
+                case PrimitiveType p:
+                    switch (p.Primitive)
+                    {
+                        case Primitive.BYTE:
+                            assembler.EmitSub();
+                            assembler.EmitStorePointer8();
+                            return;
 
-                    case Primitive.SHORT:
-                        assembler.EmitSub();
-                        assembler.EmitStorePointer16();
-                        return;
+                        case Primitive.SHORT:
+                            assembler.EmitSub();
+                            assembler.EmitStorePointer16();
+                            return;
 
-                    case Primitive.INT:
-                        assembler.EmitSub();
-                        assembler.EmitStorePointer32();
-                        return;
+                        case Primitive.INT:
+                            assembler.EmitSub();
+                            assembler.EmitStorePointer32();
+                            return;
 
-                    case Primitive.LONG:
-                        assembler.EmitSub64();
-                        assembler.EmitStorePointer64();
-                        return;
+                        case Primitive.LONG:
+                            assembler.EmitSub64();
+                            assembler.EmitStorePointer64();
+                            return;
 
-                    case Primitive.FLOAT:
-                        assembler.EmitFSub();
-                        assembler.EmitStorePointer32();
-                        return;
+                        case Primitive.FLOAT:
+                            assembler.EmitFSub();
+                            assembler.EmitStorePointer32();
+                            return;
 
-                    case Primitive.DOUBLE:
-                        assembler.EmitFSub64();
-                        assembler.EmitStorePointer64();
-                        return;
-                }
-            }
+                        case Primitive.DOUBLE:
+                            assembler.EmitFSub64();
+                            assembler.EmitStorePointer64();
+                            return;
+                    }
 
-            if (type is PointerType)
-            {
-                assembler.EmitSub();
-                assembler.EmitStorePointerPtr();
-                return;
+                    break;
+
+                case PointerType:
+                    assembler.EmitSub();
+                    assembler.EmitStorePointerPtr();
+                    return;
             }
 
             throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
@@ -533,82 +531,83 @@ namespace compiler
         private void CompileStoreSub(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
-            if (type is PrimitiveType p)
+            switch (type)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BYTE:
-                        assembler.EmitSub();
+                case PrimitiveType p:
+                    switch (p.Primitive)
+                    {
+                        case Primitive.BYTE:
+                            assembler.EmitSub();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal8(storeVar.Offset);
+                            if (storeVar is GlobalVariable)
+                                assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
+                            else
+                                assembler.EmitStoreLocal8(storeVar.Offset);
 
-                        return;
+                            return;
 
-                    case Primitive.SHORT:
-                        assembler.EmitSub();
+                        case Primitive.SHORT:
+                            assembler.EmitSub();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal16(storeVar.Offset);
+                            if (storeVar is GlobalVariable)
+                                assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
+                            else
+                                assembler.EmitStoreLocal16(storeVar.Offset);
 
-                        return;
+                            return;
 
-                    case Primitive.INT:
-                        assembler.EmitSub();
+                        case Primitive.INT:
+                            assembler.EmitSub();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal32(storeVar.Offset);
+                            if (storeVar is GlobalVariable)
+                                assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
+                            else
+                                assembler.EmitStoreLocal32(storeVar.Offset);
 
-                        return;
+                            return;
 
-                    case Primitive.LONG:
-                        assembler.EmitSub64();
+                        case Primitive.LONG:
+                            assembler.EmitSub64();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal64(storeVar.Offset);
+                            if (storeVar is GlobalVariable)
+                                assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
+                            else
+                                assembler.EmitStoreLocal64(storeVar.Offset);
 
-                        return;
+                            return;
 
-                    case Primitive.FLOAT:
-                        assembler.EmitFSub();
+                        case Primitive.FLOAT:
+                            assembler.EmitFSub();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal32(storeVar.Offset);
+                            if (storeVar is GlobalVariable)
+                                assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
+                            else
+                                assembler.EmitStoreLocal32(storeVar.Offset);
 
-                        return;
+                            return;
 
-                    case Primitive.DOUBLE:
-                        assembler.EmitFSub64();
+                        case Primitive.DOUBLE:
+                            assembler.EmitFSub64();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal64(storeVar.Offset);
+                            if (storeVar is GlobalVariable)
+                                assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
+                            else
+                                assembler.EmitStoreLocal64(storeVar.Offset);
 
-                        return;
-                }
-            }
+                            return;
+                    }
 
-            if (type is PointerType)
-            {
-                assembler.EmitSub();
+                    break;
 
-                if (storeVar is GlobalVariable)
-                    assembler.EmitStoreGlobalPtr(unity.GlobalStartOffset + storeVar.Offset);
-                else
-                    assembler.EmitStoreLocalPtr(storeVar.Offset);
+                case PointerType:
+                    assembler.EmitSub();
 
-                return;
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobalPtr(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocalPtr(storeVar.Offset);
+
+                    return;
             }
 
             throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
@@ -616,1115 +615,1063 @@ namespace compiler
 
         private void CompileStoreStackMul(Assembler assembler, AbstractType type, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BYTE:
-                        assembler.EmitMul();
-                        assembler.EmitStoreStack8();
-                        return;
+                case Primitive.BYTE:
+                    assembler.EmitMul();
+                    assembler.EmitStoreStack8();
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitMul();
-                        assembler.EmitStoreStack16();
-                        return;
+                case Primitive.SHORT:
+                    assembler.EmitMul();
+                    assembler.EmitStoreStack16();
+                    break;
 
-                    case Primitive.INT:
-                        assembler.EmitMul();
-                        assembler.EmitStoreStack32();
-                        return;
+                case Primitive.INT:
+                    assembler.EmitMul();
+                    assembler.EmitStoreStack32();
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitMul64();
-                        assembler.EmitStoreStack64();
-                        return;
+                case Primitive.LONG:
+                    assembler.EmitMul64();
+                    assembler.EmitStoreStack64();
+                    break;
 
-                    case Primitive.FLOAT:
-                        assembler.EmitFMul();
-                        assembler.EmitStoreStack32();
-                        return;
+                case Primitive.FLOAT:
+                    assembler.EmitFMul();
+                    assembler.EmitStoreStack32();
+                    break;
 
-                    case Primitive.DOUBLE:
-                        assembler.EmitFMul64();
-                        assembler.EmitStoreStack64();
-                        return;
-                }
+                case Primitive.DOUBLE:
+                    assembler.EmitFMul64();
+                    assembler.EmitStoreStack64();
+                    break;
             }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStorePointerMul(Assembler assembler, AbstractType type, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BYTE:
-                        assembler.EmitMul();
-                        assembler.EmitStorePointer8();
-                        return;
+                case Primitive.BYTE:
+                    assembler.EmitMul();
+                    assembler.EmitStorePointer8();
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitMul();
-                        assembler.EmitStorePointer16();
-                        return;
+                case Primitive.SHORT:
+                    assembler.EmitMul();
+                    assembler.EmitStorePointer16();
+                    break;
 
-                    case Primitive.INT:
-                        assembler.EmitMul();
-                        assembler.EmitStorePointer32();
-                        return;
+                case Primitive.INT:
+                    assembler.EmitMul();
+                    assembler.EmitStorePointer32();
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitMul64();
-                        assembler.EmitStorePointer64();
-                        return;
+                case Primitive.LONG:
+                    assembler.EmitMul64();
+                    assembler.EmitStorePointer64();
+                    break;
 
-                    case Primitive.FLOAT:
-                        assembler.EmitFMul();
-                        assembler.EmitStorePointer32();
-                        return;
+                case Primitive.FLOAT:
+                    assembler.EmitFMul();
+                    assembler.EmitStorePointer32();
+                    break;
 
-                    case Primitive.DOUBLE:
-                        assembler.EmitFMul64();
-                        assembler.EmitStorePointer64();
-                        return;
-                }
+                case Primitive.DOUBLE:
+                    assembler.EmitFMul64();
+                    assembler.EmitStorePointer64();
+                    break;
             }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreMul(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BYTE:
-                        assembler.EmitMul();
+                case Primitive.BYTE:
+                    assembler.EmitMul();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal8(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal8(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitMul();
+                case Primitive.SHORT:
+                    assembler.EmitMul();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal16(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal16(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.INT:
-                        assembler.EmitMul();
+                case Primitive.INT:
+                    assembler.EmitMul();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal32(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal32(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitMul64();
+                case Primitive.LONG:
+                    assembler.EmitMul64();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal64(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal64(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.FLOAT:
-                        assembler.EmitFMul();
+                case Primitive.FLOAT:
+                    assembler.EmitFMul();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal32(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal32(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.DOUBLE:
-                        assembler.EmitFMul64();
+                case Primitive.DOUBLE:
+                    assembler.EmitFMul64();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal64(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal64(storeVar.Offset);
 
-                        return;
-                }
+                    break;
             }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreStackDiv(Assembler assembler, AbstractType type, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BYTE:
-                        assembler.EmitDiv();
-                        assembler.EmitStoreStack8();
-                        return;
+                case Primitive.BYTE:
+                    assembler.EmitDiv();
+                    assembler.EmitStoreStack8();
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitDiv();
-                        assembler.EmitStoreStack16();
+                case Primitive.SHORT:
+                    assembler.EmitDiv();
+                    assembler.EmitStoreStack16();
+                    break;
 
-                        return;
-                    case Primitive.INT:
-                        assembler.EmitDiv();
-                        assembler.EmitStoreStack32();
-                        return;
+                case Primitive.INT:
+                    assembler.EmitDiv();
+                    assembler.EmitStoreStack32();
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitDiv64();
-                        assembler.EmitStoreStack64();
-                        return;
+                case Primitive.LONG:
+                    assembler.EmitDiv64();
+                    assembler.EmitStoreStack64();
+                    break;
 
-                    case Primitive.FLOAT:
-                        assembler.EmitFDiv();
-                        assembler.EmitStoreStack32();
-                        return;
+                case Primitive.FLOAT:
+                    assembler.EmitFDiv();
+                    assembler.EmitStoreStack32();
+                    break;
 
-                    case Primitive.DOUBLE:
-                        assembler.EmitFDiv64();
-                        assembler.EmitStoreStack64();
-                        return;
-                }
-            }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+                case Primitive.DOUBLE:
+                    assembler.EmitFDiv64();
+                    assembler.EmitStoreStack64();
+                    break;
+            }  
         }
 
         private void CompileStorePointerDiv(Assembler assembler, AbstractType type, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BYTE:
-                        assembler.EmitDiv();
-                        assembler.EmitStorePointer8();
-                        return;
+                case Primitive.BYTE:
+                    assembler.EmitDiv();
+                    assembler.EmitStorePointer8();
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitDiv();
-                        assembler.EmitStorePointer16();
+                case Primitive.SHORT:
+                    assembler.EmitDiv();
+                    assembler.EmitStorePointer16();
+                    break;
 
-                        return;
-                    case Primitive.INT:
-                        assembler.EmitDiv();
-                        assembler.EmitStorePointer32();
-                        return;
+                case Primitive.INT:
+                    assembler.EmitDiv();
+                    assembler.EmitStorePointer32();
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitDiv64();
-                        assembler.EmitStorePointer64();
-                        return;
+                case Primitive.LONG:
+                    assembler.EmitDiv64();
+                    assembler.EmitStorePointer64();
+                    break;
 
-                    case Primitive.FLOAT:
-                        assembler.EmitFDiv();
-                        assembler.EmitStorePointer32();
-                        return;
+                case Primitive.FLOAT:
+                    assembler.EmitFDiv();
+                    assembler.EmitStorePointer32();
+                    break;
 
-                    case Primitive.DOUBLE:
-                        assembler.EmitFDiv64();
-                        assembler.EmitStorePointer64();
-                        return;
-                }
-            }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+                case Primitive.DOUBLE:
+                    assembler.EmitFDiv64();
+                    assembler.EmitStorePointer64();
+                    break;
+            } 
         }
 
         private void CompileStoreDiv(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BYTE:
-                        assembler.EmitDiv();
+                case Primitive.BYTE:
+                    assembler.EmitDiv();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal8(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal8(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitDiv();
+                case Primitive.SHORT:
+                    assembler.EmitDiv();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal16(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal16(storeVar.Offset);
 
-                        return;
-                    case Primitive.INT:
-                        assembler.EmitDiv();
+                    break;
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal32(storeVar.Offset);
+                case Primitive.INT:
+                    assembler.EmitDiv();
 
-                        return;
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal32(storeVar.Offset);
 
-                    case Primitive.LONG:
-                        assembler.EmitDiv64();
+                    break;
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal64(storeVar.Offset);
+                case Primitive.LONG:
+                    assembler.EmitDiv64();
 
-                        return;
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal64(storeVar.Offset);
 
-                    case Primitive.FLOAT:
-                        assembler.EmitFDiv();
+                    break;
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal32(storeVar.Offset);
+                case Primitive.FLOAT:
+                    assembler.EmitFDiv();
 
-                        return;
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal32(storeVar.Offset);
 
-                    case Primitive.DOUBLE:
-                        assembler.EmitFDiv64();
+                    break;
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal64(storeVar.Offset);
+                case Primitive.DOUBLE:
+                    assembler.EmitFDiv64();
 
-                        return;
-                }
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal64(storeVar.Offset);
+
+                    break;
             }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreStackMod(Assembler assembler, AbstractType type, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BYTE:
-                        assembler.EmitMod();
-                        assembler.EmitStoreStack8();
-                        return;
+                case Primitive.BYTE:
+                    assembler.EmitMod();
+                    assembler.EmitStoreStack8();
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitMod();
-                        assembler.EmitStoreStack16();
-                        return;
+                case Primitive.SHORT:
+                    assembler.EmitMod();
+                    assembler.EmitStoreStack16();
+                    break;
 
-                    case Primitive.INT:
-                        assembler.EmitMod();
-                        assembler.EmitStoreStack32();
-                        return;
+                case Primitive.INT:
+                    assembler.EmitMod();
+                    assembler.EmitStoreStack32();
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitMod64();
-                        assembler.EmitStoreStack64();
-                        return;
-                }
-            }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+                case Primitive.LONG:
+                    assembler.EmitMod64();
+                    assembler.EmitStoreStack64();
+                    break;
+            }   
         }
 
         private void CompileStorePointerMod(Assembler assembler, AbstractType type, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BYTE:
-                        assembler.EmitMod();
-                        assembler.EmitStorePointer8();
-                        return;
+                case Primitive.BYTE:
+                    assembler.EmitMod();
+                    assembler.EmitStorePointer8();
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitMod();
-                        assembler.EmitStorePointer16();
-                        return;
+                case Primitive.SHORT:
+                    assembler.EmitMod();
+                    assembler.EmitStorePointer16();
+                    break;
 
-                    case Primitive.INT:
-                        assembler.EmitMod();
-                        assembler.EmitStorePointer32();
-                        return;
+                case Primitive.INT:
+                    assembler.EmitMod();
+                    assembler.EmitStorePointer32();
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitMod64();
-                        assembler.EmitStorePointer64();
-                        return;
-                }
-            }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+                case Primitive.LONG:
+                    assembler.EmitMod64();
+                    assembler.EmitStorePointer64();
+                    break;
+            } 
         }
 
         private void CompileStoreMod(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BYTE:
-                        assembler.EmitMod();
+                case Primitive.BYTE:
+                    assembler.EmitMod();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal8(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal8(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitMod();
+                case Primitive.SHORT:
+                    assembler.EmitMod();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal16(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal16(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.INT:
-                        assembler.EmitMod();
+                case Primitive.INT:
+                    assembler.EmitMod();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal32(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal32(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitMod64();
+                case Primitive.LONG:
+                    assembler.EmitMod64();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal64(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal64(storeVar.Offset);
 
-                        return;
-                }
+                    break;
             }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreStackAnd(Assembler assembler, AbstractType type, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BOOL:
-                    case Primitive.BYTE:
-                        assembler.EmitAnd();
-                        assembler.EmitStoreStack8();
-                        return;
+                case Primitive.BOOL:
+                case Primitive.BYTE:
+                    assembler.EmitAnd();
+                    assembler.EmitStoreStack8();
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitAnd();
-                        assembler.EmitStoreStack16();
-                        return;
+                case Primitive.SHORT:
+                    assembler.EmitAnd();
+                    assembler.EmitStoreStack16();
+                    break;
 
-                    case Primitive.INT:
-                        assembler.EmitAnd();
-                        assembler.EmitStoreStack32();
-                        return;
+                case Primitive.INT:
+                    assembler.EmitAnd();
+                    assembler.EmitStoreStack32();
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitAnd64();
-                        assembler.EmitStoreStack64();
-                        return;
-                }
+                case Primitive.LONG:
+                    assembler.EmitAnd64();
+                    assembler.EmitStoreStack64();
+                    break;
             }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStorePointerAnd(Assembler assembler, AbstractType type, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BOOL:
-                    case Primitive.BYTE:
-                        assembler.EmitAnd();
-                        assembler.EmitStorePointer8();
-                        return;
+                case Primitive.BOOL:
+                case Primitive.BYTE:
+                    assembler.EmitAnd();
+                    assembler.EmitStorePointer8();
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitAnd();
-                        assembler.EmitStorePointer16();
-                        return;
+                case Primitive.SHORT:
+                    assembler.EmitAnd();
+                    assembler.EmitStorePointer16();
+                    break;
 
-                    case Primitive.INT:
-                        assembler.EmitAnd();
-                        assembler.EmitStorePointer32();
-                        return;
+                case Primitive.INT:
+                    assembler.EmitAnd();
+                    assembler.EmitStorePointer32();
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitAnd64();
-                        assembler.EmitStorePointer64();
-                        return;
-                }
+                case Primitive.LONG:
+                    assembler.EmitAnd64();
+                    assembler.EmitStorePointer64();
+                    break;
             }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreAnd(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BOOL:
-                    case Primitive.BYTE:
-                        assembler.EmitAnd();
+                case Primitive.BOOL:
+                case Primitive.BYTE:
+                    assembler.EmitAnd();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal8(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal8(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitAnd();
+                case Primitive.SHORT:
+                    assembler.EmitAnd();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal16(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal16(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.INT:
-                        assembler.EmitAnd();
+                case Primitive.INT:
+                    assembler.EmitAnd();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal32(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal32(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitAnd64();
+                case Primitive.LONG:
+                    assembler.EmitAnd64();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal64(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal64(storeVar.Offset);
 
-                        return;
-                }
+                    break;
             }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreStackOr(Assembler assembler, AbstractType type, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+  
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BOOL:
-                    case Primitive.BYTE:
-                        assembler.EmitOr();
-                        assembler.EmitStoreStack8();
-                        return;
+                case Primitive.BOOL:
+                case Primitive.BYTE:
+                    assembler.EmitOr();
+                    assembler.EmitStoreStack8();
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitOr();
-                        assembler.EmitStoreStack16();
+                case Primitive.SHORT:
+                    assembler.EmitOr();
+                    assembler.EmitStoreStack16();
+                    break;
 
-                        return;
-                    case Primitive.INT:
-                        assembler.EmitOr();
-                        assembler.EmitStoreStack32();
-                        return;
+                case Primitive.INT:
+                    assembler.EmitOr();
+                    assembler.EmitStoreStack32();
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitOr64();
-                        assembler.EmitStoreStack64();
-                        return;
-                }
-            }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+                case Primitive.LONG:
+                    assembler.EmitOr64();
+                    assembler.EmitStoreStack64();
+                    break;
+            } 
         }
 
         private void CompileStorePointerOr(Assembler assembler, AbstractType type, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BOOL:
-                    case Primitive.BYTE:
-                        assembler.EmitOr();
-                        assembler.EmitStorePointer8();
-                        return;
+                case Primitive.BOOL:
+                case Primitive.BYTE:
+                    assembler.EmitOr();
+                    assembler.EmitStorePointer8();
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitOr();
-                        assembler.EmitStorePointer16();
+                case Primitive.SHORT:
+                    assembler.EmitOr();
+                    assembler.EmitStorePointer16();
+                    break;
 
-                        return;
-                    case Primitive.INT:
-                        assembler.EmitOr();
-                        assembler.EmitStorePointer32();
-                        return;
+                case Primitive.INT:
+                    assembler.EmitOr();
+                    assembler.EmitStorePointer32();
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitOr64();
-                        assembler.EmitStorePointer64();
-                        return;
-                }
+                case Primitive.LONG:
+                    assembler.EmitOr64();
+                    assembler.EmitStorePointer64();
+                    break;
             }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreOr(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BOOL:
-                    case Primitive.BYTE:
-                        assembler.EmitOr();
+                case Primitive.BOOL:
+                case Primitive.BYTE:
+                    assembler.EmitOr();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal8(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal8(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitOr();
+                case Primitive.SHORT:
+                    assembler.EmitOr();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal16(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal16(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.INT:
-                        assembler.EmitOr();
+                case Primitive.INT:
+                    assembler.EmitOr();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal32(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal32(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitOr64();
+                case Primitive.LONG:
+                    assembler.EmitOr64();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal64(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal64(storeVar.Offset);
 
-                        return;
-                }
+                    break;
             }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreStackXor(Assembler assembler, AbstractType type, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BOOL:
-                    case Primitive.BYTE:
-                        assembler.EmitXor();
-                        assembler.EmitStoreStack8();
-                        return;
+                case Primitive.BOOL:
+                case Primitive.BYTE:
+                    assembler.EmitXor();
+                    assembler.EmitStoreStack8();
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitXor();
-                        assembler.EmitStoreStack16();
-                        return;
+                case Primitive.SHORT:
+                    assembler.EmitXor();
+                    assembler.EmitStoreStack16();
+                    break;
 
-                    case Primitive.INT:
-                        assembler.EmitXor();
-                        assembler.EmitStoreStack32();
-                        return;
+                case Primitive.INT:
+                    assembler.EmitXor();
+                    assembler.EmitStoreStack32();
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitXor64();
-                        assembler.EmitStoreStack64();
-                        return;
-                }
+                case Primitive.LONG:
+                    assembler.EmitXor64();
+                    assembler.EmitStoreStack64();
+                    break;
             }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStorePointerXor(Assembler assembler, AbstractType type, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BOOL:
-                    case Primitive.BYTE:
-                        assembler.EmitXor();
-                        assembler.EmitStorePointer8();
-                        return;
+                case Primitive.BOOL:
+                case Primitive.BYTE:
+                    assembler.EmitXor();
+                    assembler.EmitStorePointer8();
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitXor();
-                        assembler.EmitStorePointer16();
-                        return;
+                case Primitive.SHORT:
+                    assembler.EmitXor();
+                    assembler.EmitStorePointer16();
+                    break;
 
-                    case Primitive.INT:
-                        assembler.EmitXor();
-                        assembler.EmitStorePointer32();
-                        return;
+                case Primitive.INT:
+                    assembler.EmitXor();
+                    assembler.EmitStorePointer32();
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitXor64();
-                        assembler.EmitStorePointer64();
-                        return;
-                }
+                case Primitive.LONG:
+                    assembler.EmitXor64();
+                    assembler.EmitStorePointer64();
+                    break;
             }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreXor(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BOOL:
-                    case Primitive.BYTE:
-                        assembler.EmitXor();
+                case Primitive.BOOL:
+                case Primitive.BYTE:
+                    assembler.EmitXor();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal8(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal8(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitXor();
+                case Primitive.SHORT:
+                    assembler.EmitXor();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal16(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal16(storeVar.Offset);
 
-                        return;
-                    case Primitive.INT:
-                        assembler.EmitXor();
+                    break;
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal32(storeVar.Offset);
+                case Primitive.INT:
+                    assembler.EmitXor();
 
-                        return;
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal32(storeVar.Offset);
 
-                    case Primitive.LONG:
-                        assembler.EmitXor64();
+                    break;
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal64(storeVar.Offset);
+                case Primitive.LONG:
+                    assembler.EmitXor64();
 
-                        return;
-                }
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal64(storeVar.Offset);
+
+                    break;
             }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreStackShiftLeft(Assembler assembler, AbstractType type, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BYTE:
-                        assembler.EmitShl();
-                        assembler.EmitStoreStack8();
+                case Primitive.BYTE:
+                    assembler.EmitShl();
+                    assembler.EmitStoreStack8();
+                    break;
 
-                        return;
-                    case Primitive.SHORT:
-                        assembler.EmitShl();
-                        assembler.EmitStoreStack16();
-                        return;
+                case Primitive.SHORT:
+                    assembler.EmitShl();
+                    assembler.EmitStoreStack16();
+                    break;
 
-                    case Primitive.INT:
-                        assembler.EmitShl();
-                        assembler.EmitStoreStack32();
-                        return;
+                case Primitive.INT:
+                    assembler.EmitShl();
+                    assembler.EmitStoreStack32();
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitShl64();
-                        assembler.EmitStoreStack64();
-                        return;
-                }
+                case Primitive.LONG:
+                    assembler.EmitShl64();
+                    assembler.EmitStoreStack64();
+                    break;
             }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStorePointerShiftLeft(Assembler assembler, AbstractType type, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BYTE:
-                        assembler.EmitShl();
-                        assembler.EmitStorePointer8();
+                case Primitive.BYTE:
+                    assembler.EmitShl();
+                    assembler.EmitStorePointer8();
+                    break;
 
-                        return;
-                    case Primitive.SHORT:
-                        assembler.EmitShl();
-                        assembler.EmitStorePointer16();
-                        return;
+                case Primitive.SHORT:
+                    assembler.EmitShl();
+                    assembler.EmitStorePointer16();
+                    break;
 
-                    case Primitive.INT:
-                        assembler.EmitShl();
-                        assembler.EmitStorePointer32();
-                        return;
+                case Primitive.INT:
+                    assembler.EmitShl();
+                    assembler.EmitStorePointer32();
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitShl64();
-                        assembler.EmitStorePointer64();
-                        return;
-                }
+                case Primitive.LONG:
+                    assembler.EmitShl64();
+                    assembler.EmitStorePointer64();
+                    break;
             }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreShiftLeft(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BYTE:
-                        assembler.EmitShl();
+                case Primitive.BYTE:
+                    assembler.EmitShl();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal8(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal8(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitShl();
+                case Primitive.SHORT:
+                    assembler.EmitShl();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal16(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal16(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.INT:
-                        assembler.EmitShl();
+                case Primitive.INT:
+                    assembler.EmitShl();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal32(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal32(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitShl64();
+                case Primitive.LONG:
+                    assembler.EmitShl64();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal64(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal64(storeVar.Offset);
 
-                        return;
-                }
+                    break;
             }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreStackShiftRight(Assembler assembler, AbstractType type, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BYTE:
-                        assembler.EmitShr();
-                        assembler.EmitStoreStack8();
-                        return;
+                case Primitive.BYTE:
+                    assembler.EmitShr();
+                    assembler.EmitStoreStack8();
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitShr();
-                        assembler.EmitStoreStack16();
-                        return;
+                case Primitive.SHORT:
+                    assembler.EmitShr();
+                    assembler.EmitStoreStack16();
+                    break;
 
-                    case Primitive.INT:
-                        assembler.EmitShr();
-                        assembler.EmitStoreStack32();
-                        return;
+                case Primitive.INT:
+                    assembler.EmitShr();
+                    assembler.EmitStoreStack32();
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitShr64();
-                        assembler.EmitStoreStack64();
-                        return;
-                }
+                case Primitive.LONG:
+                    assembler.EmitShr64();
+                    assembler.EmitStoreStack64();
+                    break;
             }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStorePointerShiftRight(Assembler assembler, AbstractType type, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+            
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BYTE:
-                        assembler.EmitShr();
-                        assembler.EmitStorePointer8();
-                        return;
+                case Primitive.BYTE:
+                    assembler.EmitShr();
+                    assembler.EmitStorePointer8();
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitShr();
-                        assembler.EmitStorePointer16();
-                        return;
+                case Primitive.SHORT:
+                    assembler.EmitShr();
+                    assembler.EmitStorePointer16();
+                    break;
 
-                    case Primitive.INT:
-                        assembler.EmitShr();
-                        assembler.EmitStorePointer32();
-                        return;
+                case Primitive.INT:
+                    assembler.EmitShr();
+                    assembler.EmitStorePointer32();
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitShr64();
-                        assembler.EmitStorePointer64();
-                        return;
-                }
+                case Primitive.LONG:
+                    assembler.EmitShr64();
+                    assembler.EmitStorePointer64();
+                    break;
             }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreShiftRight(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+            
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BYTE:
-                        assembler.EmitShr();
+                case Primitive.BYTE:
+                    assembler.EmitShr();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal8(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal8(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitShr();
+                case Primitive.SHORT:
+                    assembler.EmitShr();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal16(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal16(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.INT:
-                        assembler.EmitShr();
+                case Primitive.INT:
+                    assembler.EmitShr();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal32(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal32(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitShr64();
+                case Primitive.LONG:
+                    assembler.EmitShr64();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal64(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal64(storeVar.Offset);
 
-                        return;
-                }
+                    break;
             }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreStackUnsignedShiftRight(Assembler assembler, AbstractType type, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+            
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BYTE:
-                        assembler.EmitUShr();
-                        assembler.EmitStoreStack8();
-                        return;
+                case Primitive.BYTE:
+                    assembler.EmitUShr();
+                    assembler.EmitStoreStack8();
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitUShr();
-                        assembler.EmitStoreStack16();
+                case Primitive.SHORT:
+                    assembler.EmitUShr();
+                    assembler.EmitStoreStack16();
+                    break;
 
-                        return;
-                    case Primitive.INT:
-                        assembler.EmitUShr();
-                        assembler.EmitStoreStack32();
-                        return;
+                case Primitive.INT:
+                    assembler.EmitUShr();
+                    assembler.EmitStoreStack32();
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitUShr64();
-                        assembler.EmitStoreStack64();
-                        return;
-                }
+                case Primitive.LONG:
+                    assembler.EmitUShr64();
+                    assembler.EmitStoreStack64();
+                    break;
             }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStorePointerUnsignedShiftRight(Assembler assembler, AbstractType type, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+            
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BYTE:
-                        assembler.EmitUShr();
-                        assembler.EmitStorePointer8();
-                        return;
+                case Primitive.BYTE:
+                    assembler.EmitUShr();
+                    assembler.EmitStorePointer8();
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitUShr();
-                        assembler.EmitStorePointer16();
+                case Primitive.SHORT:
+                    assembler.EmitUShr();
+                    assembler.EmitStorePointer16();
+                    break;
 
-                        return;
-                    case Primitive.INT:
-                        assembler.EmitUShr();
-                        assembler.EmitStorePointer32();
-                        return;
+                case Primitive.INT:
+                    assembler.EmitUShr();
+                    assembler.EmitStorePointer32();
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitUShr64();
-                        assembler.EmitStorePointer64();
-                        return;
-                }
+                case Primitive.LONG:
+                    assembler.EmitUShr64();
+                    assembler.EmitStorePointer64();
+                    break;
             }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreUnsignedShiftRight(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
-            if (type is PrimitiveType p)
+            if (type is not PrimitiveType p)
+                throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+            
+            switch (p.Primitive)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BYTE:
-                        assembler.EmitUShr();
+                case Primitive.BYTE:
+                    assembler.EmitUShr();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal8(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal8(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitUShr();
+                case Primitive.SHORT:
+                    assembler.EmitUShr();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal16(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal16(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.INT:
-                        assembler.EmitUShr();
+                case Primitive.INT:
+                    assembler.EmitUShr();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal32(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal32(storeVar.Offset);
 
-                        return;
+                    break;
 
-                    case Primitive.LONG:
-                        assembler.EmitUShr64();
+                case Primitive.LONG:
+                    assembler.EmitUShr64();
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal64(storeVar.Offset);
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocal64(storeVar.Offset);
 
-                        return;
-                }
-            }
-
-            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+                    break;
+            }  
         }
 
         private void CompileStoreExpression(Context context, Assembler assembler, BinaryOperation operation, Expression leftOperand, Expression rightOperand)

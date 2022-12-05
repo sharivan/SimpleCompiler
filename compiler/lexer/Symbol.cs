@@ -79,6 +79,6 @@
 
         internal Symbol(SourceInterval interval, string value) : base(interval) => Value = value;
 
-        public override string ToString() => "symbol '" + Value + "'";
+        public override string ToString() => $"symbol '{Value}'";
     }
 }

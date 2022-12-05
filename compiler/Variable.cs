@@ -28,7 +28,7 @@ namespace compiler
             Offset = offset;
         }
 
-        public override string ToString() => Name + ":" + type + " (" + Offset + ")";
+        public override string ToString() => $"{Name}:{type} ({Offset})";
 
         internal void Resolve() => AbstractType.Resolve(ref type);
     }

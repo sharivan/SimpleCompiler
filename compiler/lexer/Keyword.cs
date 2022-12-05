@@ -61,6 +61,6 @@
 
         internal Keyword(SourceInterval interval, string value) : base(interval) => Value = value;
 
-        public override string ToString() => "keyword '" + Value + "'";
+        public override string ToString() => $"keyword '{Value}'";
     }
 }

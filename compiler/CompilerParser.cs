@@ -82,7 +82,7 @@ namespace compiler
                 case Symbol symbol:
                 {
                     if (symbol.Value != "(")
-                        throw new CompilerException(symbol.Interval, "'(' esperado mas '" + symbol.Value + "' encontrado.");
+                        throw new CompilerException(symbol.Interval, $"'(' esperado mas '{symbol.Value}' encontrado.");
 
                     Expression result = ParseExpression();
 
@@ -92,7 +92,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(token.Interval, "Token não esperado: " + token);
+            throw new CompilerException(token.Interval, $"Token não esperado: {token}");
         }
 
         private Expression ParsePostFixExpression()
@@ -622,7 +622,7 @@ namespace compiler
 
                 Parameter p = function.DeclareParameter(name, type, id.Interval, byRef);
                 if (p == null)
-                    throw new CompilerException(id.Interval, "Parâmetro '" + name + "' já declarado.");
+                    throw new CompilerException(id.Interval, $"Parâmetro '{name}' já declarado.");
 
                 if (lexer.NextSymbol(",", false) == null)
                     break;
@@ -640,7 +640,7 @@ namespace compiler
 
                 Field field = st.DeclareField(name, type, id.Interval);
                 if (field == null)
-                    throw new CompilerException(id.Interval, "Campo '" + name + "' já declarado.");
+                    throw new CompilerException(id.Interval, $"Campo '{name}' já declarado.");
 
                 lexer.NextSymbol(";");
 
@@ -887,7 +887,7 @@ namespace compiler
             string name = id.Name;
             Function f = unity.DeclareFunction(name, id.Interval, isExtern);
             if (f == null)
-                throw new CompilerException(id.Interval, "Função '" + name + "' já declarada.");
+                throw new CompilerException(id.Interval, $"Função '{name}' já declarada.");
 
             lexer.NextSymbol("(");
             if (lexer.NextSymbol(")", false) == null)
@@ -920,7 +920,7 @@ namespace compiler
             string name = id.Name;
             StructType st = unity.DeclareStruct(name, id.Interval);
             if (st == null)
-                throw new CompilerException(id.Interval, "Tipo nomeado '" + name + "' já declarado.");
+                throw new CompilerException(id.Interval, $"Tipo nomeado '{name}' já declarado.");
 
             lexer.NextSymbol("{");
             if (lexer.NextSymbol("}", false) == null)
@@ -936,13 +936,13 @@ namespace compiler
                     throw new CompilerException(interval, "Não se pode usar uma unidade dentro dela própria.");
 
                 case CompilationUnity.ImportResult.UNITY_ALREADY_IMPORTED:
-                    throw new CompilerException(interval, "Unidade '" + unityName + "' já está sendo usada.");
+                    throw new CompilerException(interval, $"Unidade '{unityName}' já está sendo usada.");
 
                 case CompilationUnity.ImportResult.UNITY_IS_PROGRAM:
                     throw new CompilerException(interval, "Não se pode usar um programa dentro de uma unidade ou programa.");
 
                 case CompilationUnity.ImportResult.UNITY_NOT_FOUND:
-                    throw new CompilerException(interval, "Unidade '" + unityName + "' não encontrada.");
+                    throw new CompilerException(interval, $"Unidade '{unityName}' não encontrada.");
             }
         }
 
@@ -976,7 +976,7 @@ namespace compiler
                         string name = tuple.Item1;
                         Variable var = unity.DeclareGlobalVariable(name, declaration.Type, declaration.Interval);
                         if (var == null)
-                            throw new CompilerException(declaration.Interval, "Variável global '" + name + "' já declarada.");
+                            throw new CompilerException(declaration.Interval, $"Variável global '{name}' já declarada.");
 
                         lexer.NextSymbol(";");
                         return true;
@@ -1060,7 +1060,7 @@ namespace compiler
 
                 Token token = lexer.NextToken();
                 if (token != null)
-                    throw new CompilerException(token.Interval, "Fim do arquivo esperado mas " + token + " encontrado.");
+                    throw new CompilerException(token.Interval, $"Fim do arquivo esperado mas {token} encontrado.");
 
                 globalVariableOffset += unity.GlobalVariableSize;
             }
@@ -1099,7 +1099,7 @@ namespace compiler
 
                 Token token = lexer.NextToken();
                 if (token != null)
-                    throw new CompilerException(token.Interval, "Fim do arquivo esperado mas " + token + " encontrado.");
+                    throw new CompilerException(token.Interval, $"Fim do arquivo esperado mas {token} encontrado.");
 
                 globalVariableOffset += unity.GlobalVariableSize;
             }

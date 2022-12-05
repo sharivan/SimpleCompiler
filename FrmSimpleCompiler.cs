@@ -664,7 +664,7 @@ namespace SimpleCompiler
                     saved = true;
                 }
                 else
-                    System.Windows.MessageBox.Show("Não foi possível recarregar o arquivo '" + fileName + "'.");
+                    System.Windows.MessageBox.Show($"Não foi possível recarregar o arquivo '{fileName}'.");
             }
 
             public void Reload()
@@ -701,7 +701,7 @@ namespace SimpleCompiler
                         saved = true;
                     }
                     else
-                        System.Windows.MessageBox.Show("Arquivo '" + sSourceFileName + "' não existe.");
+                        System.Windows.MessageBox.Show($"Arquivo '{sSourceFileName}' não existe.");
                 }
             }
 
@@ -844,7 +844,7 @@ namespace SimpleCompiler
         {
             if (interval.IsValid())
             {
-                ConsolePrintLn("Erro de compilação na linha " + interval.Line + ": " + message);
+                ConsolePrintLn($"Erro de compilação na linha {interval.Line}: {message}.");
 
                 if (interval.FileName != null && interval.Start >= 0)
                 {
@@ -857,7 +857,7 @@ namespace SimpleCompiler
                 }
             }
             else
-                ConsolePrintLn("Erro de compilação: " + message);
+                ConsolePrintLn($"Erro de compilação: {message}.");
         });
 
         private void DisassemblyLine(int ip, string line)
@@ -949,7 +949,7 @@ namespace SimpleCompiler
         {
             paused = true;
 
-            statusBar.Items["statusText"].Text = "Pausado";
+            statusBar.Items["statusText"].Text = "Pausado.";
 
             btnRun.Enabled = true;
             btnPause.Enabled = false;
@@ -976,7 +976,7 @@ namespace SimpleCompiler
         {
             paused = true;
 
-            statusBar.Items["statusText"].Text = "Executando passo a passo (" + mode switch
+            statusBar.Items["statusText"].Text = $"Executando passo a passo ({mode switch
             {
                 SteppingMode.RUN => "pausado",
                 SteppingMode.INTO => "entrando em funções",
@@ -984,7 +984,7 @@ namespace SimpleCompiler
                 SteppingMode.OUT => "saindo da função",
                 SteppingMode.RUN_TO_IP => "executado até o ip atual",
                 _ => throw new NotImplementedException()
-            } + ")";
+            }}).";
 
             btnRun.Enabled = true;
             btnPause.Enabled = false;
@@ -1011,7 +1011,7 @@ namespace SimpleCompiler
         {
             paused = true;
 
-            statusBar.Items["statusText"].Text = "Ponto de interrupção encontrado";
+            statusBar.Items["statusText"].Text = "Ponto de interrupção encontrado.";
 
             btnRun.Enabled = true;
             btnPause.Enabled = false;
@@ -1048,7 +1048,7 @@ namespace SimpleCompiler
                 statusBar.Items["statusText"].Text = "Programa abortado.";
             else
             {
-                statusBar.Items["statusText"].Text = "Programa terminado com falha: " + exception.Message;
+                statusBar.Items["statusText"].Text = $"Programa terminado com falha: {exception.Message}.";
                 ConsolePrintLn(exception.StackTrace);
             }
 
@@ -1262,7 +1262,7 @@ namespace SimpleCompiler
 
             lineBackgroundRenderer.Enabled = false;
 
-            statusBar.Items["statusText"].Text = "Executando";
+            statusBar.Items["statusText"].Text = "Executando...";
 
             btnCompile.Enabled = false;
             btnRun.Enabled = false;
@@ -1455,7 +1455,7 @@ namespace SimpleCompiler
                     }
                 }
                 else
-                    System.Windows.MessageBox.Show("File not exist.");
+                    System.Windows.MessageBox.Show("Arquivo não existe.");
             }
         }
 
@@ -1527,7 +1527,7 @@ namespace SimpleCompiler
 
             lineBackgroundRenderer.Enabled = false;
 
-            statusBar.Items["statusText"].Text = "Executando";
+            statusBar.Items["statusText"].Text = "Executando...";
 
             btnCompile.Enabled = false;
             btnRun.Enabled = false;
@@ -1555,7 +1555,7 @@ namespace SimpleCompiler
 
             lineBackgroundRenderer.Enabled = false;
 
-            statusBar.Items["statusText"].Text = "Executando";
+            statusBar.Items["statusText"].Text = "Executando...";
 
             btnRun.Enabled = false;
             btnPause.Enabled = true;
@@ -1579,7 +1579,7 @@ namespace SimpleCompiler
 
             lineBackgroundRenderer.Enabled = false;
 
-            statusBar.Items["statusText"].Text = "Executando";
+            statusBar.Items["statusText"].Text = "Executando...";
 
             btnPause.Enabled = true;
             btnStop.Enabled = true;
@@ -1602,7 +1602,7 @@ namespace SimpleCompiler
 
             lineBackgroundRenderer.Enabled = false;
 
-            statusBar.Items["statusText"].Text = "Executando";
+            statusBar.Items["statusText"].Text = "Executando...";
 
             btnCompile.Enabled = false;
             btnPause.Enabled = true;
@@ -1702,7 +1702,7 @@ namespace SimpleCompiler
             {
                 BeginInvoke((MethodInvoker) delegate
                 {
-                    statusBar.Items["statusText"].Text = "Compilado";
+                    statusBar.Items["statusText"].Text = "Compilado.";
 
                     vm.Free();
                     vm.Initialize(assembler);
@@ -1725,7 +1725,7 @@ namespace SimpleCompiler
             {
                 BeginInvoke((MethodInvoker) delegate
                 {
-                    statusBar.Items["statusText"].Text = "Erro ao compilar";
+                    statusBar.Items["statusText"].Text = "Erro ao compilar.";
 
                     compiled = false;
 

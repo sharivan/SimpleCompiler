@@ -349,6 +349,6 @@ namespace compiler
 
         internal IdentifierExpression(SourceInterval interval, string name) : base(interval, PrimaryType.IDENTIFIER) => Name = name;
 
-        protected override AbstractType GetType() => throw new InvalidOperationException("Tipo desconhecido do identififcador '" + Name + "'.");
+        protected override AbstractType GetType() => throw new InvalidOperationException($"Tipo desconhecido do identififcador '{Name}'.");
     }
 }

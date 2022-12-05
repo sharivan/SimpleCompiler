@@ -50,7 +50,7 @@ namespace compiler.lexer
             public int Undo(int count = 1)
             {
                 if (pos - count < -1)
-                    throw new Exception("Invalid undo position: " + (pos - count));
+                    throw new Exception($"Invalid undo position: {pos - count}");
 
                 pos -= count;
                 int lines = 0;
@@ -163,46 +163,55 @@ namespace compiler.lexer
             char c = NextChar();
             if (c == '\0')
                 return;
-            
+
             if (c == '/')
             {
                 c = NextChar();
-                if (c == '/')
+                switch (c)
                 {
-                    while (true)
-                    {
-                        c = NextChar();
-                        if (c == '\0')
-                            return;
-
-                        if (c == '\n')
-                            return;
-                    }
-                }
-                else if (c == '*')
-                {
-                    while (true)
-                    {
-                        c = NextChar();
-                        if (c == '\0')
-                            throw new CompilerException(CurrentInterval(startPos), "Fim do comentário esperado mas fim do arquivo encontrado.");
-
-                        if (c == '*')
+                    case '/':
+                        while (true)
                         {
                             c = NextChar();
-                            if (c == '\0')
+                            switch (c)
                             {
-                                Undo();
-                                throw new CompilerException(CurrentInterval(startPos), "Fim do comentário esperado mas fim do arquivo encontrado.");
-                            }
+                                case '\0':
+                                    return;
 
-                            if (c == '/')
-                                return;
+                                case '\n':
+                                    return;
+                            }
                         }
-                    }
+
+                    case '*':
+                        while (true)
+                        {
+                            c = NextChar();
+                            switch (c)
+                            {
+                                case '\0':
+                                    throw new CompilerException(CurrentInterval(startPos), "Fim do comentário esperado mas fim do arquivo encontrado.");
+
+                                case '*':
+                                    c = NextChar();
+                                    switch (c)
+                                    {
+                                        case '\0':
+                                            Undo();
+                                            throw new CompilerException(CurrentInterval(startPos), "Fim do comentário esperado mas fim do arquivo encontrado.");
+
+                                        case '/':
+                                            return;
+                                    }
+
+                                    break;
+                            }
+                        }
+
+                    default:
+                        Undo(2);
+                        break;
                 }
-                else
-                    Undo(2);
             }
             else
                 Undo();
@@ -212,153 +221,150 @@ namespace compiler.lexer
         {
             int charStartPos = CurrentPos;
             char c = NextChar();
-            if (c == '\0')
-                throw new CompilerException(CurrentInterval(startPos), "Caractere esperado mas fim do arquivo encontrado.");
-
-            if (c is '\n' or '\r')
+            switch (c)
             {
-                Undo();
-                throw new CompilerException(CurrentInterval(startPos), "Delimitador de " + (fromString ? "string" : "caractere") + " esperado mas quebra de linha encontrada.");
-            }
+                case '\0': // fim de arquivo
+                    throw new CompilerException(CurrentInterval(startPos), "Caractere esperado mas fim do arquivo encontrado.");
 
-            if (c == '\\')
-            {
-                c = NextChar();
-                if (c == '\0')
-                    throw new CompilerException(CurrentInterval(charStartPos), "Código de escape esperado mas fim do arquivo encontrado.");
-
-                if (c is '\n' or '\r')
-                {
+                case '\n' or '\r': // quebra de linha ou retorno de carro
                     Undo();
-                    throw new CompilerException(CurrentInterval(charStartPos), "Delimitador de " + (fromString ? "string" : "caractere") + " esperado mas quebra de linha encontrada.");
-                }
+                    throw new CompilerException(CurrentInterval(startPos), $"Delimitador de {(fromString ? "string" : "caractere")} esperado mas quebra de linha encontrada.");
 
-                switch (c)
+                case '\\': // caractere escape
                 {
-                    case 'n':
-                        return '\n';
-
-                    case 'r':
-                        return '\r';
-
-                    case 't':
-                        return '\t';
-
-                    case 'u':
+                    c = NextChar();
+                    switch (c)
                     {
-                        string str = "";
-                        while (true)
-                        {
-                            c = NextChar();
-                            if (c == '\0')
-                                throw new CompilerException(CurrentInterval(charStartPos), "Código unicode esperado mas fim do arquivo encontrado.");
+                        case '\0':
+                            throw new CompilerException(CurrentInterval(charStartPos), "Código de escape esperado mas fim do arquivo encontrado.");
 
-                            if (c is '\n' or '\r')
+                        case '\n' or '\r':
+                            Undo();
+                            throw new CompilerException(CurrentInterval(charStartPos), $"Delimitador de {(fromString ? "string" : "caractere")} esperado mas quebra de linha encontrada.");
+
+                        case 'n': // quebra de linha
+                            return '\n';
+
+                        case 'r': // retorno de carro
+                            return '\r';
+
+                        case 't': // tabulação
+                            return '\t';
+
+                        case 'u': // hexadecimal unicode
+                        {
+                            string str = "";
+                            while (true)
                             {
-                                Undo();
-                                throw new CompilerException(CurrentInterval(charStartPos), "Delimitador de " + (fromString ? "string" : "caractere") + " esperado mas quebra de linha encontrada.");
+                                c = NextChar();
+                                if (c == '\0')
+                                    throw new CompilerException(CurrentInterval(charStartPos), "Código unicode esperado mas fim do arquivo encontrado.");
+
+                                if (c is '\n' or '\r')
+                                {
+                                    Undo();
+                                    throw new CompilerException(CurrentInterval(charStartPos), $"Delimitador de {(fromString ? "string" : "caractere")} esperado mas quebra de linha encontrada.");
+                                }
+
+                                if (c is not (>= '0' and <= '9' or >= 'A' and <= 'F' or >= 'a' and <= 'f'))
+                                {
+                                    Undo();
+                                    break;
+                                }
                             }
 
-                            if (c is not (>= '0' and <= '9' or >= 'A' and <= 'F' or >= 'a' and <= 'f'))
+                            if (str == "")
+                                throw new CompilerException(CurrentInterval(charStartPos), "Código unicode esperado.");
+
+                            int hex;
+                            try
                             {
-                                Undo();
-                                break;
+                                hex = int.Parse(str, System.Globalization.NumberStyles.HexNumber);
                             }
+                            catch (FormatException)
+                            {
+                                throw new CompilerException(CurrentInterval(charStartPos), "Formato de código unicode inválido.");
+                            }
+                            catch (OverflowException)
+                            {
+                                throw new CompilerException(CurrentInterval(charStartPos), "Estouro na conversão de código unicode.");
+                            }
+
+                            return hex is < 0 or >= short.MaxValue
+                                ? throw new CompilerException(CurrentInterval(charStartPos), "Código unicode fora da faixa.")
+                                : (char) hex;
                         }
 
-                        if (str == "")
-                            throw new CompilerException(CurrentInterval(charStartPos), "Código unicode esperado.");
+                        case '0': // octal
+                        {
+                            string str = "";
+                            while (true)
+                            {
+                                c = NextChar();
+                                if (c == '\0')
+                                    throw new CompilerException(CurrentInterval(charStartPos), "Código octal esperado mas fim do arquivo encontrado.");
 
-                        int hex;
-                        try
-                        {
-                            hex = int.Parse(str, System.Globalization.NumberStyles.HexNumber);
-                        }
-                        catch (FormatException)
-                        {
-                            throw new CompilerException(CurrentInterval(charStartPos), "Formato de código unicode inválido.");
-                        }
-                        catch (OverflowException)
-                        {
-                            throw new CompilerException(CurrentInterval(charStartPos), "Estouro na conversão de código unicode.");
+                                if (c is '\n' or '\r')
+                                {
+                                    Undo();
+                                    throw new CompilerException(CurrentInterval(charStartPos), $"Delimitador de {(fromString ? "string" : "caractere")} esperado mas quebra de linha encontrada.");
+                                }
+
+                                if (c is not (>= '0' and <= '7'))
+                                {
+                                    Undo();
+                                    break;
+                                }
+                            }
+
+                            if (str == "")
+                                throw new CompilerException(CurrentInterval(charStartPos), "Código octal esperado.");
+
+                            int oct;
+                            try
+                            {
+                                oct = Convert.ToInt32(str, 8);
+                            }
+                            catch (ArgumentOutOfRangeException)
+                            {
+                                throw new CompilerException(CurrentInterval(charStartPos), "Código octal fora da faixa.");
+                            }
+                            catch (FormatException)
+                            {
+                                throw new CompilerException(CurrentInterval(charStartPos), "Formato de código octal inválido.");
+                            }
+                            catch (OverflowException)
+                            {
+                                throw new CompilerException(CurrentInterval(charStartPos), "Estouro na conversão de código octal.");
+                            }
+
+                            return oct is < 0 or >= short.MaxValue
+                                ? throw new CompilerException(CurrentInterval(charStartPos), "Código octal fora da faixa.")
+                                : (char) oct;
                         }
 
-                        return hex is < 0 or >= short.MaxValue
-                            ? throw new CompilerException(CurrentInterval(charStartPos), "Código unicode fora da faixa.")
-                            : (char) hex;
+                        case '\\':
+                            return '\\';
+
+                        case '\'':
+                            return '\'';
+
+                        case '"':
+                            return '"';
                     }
 
-                    case '0':
+                    Undo();
+                    throw new CompilerException(CurrentInterval(charStartPos), "Código de escape inválido.");
+                }
+
+                case '\'':
+                    if (!fromString)
                     {
-                        string str = "";
-                        while (true)
-                        {
-                            c = NextChar();
-                            if (c == '\0')
-                                throw new CompilerException(CurrentInterval(charStartPos), "Código octal esperado mas fim do arquivo encontrado.");
-
-                            if (c is '\n' or '\r')
-                            {
-                                Undo();
-                                throw new CompilerException(CurrentInterval(charStartPos), "Delimitador de " + (fromString ? "string" : "caractere") + " esperado mas quebra de linha encontrada.");
-                            }
-
-                            if (c is not (>= '0' and <= '7'))
-                            {
-                                Undo();
-                                break;
-                            }
-                        }
-
-                        if (str == "")
-                            throw new CompilerException(CurrentInterval(charStartPos), "Código octal esperado.");
-
-                        int oct;
-                        try
-                        {
-                            oct = Convert.ToInt32(str, 8);
-                        }
-                        catch (ArgumentOutOfRangeException)
-                        {
-                            throw new CompilerException(CurrentInterval(charStartPos), "Código octal fora da faixa.");
-                        }
-                        catch (FormatException)
-                        {
-                            throw new CompilerException(CurrentInterval(charStartPos), "Formato de código octal inválido.");
-                        }
-                        catch (OverflowException)
-                        {
-                            throw new CompilerException(CurrentInterval(charStartPos), "Estouro na conversão de código octal.");
-                        }
-
-                        return oct is < 0 or >= short.MaxValue
-                            ? throw new CompilerException(CurrentInterval(charStartPos), "Código octal fora da faixa.")
-                            : (char) oct;
+                        Undo();
+                        throw new CompilerException(CurrentInterval(charStartPos), "Caractere esperado.");
                     }
 
-                    case '\\':
-                        return '\\';
-
-                    case '\'':
-                        return '\'';
-
-                    case '"':
-                        return '"';
-                }
-
-                Undo();
-                throw new CompilerException(CurrentInterval(charStartPos), "Código de escape inválido.");
-            }
-
-            if (c == '\'')
-            {
-                if (!fromString)
-                {
-                    Undo();
-                    throw new CompilerException(CurrentInterval(charStartPos), "Caractere esperado.");
-                }
-
-                return '\'';
+                    return '\'';
             }
 
             return c;
@@ -373,11 +379,11 @@ namespace compiler.lexer
             }
             catch (FormatException e)
             {
-                throw new CompilerException(CurrentInterval(startPos), "Formato de literal byte inválido: " + number, e);
+                throw new CompilerException(CurrentInterval(startPos), $"Formato de literal byte inválido: {number}", e);
             }
             catch (OverflowException e)
             {
-                throw new CompilerException(CurrentInterval(startPos), "Overflow durante a conversão do literal byte: " + number, e);
+                throw new CompilerException(CurrentInterval(startPos), $"Overflow durante a conversão do literal byte: {number}", e);
             }
         }
 
@@ -390,11 +396,11 @@ namespace compiler.lexer
             }
             catch (FormatException e)
             {
-                throw new CompilerException(CurrentInterval(startPos), "Formato de literal inteiro curto inválido: " + number, e);
+                throw new CompilerException(CurrentInterval(startPos), $"Formato de literal inteiro curto inválido: {number}", e);
             }
             catch (OverflowException e)
             {
-                throw new CompilerException(CurrentInterval(startPos), "Overflow durante a conversão do literal inteiro curto: " + number, e);
+                throw new CompilerException(CurrentInterval(startPos), $"Overflow durante a conversão do literal inteiro curto: {number}", e);
             }
         }
 
@@ -407,11 +413,11 @@ namespace compiler.lexer
             }
             catch (FormatException e)
             {
-                throw new CompilerException(CurrentInterval(startPos), "Formato de literal inteiro inválido: " + number, e);
+                throw new CompilerException(CurrentInterval(startPos), $"Formato de literal inteiro inválido: {number}", e);
             }
             catch (OverflowException e)
             {
-                throw new CompilerException(CurrentInterval(startPos), "Overflow durante a conversão do literal inteiro: " + number, e);
+                throw new CompilerException(CurrentInterval(startPos), $"Overflow durante a conversão do literal inteiro: {number}", e);
             }
         }
 
@@ -424,11 +430,11 @@ namespace compiler.lexer
             }
             catch (FormatException e)
             {
-                throw new CompilerException(CurrentInterval(startPos), "Formato de literal inteiro longo inválido: " + number, e);
+                throw new CompilerException(CurrentInterval(startPos), $"Formato de literal inteiro longo inválido: {number}", e);
             }
             catch (OverflowException e)
             {
-                throw new CompilerException(CurrentInterval(startPos), "Overflow durante a conversão do literal inteiro longo: " + number, e);
+                throw new CompilerException(CurrentInterval(startPos), $"Overflow durante a conversão do literal inteiro longo: {number}", e);
             }
         }
 
@@ -441,11 +447,11 @@ namespace compiler.lexer
             }
             catch (FormatException e)
             {
-                throw new CompilerException(CurrentInterval(startPos), "Formato de literal de ponto flutuante inválido: " + number, e);
+                throw new CompilerException(CurrentInterval(startPos), $"Formato de literal de ponto flutuante inválido: {number}", e);
             }
             catch (OverflowException e)
             {
-                throw new CompilerException(CurrentInterval(startPos), "Overflow durante a conversão do literal de ponto flutuante: " + number, e);
+                throw new CompilerException(CurrentInterval(startPos), $"Overflow durante a conversão do literal de ponto flutuante: {number}", e);
             }
         }
 
@@ -458,11 +464,11 @@ namespace compiler.lexer
             }
             catch (FormatException e)
             {
-                throw new CompilerException(CurrentInterval(startPos), "Formato de literal de ponto flutuante inválido: " + number, e);
+                throw new CompilerException(CurrentInterval(startPos), $"Formato de literal de ponto flutuante inválido: {number}", e);
             }
             catch (OverflowException e)
             {
-                throw new CompilerException(CurrentInterval(startPos), "Overflow durante a conversão do literal de ponto flutuante: " + number, e);
+                throw new CompilerException(CurrentInterval(startPos), $"Overflow durante a conversão do literal de ponto flutuante: {number}", e);
             }
         }
 
@@ -490,34 +496,11 @@ namespace compiler.lexer
 
             if (c != '\0')
             {
-                if (c is >= '0' and <= '9') // é um digito numérico?
+                switch (c)
                 {
-                    string number = c + "";
-                    c = NextChar();
-                    while (c is >= '0' and <= '9') // enquanto for um digito numérico
+                    case >= '0' and <= '9': // dígito numérico (pode ser um número)
                     {
-                        number += c;
-                        c = NextChar();
-                    }
-
-                    if (c is 'B' or 'b')
-                        result = ParseByte(lastPos, number);
-                    else if (c is 'S' or 's')
-                        result = ParseShort(lastPos, number);
-                    else if (c is 'L' or 'l')
-                        result = ParseLong(lastPos, number);
-                    else if (c is 'F' or 'f')
-                        result = ParseFloat(lastPos, number);
-                    else if (c is 'E' or 'e')
-                    {
-                        number += 'E';
-
-                        c = NextChar();
-                        if (c is '+' or '-')
-                            number += c;
-                        else
-                            Undo();
-
+                        string number = c + "";
                         c = NextChar();
                         while (c is >= '0' and <= '9') // enquanto for um digito numérico
                         {
@@ -525,141 +508,189 @@ namespace compiler.lexer
                             c = NextChar();
                         }
 
-                        if (c is 'F' or 'f')
-                            result = ParseFloat(lastPos, number);
-                        else
+                        switch (c)
                         {
-                            Undo();
+                            case 'B' or 'b': // byte forçado
+                                result = ParseByte(lastPos, number);
+                                break;
 
-                            result = ParseDouble(lastPos, number);
-                        }
-                    }
-                    else if (c == '.')
-                    {
-                        number += '.';
-                        c = NextChar();
-                        while (c is >= '0' and <= '9') // enquanto for um digito numérico
-                        {
-                            number += c;
-                            c = NextChar();
-                        }
+                            case 'S' or 's': // short forçado
+                                result = ParseShort(lastPos, number);
+                                break;
 
-                        if (c is 'F' or 'f')
-                            result = ParseFloat(lastPos, number);
-                        else if (c is 'E' or 'e')
-                        {
-                            number += 'E';
+                            case 'L' or 'l': // long forçado
+                                result = ParseLong(lastPos, number);
+                                break;
 
-                            c = NextChar();
-                            if (c is '+' or '-')
-                                number += c;
-                            else
+                            case 'F' or 'f': // float forçado
+                                result = ParseFloat(lastPos, number);
+                                break;
+
+                            case 'E' or 'e': // notação científica
+                                number += 'E';
+
+                                c = NextChar();
+                                if (c is '+' or '-')
+                                    number += c;
+                                else
+                                    Undo();
+
+                                c = NextChar();
+                                while (c is >= '0' and <= '9') // enquanto for um digito numérico
+                                {
+                                    number += c;
+                                    c = NextChar();
+                                }
+
+                                if (c is 'F' or 'f') // float forçado
+                                    result = ParseFloat(lastPos, number);
+                                else
+                                {
+                                    Undo();
+
+                                    result = ParseDouble(lastPos, number);
+                                }
+
+                                break;
+
+                            case '.': // separador decimal (pode ser um float ou double)
+                                number += '.';
+                                c = NextChar();
+                                while (c is >= '0' and <= '9') // enquanto for um digito numérico
+                                {
+                                    number += c;
+                                    c = NextChar();
+                                }
+
+                                if (c is 'F' or 'f') // float forçado
+                                    result = ParseFloat(lastPos, number);
+                                else if (c is 'E' or 'e') // notação científica
+                                {
+                                    number += 'E';
+
+                                    c = NextChar();
+                                    if (c is '+' or '-')
+                                        number += c;
+                                    else
+                                        Undo();
+
+                                    c = NextChar();
+                                    while (c is >= '0' and <= '9') // enquanto for um digito numérico
+                                    {
+                                        number += c;
+                                        c = NextChar();
+                                    }
+
+                                    if (c is 'F' or 'f') // float forçado
+                                        result = ParseFloat(lastPos, number);
+                                    else
+                                    {
+                                        Undo();
+
+                                        result = ParseDouble(lastPos, number);
+                                    }
+                                }
+                                else
+                                {
+                                    Undo();
+
+                                    result = ParseDouble(lastPos, number);
+                                }
+
+                                break;
+
+                            default:
                                 Undo();
 
+                                result = ParseInt(lastPos, number);
+                                break;
+                        }
+
+                        break;
+                    }
+
+                    case '\'': // delimitador de caractere
+                    {
+                        c = NextChar();
+                        if (c == '\0')
+                        {
+                            Undo();
+                            throw new CompilerException(CurrentInterval(lastPos), "Caractere esperado mas fim do arquivo encontrado.");
+                        }
+                        else
+                            Undo();
+
+                        char ch = ParseChar(lastPos, false);
+
+                        c = NextChar();
+                        if (c != '\'')
+                        {
+                            Undo();
+                            throw new CompilerException(CurrentInterval(lastPos), "Delimitador de caractere esperado.");
+                        }
+
+                        result = new CharLiteral(CurrentInterval(lastPos), ch);
+                        break;
+                    }
+
+                    case '"': // delimitador de uma cadeia de caracteres (string)
+                    {
+                        string str = "";
+                        while (true)
+                        {
                             c = NextChar();
-                            while (c is >= '0' and <= '9') // enquanto for um digito numérico
+                            if (c == '"')
+                                break;
+
+                            Undo();
+
+                            char ch = ParseChar(lastPos, true);
+                            str += ch;
+                        }
+
+                        result = new StringLiteral(CurrentInterval(lastPos), str);
+                        break;
+                    }
+
+                    default:
+                        if (Symbol.IsSymbol(c))
+                        {
+                            string lastSymbol = c.ToString();
+                            while (c != '\0')
                             {
-                                number += c;
+                                c = NextChar();
+                                string symbol = lastSymbol + c;
+                                if (!Symbol.IsSymbol(symbol))
+                                    break;
+
+                                lastSymbol = symbol;
+                            }
+
+                            Undo();
+
+                            result = new Symbol(CurrentInterval(lastPos), lastSymbol);
+                        }
+                        else if (Identifier.IsLetter(c)) // pode ser uma variável, uma constante ou uma função
+                        {
+                            string name = c + "";
+                            c = NextChar();
+                            while (c == '_' || Identifier.IsLetter(c) || c >= '0' && c <= '9') // uma variável, constante ou função pode conter somente letras ou _ (mas não iniciar com _)
+                            {
+                                name += c;
                                 c = NextChar();
                             }
 
-                            if (c is 'F' or 'f')
-                                result = ParseFloat(lastPos, number);
-                            else
-                            {
-                                Undo();
+                            Undo();
 
-                                result = ParseDouble(lastPos, number);
-                            }
+                            result = Keyword.IsKeyword(name) ? new Keyword(CurrentInterval(lastPos), name) : new Identifier(CurrentInterval(lastPos), name);
                         }
                         else
                         {
                             Undo();
-
-                            result = ParseDouble(lastPos, number);
+                            throw new CompilerException(CurrentInterval(lastPos), $"Caractere inválido: {c}");
                         }
-                    }
-                    else
-                    {
-                        Undo();
 
-                        result = ParseInt(lastPos, number);
-                    }
-                }
-                else if (c == '\'')
-                {
-                    c = NextChar();
-                    if (c == '\0')
-                    {
-                        Undo();
-                        throw new CompilerException(CurrentInterval(lastPos), "Caractere esperado mas fim do arquivo encontrado.");
-                    }
-                    else
-                        Undo();
-
-                    char ch = ParseChar(lastPos, false);
-
-                    c = NextChar();
-                    if (c != '\'')
-                    {
-                        Undo();
-                        throw new CompilerException(CurrentInterval(lastPos), "Delimitador de caractere esperado.");
-                    }
-
-                    result = new CharLiteral(CurrentInterval(lastPos), ch);
-                }
-                else if (c == '"')
-                {
-                    string str = "";
-                    while (true)
-                    {
-                        c = NextChar();
-                        if (c == '"')
-                            break;
-
-                        Undo();
-
-                        char ch = ParseChar(lastPos, true);
-                        str += ch;
-                    }
-
-                    result = new StringLiteral(CurrentInterval(lastPos), str);
-                }
-                else if (Symbol.IsSymbol(c))
-                {
-                    string lastSymbol = c.ToString();
-                    while (c != '\0')
-                    {
-                        c = NextChar();
-                        string symbol = lastSymbol + c;
-                        if (!Symbol.IsSymbol(symbol))
-                            break;
-
-                        lastSymbol = symbol;
-                    }
-
-                    Undo();
-
-                    result = new Symbol(CurrentInterval(lastPos), lastSymbol);
-                }
-                else if (Identifier.IsLetter(c)) // pode ser uma variável, uma constante ou uma função
-                {
-                    string name = c + "";
-                    c = NextChar();
-                    while (c == '_' || Identifier.IsLetter(c) || c >= '0' && c <= '9') // uma variável, constante ou função pode conter somente letras ou _ (mas não iniciar com _)
-                    {
-                        name += c;
-                        c = NextChar();
-                    }
-
-                    Undo();
-
-                    result = Keyword.IsKeyword(name) ? new Keyword(CurrentInterval(lastPos), name) : new Identifier(CurrentInterval(lastPos), name);
-                }
-                else
-                {
-                    Undo();
-                    throw new CompilerException(CurrentInterval(lastPos), "Caractere inválido: " + c);
+                        break;
                 }
             }
 
@@ -694,7 +725,7 @@ namespace compiler.lexer
                 PreviusToken();
 
                 return throwException
-                    ? throw new CompilerException(token.Interval, errorMessage ?? "Número esperado mas " + token + " encontrado.")
+                    ? throw new CompilerException(token.Interval, errorMessage ?? $"Número esperado mas {token} encontrado.")
                     : null;
             }
 
@@ -718,7 +749,7 @@ namespace compiler.lexer
                 PreviusToken();
 
                 return throwException
-                    ? throw new CompilerException(token.Interval, errorMessage ?? "Símbolo esperado mas " + token + " encontrado.")
+                    ? throw new CompilerException(token.Interval, errorMessage ?? $"Símbolo esperado mas {token} encontrado.")
                     : null;
             }
 
@@ -733,7 +764,7 @@ namespace compiler.lexer
                 PreviusToken();
 
                 return throwException
-                    ? throw new CompilerException(CurrentInterval(CurrentPos), errorMessage ?? "'" + expectedValue + "' esperado mas fim da expressão encontrado.")
+                    ? throw new CompilerException(CurrentInterval(CurrentPos), errorMessage ?? $"'{expectedValue}' esperado mas fim da expressão encontrado.")
                     : null;
             }
 
@@ -742,7 +773,7 @@ namespace compiler.lexer
                 PreviusToken();
 
                 return throwException
-                    ? throw new CompilerException(token.Interval, errorMessage ?? "'" + expectedValue + "' esperado mas " + token + " encontrado.")
+                    ? throw new CompilerException(token.Interval, errorMessage ?? $"'{expectedValue}' esperado mas {token} encontrado.")
                     : null;
             }
 
@@ -752,7 +783,7 @@ namespace compiler.lexer
                 PreviusToken();
 
                 return throwException
-                    ? throw new CompilerException(token.Interval, errorMessage ?? "'" + expectedValue + "' esperado mas '" + symbol.Value + "' encontrado.")
+                    ? throw new CompilerException(token.Interval, errorMessage ?? $"'{expectedValue}' esperado mas '{symbol.Value}' encontrado.")
                     : null;
             }
 
@@ -776,7 +807,7 @@ namespace compiler.lexer
                 PreviusToken();
 
                 return throwException
-                    ? throw new CompilerException(token.Interval, errorMessage ?? "Palavra reservada esperada mas " + token + " encontrado.")
+                    ? throw new CompilerException(token.Interval, errorMessage ?? $"Palavra reservada esperada mas {token} encontrado.")
                     : null;
             }
 
@@ -791,7 +822,7 @@ namespace compiler.lexer
                 PreviusToken();
 
                 return throwException
-                    ? throw new CompilerException(CurrentInterval(CurrentPos), errorMessage ?? "'" + expectedValue + "' esperado mas fim do arquivo encontrado.")
+                    ? throw new CompilerException(CurrentInterval(CurrentPos), errorMessage ?? $"'{expectedValue}' esperado mas fim do arquivo encontrado.")
                     : null;
             }
 
@@ -800,7 +831,7 @@ namespace compiler.lexer
                 PreviusToken();
 
                 return throwException
-                    ? throw new CompilerException(token.Interval, errorMessage ?? "'" + expectedValue + "' esperado mas " + token + " encontrado.")
+                    ? throw new CompilerException(token.Interval, errorMessage ?? $"'{expectedValue}' esperado mas {token} encontrado.")
                     : null;
             }
 
@@ -810,7 +841,7 @@ namespace compiler.lexer
                 PreviusToken();
 
                 return throwException
-                    ? throw new CompilerException(token.Interval, errorMessage ?? "'" + expectedValue + "' esperado mas '" + keyword.Value + "' encontrado.")
+                    ? throw new CompilerException(token.Interval, errorMessage ?? $"'{expectedValue}' esperado mas '{keyword.Value}' encontrado.")
                     : null;
             }
 
@@ -834,7 +865,7 @@ namespace compiler.lexer
                 PreviusToken();
 
                 return throwException
-                    ? throw new CompilerException(token.Interval, errorMessage ?? "Identificador esperado mas " + token + " encontrado.")
+                    ? throw new CompilerException(token.Interval, errorMessage ?? $"Identificador esperado mas {token} encontrado.")
                     : null;
             }
 
@@ -849,7 +880,7 @@ namespace compiler.lexer
                 PreviusToken();
 
                 return throwException
-                    ? throw new CompilerException(CurrentInterval(CurrentPos), errorMessage ?? "'" + expectedValue + "' mas fim do arquivo encontrado.")
+                    ? throw new CompilerException(CurrentInterval(CurrentPos), errorMessage ?? $"'{expectedValue}' mas fim do arquivo encontrado.")
                     : null;
             }
 
@@ -858,7 +889,7 @@ namespace compiler.lexer
                 PreviusToken();
 
                 return throwException
-                    ? throw new CompilerException(token.Interval, errorMessage ?? "'" + expectedValue + "' esperado mas " + token + " encontrado.")
+                    ? throw new CompilerException(token.Interval, errorMessage ?? $"'{expectedValue}' esperado mas {token} encontrado.")
                     : null;
             }
 
@@ -868,7 +899,7 @@ namespace compiler.lexer
                 PreviusToken();
 
                 return throwException
-                    ? throw new CompilerException(token.Interval, errorMessage ?? "'" + expectedValue + "' esperado mas '" + variable.Name + "' encontrado.")
+                    ? throw new CompilerException(token.Interval, errorMessage ?? $"'{expectedValue}' esperado mas '{variable.Name}' encontrado.")
                     : null;
             }
 

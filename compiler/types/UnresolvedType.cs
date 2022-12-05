@@ -29,7 +29,7 @@ namespace compiler.types
             {
                 referencedType = Unity.FindStruct(Name);
                 if (referencedType == null)
-                    throw new CompilerException(Interval, "Tipo não declarado '" + Name + "'.");
+                    throw new CompilerException(Interval, $"Tipo não declarado: '{Name}'.");
 
                 Resolve(ref referencedType);
             }

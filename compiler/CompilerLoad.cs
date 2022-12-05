@@ -48,7 +48,7 @@ namespace compiler
                     return;
             }
 
-            throw new CompilerException(interval, "Tipo desconhecido: '" + type + "'.");
+            throw new CompilerException(interval, $"Tipo desconhecido: '{type}'.");
         }
 
         private void CompileLoadPointer(Assembler assembler, AbstractType type, SourceInterval interval)
@@ -94,7 +94,7 @@ namespace compiler
                     return;
             }
 
-            throw new CompilerException(interval, "Tipo desconhecido: '" + type + "'.");
+            throw new CompilerException(interval, $"Tipo desconhecido: '{type}'.");
         }
 
         private void CompileLoad(Assembler assembler, Variable loadVar, SourceInterval interval)
@@ -182,7 +182,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Tipo desconhecido: '" + type + "'.");
+            throw new CompilerException(interval, $"Tipo desconhecido: '{type}'.");
         }
     }
 }

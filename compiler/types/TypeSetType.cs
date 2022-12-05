@@ -28,7 +28,7 @@
             if (type is UnresolvedType u)
             {
                 if (u.ReferencedType == null)
-                    throw new CompilerException(u.Interval, "Tipo não declarado '" + u.Name + "'.");
+                    throw new CompilerException(u.Interval, $"Tipo não declarado: '{u.Name}'.");
 
                 type = u.ReferencedType;
             }

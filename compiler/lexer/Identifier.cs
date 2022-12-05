@@ -32,6 +32,6 @@
 
         internal Identifier(SourceInterval interval, string name) : base(interval) => Name = name;
 
-        public override string ToString() => "identifier '" + Name + "'";
+        public override string ToString() => $"identifier '{Name}'";
     }
 }
