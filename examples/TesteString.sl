@@ -4,7 +4,7 @@ programa TesteString
 
 	{
 		/*
-			Saída esperada:
+			Saída esperada (excluindo o último escrevaln):
 			
 			123
 			123456
@@ -43,5 +43,17 @@ programa TesteString
 
 		var l:int = s2.tamanho + s3.tamanho;
 		escrevaln l;
+
+		escreva "Digite o valor de s: ";
+		leia s;
+
+		escreva "Digite o valor de s2: ";
+		leia s2;
+
+		escreva "Digite o valor de s3: ";
+		leia s3;
+
+		s += s2 + s3;
+		escrevaln s;
 	}
 }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
 using System.Security.RightsManagement;
 using System.Threading;
 
@@ -2713,6 +2714,19 @@ namespace vm
                     break;
                 }
 
+                case Opcode.DSCANSTR:
+                {
+                    IntPtr dstAddr = PopPtr();
+                    string value = ReadFromConsole();
+                    IntPtr str = NewString(value);
+
+                    IntPtr dst = ReadPointerPtr(dstAddr);
+                    StringRelease(dst);
+
+                    WritePointer(dstAddr, str);
+                    break;
+                }
+
                 case Opcode.PRINTB:
                 {
                     int value = Pop();
@@ -3842,6 +3856,12 @@ namespace vm
                     case Opcode.SCANSTR:
                     {
                         PrintDisassembledLine(lastIP, op, "SCANSTR");
+                        break;
+                    }
+
+                    case Opcode.DSCANSTR:
+                    {
+                        PrintDisassembledLine(lastIP, op, "DSCANSTR");
                         break;
                     }
 

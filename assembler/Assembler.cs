@@ -762,6 +762,8 @@ namespace assembler
 
         public void EmitScanString() => writer.Write((byte) Opcode.SCANSTR);
 
+        public void EmitScanDynamicString() => writer.Write((byte) Opcode.DSCANSTR);
+
         public void EmitPrintB() => writer.Write((byte) Opcode.PRINTB);
 
         public void EmitPrintC() => writer.Write((byte) Opcode.PRINTC);

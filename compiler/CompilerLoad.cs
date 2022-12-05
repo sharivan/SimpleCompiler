@@ -37,11 +37,11 @@ namespace compiler
 
                 case StructType:
                     // TODO Implementar
-                    return;
+                    throw new CompilerException(interval, $"Operação não implementada para o tipo '{type}'.");
 
                 case ArrayType:
                     // TODO Implementar
-                    return;
+                    throw new CompilerException(interval, $"Operação não implementada para o tipo '{type}'.");
 
                 case PointerType or StringType:
                     assembler.EmitLoadStackPtr();
@@ -83,11 +83,11 @@ namespace compiler
 
                 case StructType:
                     // TODO Implementar
-                    return;
+                    throw new CompilerException(interval, $"Operação não implementada para o tipo '{type}'.");
 
                 case ArrayType:
                     // TODO Implementar
-                    return;
+                    throw new CompilerException(interval, $"Operação não implementada para o tipo '{type}'.");
 
                 case PointerType or StringType:
                     assembler.EmitLoadPointerPtr();

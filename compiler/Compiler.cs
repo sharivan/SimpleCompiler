@@ -129,7 +129,7 @@ namespace compiler
                                         throw new CompilerException(interval, $"O tipo '{fromType}' não pode ser convertido implicitamente para o tipo '{toType}'.");
 
                                     // TODO Implementar
-                                    break;
+                                    throw new CompilerException(interval, $"Operação não implementada para o tipo '{p}'.");
 
                                 case Primitive.BYTE:
                                     if (isExplicit ? tp.Primitive == Primitive.BOOL : tp.Primitive is < Primitive.BYTE or Primitive.CHAR)
@@ -513,50 +513,64 @@ namespace compiler
                     foreach (Expression expr in rd)
                     {
                         AbstractType exprType = CompileAssignableExpression(context, assembler, expr, out _, out _, true);
-                        if (exprType is PrimitiveType p)
-                            switch (p.Primitive)
-                            {
-                                case Primitive.BOOL:
-                                    assembler.EmitScanB();
-                                    break;
+                        switch (exprType)
+                        {
+                            case PrimitiveType p:
+                                switch (p.Primitive)
+                                {
+                                    case Primitive.BOOL:
+                                        assembler.EmitScanB();
+                                        break;
 
-                                case Primitive.BYTE:
-                                    assembler.EmitScan8();
-                                    break;
+                                    case Primitive.BYTE:
+                                        assembler.EmitScan8();
+                                        break;
 
-                                case Primitive.CHAR:
-                                    assembler.EmitScanC();
-                                    break;
+                                    case Primitive.CHAR:
+                                        assembler.EmitScanC();
+                                        break;
 
-                                case Primitive.SHORT:
-                                    assembler.EmitScan16();
-                                    break;
+                                    case Primitive.SHORT:
+                                        assembler.EmitScan16();
+                                        break;
 
-                                case Primitive.INT:
-                                    assembler.EmitScan32();
-                                    break;
+                                    case Primitive.INT:
+                                        assembler.EmitScan32();
+                                        break;
 
-                                case Primitive.LONG:
-                                    assembler.EmitScan64();
-                                    break;
+                                    case Primitive.LONG:
+                                        assembler.EmitScan64();
+                                        break;
 
-                                case Primitive.FLOAT:
-                                    assembler.EmitFScan();
-                                    break;
+                                    case Primitive.FLOAT:
+                                        assembler.EmitFScan();
+                                        break;
 
-                                case Primitive.DOUBLE:
-                                    assembler.EmitFScan64();
-                                    break;
+                                    case Primitive.DOUBLE:
+                                        assembler.EmitFScan64();
+                                        break;
 
-                                default:
-                                    throw new CompilerException(expr.Interval, "Expressão de tipo primitivo ou string esperada.");
-                            }
-                        else if (exprType is PointerType ptr && ptr.IsString)
-                            assembler.EmitScanString();
-                        else if (exprType is ArrayType at && PrimitiveType.IsPrimitiveChar(at.Type))
-                            assembler.EmitScanString();
-                        else
-                            throw new CompilerException(expr.Interval, "Expressão de tipo primitivo ou string esperada.");
+                                    default:
+                                        throw new CompilerException(expr.Interval, "Expressão de tipo primitivo ou string esperada.");
+                                }
+
+                                break;
+
+                            case PointerType ptr when ptr.IsString:
+                                assembler.EmitScanString();
+                                break;
+
+                            case ArrayType at when PrimitiveType.IsPrimitiveChar(at.Type):
+                                assembler.EmitScanString();
+                                break;
+
+                            case StringType:
+                                assembler.EmitScanDynamicString();
+                                break;
+
+                            default:
+                                throw new CompilerException(expr.Interval, "Expressão de tipo primitivo ou string esperada.");
+                        }
                     }
 
                     break;
@@ -567,47 +581,61 @@ namespace compiler
                     foreach (Expression expr in p)
                     {
                         AbstractType exprType = CompileExpression(context, assembler, expr, out LocalVariable tempVar, true);
-                        if (exprType is PrimitiveType pt)
-                            switch (pt.Primitive)
-                            {
-                                case Primitive.BOOL:
-                                    assembler.EmitPrintB();
-                                    break;
+                        switch (exprType)
+                        {
+                            case PrimitiveType pt:
+                                switch (pt.Primitive)
+                                {
+                                    case Primitive.BOOL:
+                                        assembler.EmitPrintB();
+                                        break;
 
-                                case Primitive.BYTE:
-                                    assembler.EmitPrint32();
-                                    break;
+                                    case Primitive.BYTE:
+                                        assembler.EmitPrint32();
+                                        break;
 
-                                case Primitive.CHAR:
-                                    assembler.EmitPrintC();
-                                    break;
+                                    case Primitive.CHAR:
+                                        assembler.EmitPrintC();
+                                        break;
 
-                                case Primitive.SHORT:
-                                case Primitive.INT:
-                                    assembler.EmitPrint32();
-                                    break;
+                                    case Primitive.SHORT:
+                                    case Primitive.INT:
+                                        assembler.EmitPrint32();
+                                        break;
 
-                                case Primitive.LONG:
-                                    assembler.EmitPrint64();
-                                    break;
+                                    case Primitive.LONG:
+                                        assembler.EmitPrint64();
+                                        break;
 
-                                case Primitive.FLOAT:
-                                    assembler.EmitFPrint();
-                                    break;
+                                    case Primitive.FLOAT:
+                                        assembler.EmitFPrint();
+                                        break;
 
-                                case Primitive.DOUBLE:
-                                    assembler.EmitFPrint64();
-                                    break;
+                                    case Primitive.DOUBLE:
+                                        assembler.EmitFPrint64();
+                                        break;
 
-                                default:
-                                    throw new CompilerException(expr.Interval, "Expressão de tipo primitivo ou string esperada.");
-                            }
-                        else if (exprType is PointerType ptr && ptr.IsString)
-                            assembler.EmitPrintString();
-                        else if (exprType is StringType)
-                            assembler.EmitPrintString();
-                        else
-                            throw new CompilerException(expr.Interval, "Expressão de tipo primitivo ou string esperada.");
+                                    default:
+                                        throw new CompilerException(expr.Interval, "Expressão de tipo primitivo ou string esperada.");
+                                }
+
+                                break;
+
+                            case PointerType ptr when ptr.IsString:
+                                assembler.EmitPrintString();
+                                break;
+
+                            case ArrayType at when PrimitiveType.IsPrimitiveChar(at.Type):
+                                assembler.EmitPrintString();
+                                break;
+
+                            case StringType:
+                                assembler.EmitPrintString();
+                                break;
+
+                            default:
+                                throw new CompilerException(expr.Interval, "Expressão de tipo primitivo ou string esperada.");
+                        }
 
                         tempVar?.Release();
                     }

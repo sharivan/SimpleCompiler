@@ -165,7 +165,7 @@ namespace compiler
             var id = (IdentifierExpression) p;
             string name = id.Name;
 
-            bool byRef = false;
+            isPointerDeference = false;
             Variable var = context.FindVariable(name);
             if (var == null)
             {
@@ -188,7 +188,7 @@ namespace compiler
 
                 if (var is Parameter param && param.ByRef)
                 {
-                    byRef = true;
+                    isPointerDeference = true;
                     assembler.EmitLoadLocalPtr(offset);
                 }
                 else if (loadHostAddress)
@@ -197,8 +197,7 @@ namespace compiler
                     assembler.EmitLoadLocalResidentAddress(offset);
             }
 
-            isPointerDeference = byRef;
-            storeVar = !byRef && (var.Type is PrimitiveType || var.Type is PointerType) ? var : null;
+            storeVar = !isPointerDeference && var.Type is PrimitiveType or PointerType or StringType ? var : null;
             return var.Type;
         }
 
@@ -215,211 +214,6 @@ namespace compiler
                 PrimaryExpression p => CompileAssignablePrimaryExpression(context, assembler, p, out storeVar, out isPointerDeference, loadHostAddress),
                 _ => throw new CompilerException(expression.Interval, "Tipo de expressão não atribuível."),
             };
-        }
-
-        private void CompileStoreExpression(Context context, Assembler assembler, BinaryOperation operation, Expression leftOperand, Expression rightOperand)
-        {
-            AbstractType leftType;
-            AbstractType rightType;
-            Assembler castAssembler;
-            LocalVariable tempVar;
-            LocalVariable castTempVar;
-
-            if (operation == BinaryOperation.STORE)
-            {
-                Assembler leftAssembler = new();
-                leftType = CompileAssignableExpression(context, leftAssembler, leftOperand, out Variable storeVar, out bool isPointerDeference);
-
-                Assembler preCastAssembler = new();
-                castAssembler = new();
-                rightType = CompileExpression(context, castAssembler, rightOperand, out tempVar);
-                CompileCast(context, castAssembler, preCastAssembler, rightType, leftType, false, rightOperand.Interval, out castTempVar);
-
-                Assembler storeAssembler = new();
-                if (storeVar != null)
-                    CompileStore(storeAssembler, leftAssembler, storeVar, leftOperand.Interval);
-                else if (isPointerDeference)
-                    CompileStorePointer(storeAssembler, leftAssembler, leftType, leftOperand.Interval);
-                else
-                    CompileStoreStack(storeAssembler, leftAssembler, leftType, leftOperand.Interval);
-
-                if (storeVar == null)
-                    assembler.Emit(leftAssembler);
-
-                assembler.Emit(preCastAssembler);
-                assembler.Emit(castAssembler);
-                assembler.Emit(storeAssembler);
-
-                tempVar?.Release();
-                castTempVar?.Release();
-
-                return;
-            }
-
-            Assembler tempAssembler = new();
-            leftType = CompileAssignableExpression(context, tempAssembler, leftOperand, out Variable storeVar2, out bool isPointerDeference2);
-
-            if (storeVar2 == null)
-            {
-                Assembler tempAssembler2 = new();
-                tempAssembler2.Emit(tempAssembler);
-
-                if (isPointerDeference2)
-                    CompileLoadPointer(tempAssembler2, leftType, leftOperand.Interval);
-                else
-                    CompileLoadStack(tempAssembler2, leftType, leftOperand.Interval);
-
-                assembler.Emit(tempAssembler);
-                assembler.Emit(tempAssembler2);
-            }
-            else
-                CompileLoad(assembler, storeVar2, leftOperand.Interval);
-
-            castAssembler = new();
-            rightType = CompileExpression(context, castAssembler, rightOperand, out tempVar);
-            CompileCast(context, castAssembler, assembler, rightType, leftType, false, rightOperand.Interval, out castTempVar);
-            assembler.Emit(castAssembler);
-
-            switch (operation)
-            {
-                case BinaryOperation.STORE_OR:
-                {
-                    if (storeVar2 == null)
-                        CompileStoreStackOr(assembler, leftType, leftOperand.Interval);
-                    else if (isPointerDeference2)
-                        CompileStorePointerOr(assembler, leftType, leftOperand.Interval);
-                    else
-                        CompileStoreOr(assembler, storeVar2, leftOperand.Interval);
-
-                    break;
-                }
-
-                case BinaryOperation.STORE_XOR:
-                {
-                    if (storeVar2 == null)
-                        CompileStoreStackXor(assembler, leftType, leftOperand.Interval);
-                    else if (isPointerDeference2)
-                        CompileStorePointerXor(assembler, leftType, leftOperand.Interval);
-                    else
-                        CompileStoreXor(assembler, storeVar2, leftOperand.Interval);
-
-                    break;
-                }
-
-                case BinaryOperation.STORE_AND:
-                {
-                    if (storeVar2 == null)
-                        CompileStoreStackAnd(assembler, leftType, leftOperand.Interval);
-                    else if (isPointerDeference2)
-                        CompileStorePointerAnd(assembler, leftType, leftOperand.Interval);
-                    else
-                        CompileStoreAnd(assembler, storeVar2, leftOperand.Interval);
-
-                    break;
-                }
-
-                case BinaryOperation.STORE_SHIFT_LEFT:
-                {
-                    if (storeVar2 == null)
-                        CompileStoreStackShiftLeft(assembler, leftType, leftOperand.Interval);
-                    else if (isPointerDeference2)
-                        CompileStorePointerShiftLeft(assembler, leftType, leftOperand.Interval);
-                    else
-                        CompileStoreShiftLeft(assembler, storeVar2, leftOperand.Interval);
-
-                    break;
-                }
-
-                case BinaryOperation.STORE_SHIFT_RIGHT:
-                {
-                    if (storeVar2 == null)
-                        CompileStoreStackShiftRight(assembler, leftType, leftOperand.Interval);
-                    else if (isPointerDeference2)
-                        CompileStorePointerShiftRight(assembler, leftType, leftOperand.Interval);
-                    else
-                        CompileStoreShiftRight(assembler, storeVar2, leftOperand.Interval);
-
-                    break;
-                }
-
-                case BinaryOperation.STORE_UNSIGNED_SHIFT_RIGHT:
-                {
-                    if (storeVar2 == null)
-                        CompileStoreStackUnsignedShiftRight(assembler, leftType, leftOperand.Interval);
-                    else if (isPointerDeference2)
-                        CompileStorePointerUnsignedShiftRight(assembler, leftType, leftOperand.Interval);
-                    else
-                        CompileStoreUnsignedShiftRight(assembler, storeVar2, leftOperand.Interval);
-
-                    break;
-                }
-
-                case BinaryOperation.STORE_ADD:
-                {
-                    if (storeVar2 == null)
-                        CompileStoreStackAdd(assembler, leftType, leftOperand.Interval);
-                    else if (isPointerDeference2)
-                        CompileStorePointerAdd(assembler, leftType, leftOperand.Interval);
-                    else
-                        CompileStoreAdd(assembler, storeVar2, leftOperand.Interval);
-
-                    break;
-                }
-
-                case BinaryOperation.STORE_SUB:
-                {
-                    if (storeVar2 == null)
-                        CompileStoreStackSub(assembler, leftType, leftOperand.Interval);
-                    else if (isPointerDeference2)
-                        CompileStorePointerSub(assembler, leftType, leftOperand.Interval);
-                    else
-                        CompileStoreSub(assembler, storeVar2, leftOperand.Interval);
-
-                    break;
-                }
-
-                case BinaryOperation.STORE_MUL:
-                {
-                    if (storeVar2 == null)
-                        CompileStoreStackMul(assembler, leftType, leftOperand.Interval);
-                    else if (isPointerDeference2)
-                        CompileStorePointerMul(assembler, leftType, leftOperand.Interval);
-                    else
-                        CompileStoreMul(assembler, storeVar2, leftOperand.Interval);
-
-                    break;
-                }
-
-                case BinaryOperation.STORE_DIV:
-                {
-                    if (storeVar2 == null)
-                        CompileStoreStackDiv(assembler, leftType, leftOperand.Interval);
-                    else if (isPointerDeference2)
-                        CompileStorePointerDiv(assembler, leftType, leftOperand.Interval);
-                    else
-                        CompileStoreDiv(assembler, storeVar2, leftOperand.Interval);
-
-                    break;
-                }
-
-                case BinaryOperation.STORE_MOD:
-                {
-                    if (storeVar2 == null)
-                        CompileStoreStackMod(assembler, leftType, leftOperand.Interval);
-                    else if (isPointerDeference2)
-                        CompileStorePointerMod(assembler, leftType, leftOperand.Interval);
-                    else
-                        CompileStoreMod(assembler, storeVar2, leftOperand.Interval);
-
-                    break;
-                }
-
-                default:
-                    throw new CompilerException(leftOperand.Interval, $"Operador '{operation}' desconhecido.");
-            }
-
-            tempVar?.Release();
-            castTempVar?.Release();
         }
 
         private AbstractType CompileFieldAccessorExpression(Context context, Assembler assembler, FieldAccessorExpression expression, out LocalVariable tempVar, bool getArrayAddress = false)

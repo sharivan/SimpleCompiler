@@ -36,13 +36,13 @@ namespace compiler
             if (type is StructType)
             {
                 // TODO Implementar
-                return;
+                throw new CompilerException(interval, $"Operação não implementada para o tipo '{type}'.");
             }
 
             if (type is ArrayType)
             {
                 // TODO Implementar
-                return;
+                throw new CompilerException(interval, $"Operação não implementada para o tipo '{type}'.");
             }
 
             if (type is PointerType)
@@ -60,7 +60,7 @@ namespace compiler
                 return;
             }
 
-            throw new CompilerException(interval, "Tipo desconhecido: '" + type + "'.");
+            throw new CompilerException(interval, $"Tipo desconhecido: '{type}'.");
         }
 
 #pragma warning disable IDE0060 // Remover o parâmetro não utilizado
@@ -96,13 +96,13 @@ namespace compiler
             if (type is StructType)
             {
                 // TODO Implementar
-                return;
+                throw new CompilerException(interval, $"Operação não implementada para o tipo '{type}'.");
             }
 
             if (type is ArrayType)
             {
                 // TODO Implementar
-                return;
+                throw new CompilerException(interval, $"Operação não implementada para o tipo '{type}'.");
             }
 
             if (type is PointerType)
@@ -111,7 +111,17 @@ namespace compiler
                 return;
             }
 
-            throw new CompilerException(interval, "Tipo desconhecido: '" + type + "'.");
+            if (type is StringType)
+            {
+                // TODO Isto está certo?
+                leftAssembler.EmitResidentToHostAddress();
+                Function f = unitySystem.FindFunction("AtribuiTexto");
+                int index = GetOrAddExternalFunction(f.Name, f.ParameterSize);
+                assembler.EmitExternCall(index);
+                return;
+            }
+
+            throw new CompilerException(interval, $"Tipo desconhecido: '{type}'.");
         }
 
         private void CompileStoreGlobal(Assembler assembler, Assembler leftAssembler, AbstractType type, int offset, SourceInterval interval)
@@ -157,7 +167,7 @@ namespace compiler
                 return;
             }
 
-            throw new CompilerException(interval, "Tipo desconhecido: '" + type + "'.");
+            throw new CompilerException(interval, $"Tipo desconhecido: '{type}'.");
         }
 
         private void CompileStoreLocal(Assembler assembler, Assembler leftAssembler, AbstractType type, int offset, SourceInterval interval)
@@ -203,7 +213,7 @@ namespace compiler
                 return;
             }
 
-            throw new CompilerException(interval, "Tipo desconhecido: '" + type + "'.");
+            throw new CompilerException(interval, $"Tipo desconhecido: '{type}'.");
         }
 
         private void CompileStore(Assembler assembler, Assembler leftAssembler, Variable storeVar, SourceInterval interval)
@@ -214,184 +224,214 @@ namespace compiler
                 CompileStoreLocal(assembler, leftAssembler, storeVar.Type, storeVar.Offset, interval);
         }
 
-        private void CompileStoreStackAdd(Assembler assembler, AbstractType type, SourceInterval interval)
+        private void CompileStoreStackAdd(Assembler assembler, Assembler leftAssembler, AbstractType type, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            switch (type)
             {
-                switch (p.Primitive)
+                case PrimitiveType p:
+                    switch (p.Primitive)
+                    {
+                        case Primitive.BYTE:
+                            assembler.EmitAdd();
+                            assembler.EmitStoreStack8();
+                            break;
+
+                        case Primitive.SHORT:
+                            assembler.EmitAdd();
+                            assembler.EmitStoreStack16();
+                            break;
+
+                        case Primitive.INT:
+                            assembler.EmitAdd();
+                            assembler.EmitStoreStack32();
+                            return;
+
+                        case Primitive.LONG:
+                            assembler.EmitAdd64();
+                            assembler.EmitStoreStack64();
+                            return;
+
+                        case Primitive.FLOAT:
+                            assembler.EmitFAdd();
+                            assembler.EmitStoreStack32();
+                            return;
+
+                        case Primitive.DOUBLE:
+                            assembler.EmitFAdd64();
+                            assembler.EmitStoreStack64();
+                            return;
+                    }
+
+                    break;
+
+                case PointerType:
+                    assembler.EmitAdd();
+                    assembler.EmitStoreStackPtr();
+                    return;
+
+                case StringType:
                 {
-                    case Primitive.BYTE:
-                        assembler.EmitAdd();
-                        assembler.EmitStoreStack8();
-                        break;
+                    leftAssembler.EmitResidentToHostAddress();
 
-                    case Primitive.SHORT:
-                        assembler.EmitAdd();
-                        assembler.EmitStoreStack16();
-                        break;
-
-                    case Primitive.INT:
-                        assembler.EmitAdd();
-                        assembler.EmitStoreStack32();
-                        return;
-
-                    case Primitive.LONG:
-                        assembler.EmitAdd64();
-                        assembler.EmitStoreStack64();
-                        return;
-
-                    case Primitive.FLOAT:
-                        assembler.EmitFAdd();
-                        assembler.EmitStoreStack32();
-                        return;
-
-                    case Primitive.DOUBLE:
-                        assembler.EmitFAdd64();
-                        assembler.EmitStoreStack64();
-                        return;
+                    Function func = unitySystem.FindFunction("ConcatenaTextos2");
+                    int index = GetOrAddExternalFunction(func.Name, func.ParameterSize);
+                    assembler.EmitExternCall(index);
+                    return;
                 }
             }
 
-            if (type is PointerType)
-            {
-                assembler.EmitAdd();
-                assembler.EmitStoreStackPtr();
-                return;
-            }
-
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStorePointerAdd(Assembler assembler, AbstractType type, SourceInterval interval)
         {
-            if (type is PrimitiveType p)
+            switch (type)
             {
-                switch (p.Primitive)
-                {
-                    case Primitive.BYTE:
-                        assembler.EmitAdd();
-                        assembler.EmitStorePointer8();
-                        break;
+                case PrimitiveType p:
+                    switch (p.Primitive)
+                    {
+                        case Primitive.BYTE:
+                            assembler.EmitAdd();
+                            assembler.EmitStorePointer8();
+                            break;
 
-                    case Primitive.SHORT:
-                        assembler.EmitAdd();
-                        assembler.EmitStorePointer16();
-                        break;
+                        case Primitive.SHORT:
+                            assembler.EmitAdd();
+                            assembler.EmitStorePointer16();
+                            break;
 
-                    case Primitive.INT:
-                        assembler.EmitAdd();
-                        assembler.EmitStorePointer32();
-                        return;
+                        case Primitive.INT:
+                            assembler.EmitAdd();
+                            assembler.EmitStorePointer32();
+                            return;
 
-                    case Primitive.LONG:
-                        assembler.EmitAdd64();
-                        assembler.EmitStorePointer64();
-                        return;
+                        case Primitive.LONG:
+                            assembler.EmitAdd64();
+                            assembler.EmitStorePointer64();
+                            return;
 
-                    case Primitive.FLOAT:
-                        assembler.EmitFAdd();
-                        assembler.EmitStorePointer32();
-                        return;
+                        case Primitive.FLOAT:
+                            assembler.EmitFAdd();
+                            assembler.EmitStorePointer32();
+                            return;
 
-                    case Primitive.DOUBLE:
-                        assembler.EmitFAdd64();
-                        assembler.EmitStorePointer64();
-                        return;
-                }
+                        case Primitive.DOUBLE:
+                            assembler.EmitFAdd64();
+                            assembler.EmitStorePointer64();
+                            return;
+                    }
+
+                    break;
+
+                case PointerType:
+                    assembler.EmitAdd();
+                    assembler.EmitStorePointerPtr();
+                    return;
+
+                case StringType:
+                    // TODO Implementar
+                    throw new CompilerException(interval, $"Operação não implementada para o tipo '{type}'.");
             }
 
-            if (type is PointerType)
-            {
-                assembler.EmitAdd();
-                assembler.EmitStorePointerPtr();
-                return;
-            }
-
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
-        private void CompileStoreAdd(Assembler assembler, Variable storeVar, SourceInterval interval)
+        private void CompileStoreAdd(Assembler assembler, Assembler leftAssembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
-            if (type is PrimitiveType p)
+            switch (type)
             {
-                switch (p.Primitive)
+                case PrimitiveType p:
+                    switch (p.Primitive)
+                    {
+                        case Primitive.BYTE:
+                            assembler.EmitAdd();
+
+                            if (storeVar is GlobalVariable)
+                                assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
+                            else
+                                assembler.EmitStoreLocal8(storeVar.Offset);
+
+                            return;
+
+                        case Primitive.SHORT:
+                            assembler.EmitAdd();
+
+                            if (storeVar is GlobalVariable)
+                                assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
+                            else
+                                assembler.EmitStoreLocal16(storeVar.Offset);
+
+                            return;
+
+                        case Primitive.INT:
+                            assembler.EmitAdd();
+
+                            if (storeVar is GlobalVariable)
+                                assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
+                            else
+                                assembler.EmitStoreLocal32(storeVar.Offset);
+
+                            return;
+
+                        case Primitive.LONG:
+                            assembler.EmitAdd64();
+
+                            if (storeVar is GlobalVariable)
+                                assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
+                            else
+                                assembler.EmitStoreLocal64(storeVar.Offset);
+
+                            return;
+
+                        case Primitive.FLOAT:
+                            assembler.EmitFAdd();
+
+                            if (storeVar is GlobalVariable)
+                                assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
+                            else
+                                assembler.EmitStoreLocal32(storeVar.Offset);
+
+                            return;
+
+                        case Primitive.DOUBLE:
+                            assembler.EmitFAdd64();
+
+                            if (storeVar is GlobalVariable)
+                                assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
+                            else
+                                assembler.EmitStoreLocal64(storeVar.Offset);
+
+                            return;
+                    }
+
+                    break;
+
+                case PointerType:
+                    assembler.EmitAdd();
+
+                    if (storeVar is GlobalVariable)
+                        assembler.EmitStoreGlobalPtr(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        assembler.EmitStoreLocalPtr(storeVar.Offset);
+
+                    return;
+
+                case StringType:
                 {
-                    case Primitive.BYTE:
-                        assembler.EmitAdd();
+                    if (storeVar is GlobalVariable)
+                        leftAssembler.EmitLoadGlobalHostAddress(unity.GlobalStartOffset + storeVar.Offset);
+                    else
+                        leftAssembler.EmitLoadLocalHostAddress(storeVar.Offset);
 
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal8(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal8(storeVar.Offset);
-
-                        return;
-
-                    case Primitive.SHORT:
-                        assembler.EmitAdd();
-
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal16(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal16(storeVar.Offset);
-
-                        return;
-
-                    case Primitive.INT:
-                        assembler.EmitAdd();
-
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal32(storeVar.Offset);
-
-                        return;
-
-                    case Primitive.LONG:
-                        assembler.EmitAdd64();
-
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal64(storeVar.Offset);
-
-                        return;
-
-                    case Primitive.FLOAT:
-                        assembler.EmitFAdd();
-
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal32(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal32(storeVar.Offset);
-
-                        return;
-
-                    case Primitive.DOUBLE:
-                        assembler.EmitFAdd64();
-
-                        if (storeVar is GlobalVariable)
-                            assembler.EmitStoreGlobal64(unity.GlobalStartOffset + storeVar.Offset);
-                        else
-                            assembler.EmitStoreLocal64(storeVar.Offset);
-
-                        return;
+                    Function func = unitySystem.FindFunction("ConcatenaTextos2");
+                    int index = GetOrAddExternalFunction(func.Name, func.ParameterSize);
+                    assembler.EmitExternCall(index);
+                    return;
                 }
             }
 
-            if (type is PointerType)
-            {
-                assembler.EmitAdd();
-
-                if (storeVar is GlobalVariable)
-                    assembler.EmitStoreGlobalPtr(unity.GlobalStartOffset + storeVar.Offset);
-                else
-                    assembler.EmitStoreLocalPtr(storeVar.Offset);
-
-                return;
-            }
-
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreStackSub(Assembler assembler, AbstractType type, SourceInterval interval)
@@ -439,7 +479,7 @@ namespace compiler
                 return;
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStorePointerSub(Assembler assembler, AbstractType type, SourceInterval interval)
@@ -487,7 +527,7 @@ namespace compiler
                 return;
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreSub(Assembler assembler, Variable storeVar, SourceInterval interval)
@@ -571,7 +611,7 @@ namespace compiler
                 return;
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreStackMul(Assembler assembler, AbstractType type, SourceInterval interval)
@@ -612,7 +652,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStorePointerMul(Assembler assembler, AbstractType type, SourceInterval interval)
@@ -653,7 +693,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreMul(Assembler assembler, Variable storeVar, SourceInterval interval)
@@ -725,7 +765,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreStackDiv(Assembler assembler, AbstractType type, SourceInterval interval)
@@ -766,7 +806,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStorePointerDiv(Assembler assembler, AbstractType type, SourceInterval interval)
@@ -807,7 +847,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreDiv(Assembler assembler, Variable storeVar, SourceInterval interval)
@@ -878,7 +918,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreStackMod(Assembler assembler, AbstractType type, SourceInterval interval)
@@ -909,7 +949,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStorePointerMod(Assembler assembler, AbstractType type, SourceInterval interval)
@@ -940,7 +980,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreMod(Assembler assembler, Variable storeVar, SourceInterval interval)
@@ -992,7 +1032,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreStackAnd(Assembler assembler, AbstractType type, SourceInterval interval)
@@ -1024,7 +1064,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStorePointerAnd(Assembler assembler, AbstractType type, SourceInterval interval)
@@ -1056,7 +1096,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreAnd(Assembler assembler, Variable storeVar, SourceInterval interval)
@@ -1109,7 +1149,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreStackOr(Assembler assembler, AbstractType type, SourceInterval interval)
@@ -1141,7 +1181,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStorePointerOr(Assembler assembler, AbstractType type, SourceInterval interval)
@@ -1173,7 +1213,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreOr(Assembler assembler, Variable storeVar, SourceInterval interval)
@@ -1226,7 +1266,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreStackXor(Assembler assembler, AbstractType type, SourceInterval interval)
@@ -1258,7 +1298,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStorePointerXor(Assembler assembler, AbstractType type, SourceInterval interval)
@@ -1290,7 +1330,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreXor(Assembler assembler, Variable storeVar, SourceInterval interval)
@@ -1342,7 +1382,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreStackShiftLeft(Assembler assembler, AbstractType type, SourceInterval interval)
@@ -1373,7 +1413,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStorePointerShiftLeft(Assembler assembler, AbstractType type, SourceInterval interval)
@@ -1404,7 +1444,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreShiftLeft(Assembler assembler, Variable storeVar, SourceInterval interval)
@@ -1456,7 +1496,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreStackShiftRight(Assembler assembler, AbstractType type, SourceInterval interval)
@@ -1487,7 +1527,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStorePointerShiftRight(Assembler assembler, AbstractType type, SourceInterval interval)
@@ -1518,7 +1558,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreShiftRight(Assembler assembler, Variable storeVar, SourceInterval interval)
@@ -1570,7 +1610,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreStackUnsignedShiftRight(Assembler assembler, AbstractType type, SourceInterval interval)
@@ -1601,7 +1641,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStorePointerUnsignedShiftRight(Assembler assembler, AbstractType type, SourceInterval interval)
@@ -1632,7 +1672,7 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
         private void CompileStoreUnsignedShiftRight(Assembler assembler, Variable storeVar, SourceInterval interval)
@@ -1684,7 +1724,227 @@ namespace compiler
                 }
             }
 
-            throw new CompilerException(interval, "Operação inválida para o tipo '" + type + "'.");
+            throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
+        }
+
+        private void CompileStoreExpression(Context context, Assembler assembler, BinaryOperation operation, Expression leftOperand, Expression rightOperand)
+        {
+            AbstractType leftType;
+            AbstractType rightType;
+            Assembler leftAssembler;
+            Assembler preCastAssembler;
+            Assembler rightAssembler;
+            Assembler storeAssembler;
+            Variable storeVar;
+            LocalVariable tempVar;
+            LocalVariable castTempVar;
+            bool isPointerDeference;
+
+            if (operation == BinaryOperation.STORE)
+            {
+                leftAssembler = new();
+                leftType = CompileAssignableExpression(context, leftAssembler, leftOperand, out storeVar, out isPointerDeference);
+
+                preCastAssembler = new();
+                rightAssembler = new();
+                rightType = CompileExpression(context, rightAssembler, rightOperand, out tempVar);
+                CompileCast(context, rightAssembler, preCastAssembler, rightType, leftType, false, rightOperand.Interval, out castTempVar);
+
+                storeAssembler = new();
+                if (storeVar != null)
+                {
+                    leftAssembler.Clear();
+                    CompileStore(storeAssembler, leftAssembler, storeVar, leftOperand.Interval);
+                }
+                else if (isPointerDeference)
+                    CompileStorePointer(storeAssembler, leftAssembler, leftType, leftOperand.Interval);
+                else
+                    CompileStoreStack(storeAssembler, leftAssembler, leftType, leftOperand.Interval);
+
+                assembler.Emit(leftAssembler);
+                assembler.Emit(preCastAssembler);
+                assembler.Emit(rightAssembler);
+                assembler.Emit(storeAssembler);
+
+                tempVar?.Release();
+                castTempVar?.Release();
+
+                return;
+            }
+
+            leftAssembler = new();
+            Assembler loadAssembler = new();
+
+            leftType = CompileAssignableExpression(context, leftAssembler, leftOperand, out storeVar, out isPointerDeference);
+
+            if (storeVar == null)
+            {
+                loadAssembler.Emit(leftAssembler);
+
+                if (isPointerDeference)
+                    CompileLoadPointer(loadAssembler, leftType, leftOperand.Interval);
+                else
+                    CompileLoadStack(loadAssembler, leftType, leftOperand.Interval);
+            }
+            else
+            {
+                leftAssembler.Clear();
+                CompileLoad(loadAssembler, storeVar, leftOperand.Interval);
+            }
+
+            rightAssembler = new();
+            rightType = CompileExpression(context, rightAssembler, rightOperand, out tempVar);
+
+            preCastAssembler = new();
+            CompileCast(context, rightAssembler, preCastAssembler, rightType, leftType, false, rightOperand.Interval, out castTempVar);
+
+            storeAssembler = new();
+            switch (operation)
+            {
+                case BinaryOperation.STORE_OR:
+                {
+                    if (storeVar == null)
+                        CompileStoreStackOr(storeAssembler, leftType, leftOperand.Interval);
+                    else if (isPointerDeference)
+                        CompileStorePointerOr(storeAssembler, leftType, leftOperand.Interval);
+                    else
+                        CompileStoreOr(storeAssembler, storeVar, leftOperand.Interval);
+
+                    break;
+                }
+
+                case BinaryOperation.STORE_XOR:
+                {
+                    if (storeVar == null)
+                        CompileStoreStackXor(storeAssembler, leftType, leftOperand.Interval);
+                    else if (isPointerDeference)
+                        CompileStorePointerXor(storeAssembler, leftType, leftOperand.Interval);
+                    else
+                        CompileStoreXor(storeAssembler, storeVar, leftOperand.Interval);
+
+                    break;
+                }
+
+                case BinaryOperation.STORE_AND:
+                {
+                    if (storeVar == null)
+                        CompileStoreStackAnd(storeAssembler, leftType, leftOperand.Interval);
+                    else if (isPointerDeference)
+                        CompileStorePointerAnd(storeAssembler, leftType, leftOperand.Interval);
+                    else
+                        CompileStoreAnd(storeAssembler, storeVar, leftOperand.Interval);
+
+                    break;
+                }
+
+                case BinaryOperation.STORE_SHIFT_LEFT:
+                {
+                    if (storeVar == null)
+                        CompileStoreStackShiftLeft(storeAssembler, leftType, leftOperand.Interval);
+                    else if (isPointerDeference)
+                        CompileStorePointerShiftLeft(storeAssembler, leftType, leftOperand.Interval);
+                    else
+                        CompileStoreShiftLeft(storeAssembler, storeVar, leftOperand.Interval);
+
+                    break;
+                }
+
+                case BinaryOperation.STORE_SHIFT_RIGHT:
+                {
+                    if (storeVar == null)
+                        CompileStoreStackShiftRight(storeAssembler, leftType, leftOperand.Interval);
+                    else if (isPointerDeference)
+                        CompileStorePointerShiftRight(storeAssembler, leftType, leftOperand.Interval);
+                    else
+                        CompileStoreShiftRight(storeAssembler, storeVar, leftOperand.Interval);
+
+                    break;
+                }
+
+                case BinaryOperation.STORE_UNSIGNED_SHIFT_RIGHT:
+                {
+                    if (storeVar == null)
+                        CompileStoreStackUnsignedShiftRight(storeAssembler, leftType, leftOperand.Interval);
+                    else if (isPointerDeference)
+                        CompileStorePointerUnsignedShiftRight(storeAssembler, leftType, leftOperand.Interval);
+                    else
+                        CompileStoreUnsignedShiftRight(storeAssembler, storeVar, leftOperand.Interval);
+
+                    break;
+                }
+
+                case BinaryOperation.STORE_ADD:
+                {
+                    if (storeVar == null)
+                        CompileStoreStackAdd(storeAssembler, leftAssembler, leftType, leftOperand.Interval);
+                    else if (isPointerDeference)
+                        CompileStorePointerAdd(storeAssembler, leftType, leftOperand.Interval);
+                    else
+                        CompileStoreAdd(storeAssembler, leftAssembler, storeVar, leftOperand.Interval);
+
+                    break;
+                }
+
+                case BinaryOperation.STORE_SUB:
+                {
+                    if (storeVar == null)
+                        CompileStoreStackSub(storeAssembler, leftType, leftOperand.Interval);
+                    else if (isPointerDeference)
+                        CompileStorePointerSub(storeAssembler, leftType, leftOperand.Interval);
+                    else
+                        CompileStoreSub(storeAssembler, storeVar, leftOperand.Interval);
+
+                    break;
+                }
+
+                case BinaryOperation.STORE_MUL:
+                {
+                    if (storeVar == null)
+                        CompileStoreStackMul(storeAssembler, leftType, leftOperand.Interval);
+                    else if (isPointerDeference)
+                        CompileStorePointerMul(storeAssembler, leftType, leftOperand.Interval);
+                    else
+                        CompileStoreMul(storeAssembler, storeVar, leftOperand.Interval);
+
+                    break;
+                }
+
+                case BinaryOperation.STORE_DIV:
+                {
+                    if (storeVar == null)
+                        CompileStoreStackDiv(storeAssembler, leftType, leftOperand.Interval);
+                    else if (isPointerDeference)
+                        CompileStorePointerDiv(storeAssembler, leftType, leftOperand.Interval);
+                    else
+                        CompileStoreDiv(storeAssembler, storeVar, leftOperand.Interval);
+
+                    break;
+                }
+
+                case BinaryOperation.STORE_MOD:
+                {
+                    if (storeVar == null)
+                        CompileStoreStackMod(storeAssembler, leftType, leftOperand.Interval);
+                    else if (isPointerDeference)
+                        CompileStorePointerMod(storeAssembler, leftType, leftOperand.Interval);
+                    else
+                        CompileStoreMod(storeAssembler, storeVar, leftOperand.Interval);
+
+                    break;
+                }
+
+                default:
+                    throw new CompilerException(leftOperand.Interval, $"Operador '{operation}' desconhecido.");
+            }
+
+            tempVar?.Release();
+            castTempVar?.Release();
+
+            assembler.Emit(leftAssembler);
+            assembler.Emit(loadAssembler);
+            assembler.Emit(preCastAssembler);
+            assembler.Emit(rightAssembler);
+            assembler.Emit(storeAssembler);
         }
     }
 }

@@ -149,10 +149,12 @@ namespace compiler
                     else if (ptrType is ArrayType at)
                     {
                         // TODO Implementar
+                        throw new CompilerException(operand.Interval, $"Operação não implementada para o tipo '{at}'.");
                     }
                     else if (ptrType is StructType st)
                     {
                         // TODO Implementar
+                        throw new CompilerException(operand.Interval, $"Operação não implementada para o tipo '{st}'.");
                     }
                     else if (ptrType is PointerType)
                         assembler.EmitLoadPointerPtr();

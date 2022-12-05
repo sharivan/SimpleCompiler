@@ -206,8 +206,11 @@ namespace compiler
                             result = PrimitiveType.BOOL;
                         }
                         else if (leftType == rightType)
+                        {
                             // TODO Implementar
                             result = PrimitiveType.BOOL;
+                            throw new CompilerException(expression.Interval, $"Operação não implementada para os tipos '{leftType}' e '{rightType}'.");
+                        }
                         else
                             throw new CompilerException(expression.Interval, $"Tipos imcompatíveis: '{leftType}' e '{rightType}'.");
 
@@ -288,8 +291,11 @@ namespace compiler
                             result = PrimitiveType.BOOL;
                         }
                         else if (leftType == rightType)
+                        {
                             // TODO Implementar
                             result = PrimitiveType.BOOL;
+                            throw new CompilerException(expression.Interval, $"Operação não implementada para os tipos '{leftType}' e '{rightType}'.");
+                        }
                         else
                             throw new CompilerException(expression.Interval, $"Tipos imcompatíveis: '{leftType}' e '{rightType}'.");
 

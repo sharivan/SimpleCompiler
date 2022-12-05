@@ -169,8 +169,9 @@
 		SCAN64, // escaneia um long da entrada externa		
 		FSCAN, // escaneia um float da entrada externa
 		FSCAN64, // escaneia um double da entrada externa
-		SCANSTR, // escaneia uma string na entrada externa
-		PRINTB, // imprime um bool na saída externa
+		SCANSTR, // escaneia uma string estática na entrada externa
+        DSCANSTR, // escaneia uma string dinâmica na entrada externa
+        PRINTB, // imprime um bool na saída externa
 		PRINTC, // imprime um caractere na saída externa
 		PRINT32, // imprime um inteiro na saída externa
 		PRINT64, // imprime um long na saída externa
