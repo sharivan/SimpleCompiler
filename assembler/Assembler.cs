@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-
+using System.Windows.Shapes;
+using compiler;
 using vm;
 
 namespace assembler
@@ -14,12 +15,13 @@ namespace assembler
         private readonly BinaryWriter constantWritter;
         private readonly List<Label> issuedLabels;
         private readonly List<Label> bindedLabels;
-        private readonly List<Tuple<string, int>> externalFunctions;
+        private readonly List<(string, int)> externalFunctions;
+        private readonly List<(string, int, int)> sourceCodeLines;
+        private readonly Dictionary<(string, int), int> sourceCodeLineMap;
 
         public long Position
         {
             get => output.Position;
-
             set => output.Position = value;
         }
 
@@ -29,6 +31,10 @@ namespace assembler
 
         public int ExternalFunctionCount => externalFunctions.Count;
 
+        public IEnumerable<(string, int)> ExternalFunctions => externalFunctions;
+
+        public IEnumerable<(string, int, int)> SourceCodeLines => sourceCodeLines;
+
         public Assembler()
         {
             output = new MemoryStream();
@@ -37,12 +43,37 @@ namespace assembler
             constantWritter = new BinaryWriter(constantOut);
             issuedLabels = new List<Label>();
             bindedLabels = new List<Label>();
-            externalFunctions = new List<Tuple<string, int>>();
+            externalFunctions = new List<(string, int)>();
+            sourceCodeLines = new List<(string, int, int)>();
+            sourceCodeLineMap = new Dictionary<(string, int), int>();
         }
 
-        public void AddExternalFunctionNames(Tuple<string, int>[] entries) => externalFunctions.AddRange(entries);
+        public void AddExternalFunctionNames((string, int)[] entries) => externalFunctions.AddRange(entries);
 
-        public Tuple<string, int> GetExternalFunction(int index) => externalFunctions[index];
+        public (string, int) GetExternalFunction(int index) => externalFunctions[index];
+
+        public int AddLine(string fileName, int line)
+        {
+            if (sourceCodeLineMap.TryGetValue((fileName, line), out int ip))
+            {
+                ip = (int) Position;
+                sourceCodeLineMap[(fileName, line)] = ip;
+                return ip;
+            }
+
+            ip = (int) Position;
+            sourceCodeLines.Add((fileName, line, ip));
+            sourceCodeLineMap.Add((fileName, line), ip);
+            return ip;
+        }
+
+        public int GetIPFromLine(string fileName, int line) => sourceCodeLineMap.TryGetValue((fileName, line), out int ip) ? ip : -1;
+
+        public void ClearLines()
+        {
+            sourceCodeLines.Clear();
+            sourceCodeLineMap.Clear();
+        }
 
         public void CopyCode(byte[] output) => CopyCode(output, 0, output.Length);
 
@@ -151,6 +182,8 @@ namespace assembler
             issuedLabels.Clear();
             bindedLabels.Clear();
             externalFunctions.Clear();
+            sourceCodeLines.Clear();
+            sourceCodeLineMap.Clear();
         }
 
         public void EmitData(byte value) => writer.Write(value);
@@ -191,6 +224,17 @@ namespace assembler
             long startPosition = output.Position;
             other.CopyCode(output);
 
+            foreach (var (sourceFileName, line, ip) in other.sourceCodeLines)
+            {
+                int newIP = ip + (int) startPosition;
+                sourceCodeLines.Add((sourceFileName, line, newIP));
+
+                if (!sourceCodeLineMap.ContainsKey((sourceFileName, line)))
+                    sourceCodeLineMap.Add((sourceFileName, line), newIP);
+                else
+                    sourceCodeLineMap[(sourceFileName, line)] = newIP;
+            }
+
             for (int i = 0; i < other.issuedLabels.Count; i++)
             {
                 Label label = other.issuedLabels[i];
@@ -209,9 +253,8 @@ namespace assembler
                 issuedLabels.Add(label);
             }
 
-            for (int i = 0; i < other.bindedLabels.Count; i++)
+            foreach (Label label in other.bindedLabels)
             {
-                Label label = other.bindedLabels[i];
                 label.bindedAssembler = this;
                 label.bindedIP += (int) startPosition;
                 bindedLabels.Add(label);

@@ -2,6 +2,8 @@
 {
     public class Breakpoint
     {
+        internal string fileName;
+        internal int line;
         internal Opcode opcode;
         internal bool enabled;
         internal bool temporary;
@@ -11,18 +13,23 @@
             get;
         }
 
+        public string FileName => fileName;
+
+        public int Line => line;
+
         public bool Temporary => temporary;
 
         public bool Enabled
         {
             get => enabled;
-
             set => enabled = value;
         }
 
-        internal Breakpoint(int ip, Opcode opcode, bool temporary, bool enabled)
+        internal Breakpoint(int ip, string fileName, int line, Opcode opcode, bool temporary, bool enabled)
         {
             IP = ip;          
+            this.fileName = fileName;
+            this.line = line;
             this.opcode = opcode;           
             this.temporary = temporary;
             this.enabled = enabled;

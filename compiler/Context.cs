@@ -18,6 +18,11 @@ namespace compiler
             get;
         }
 
+        public SourceInterval Interval
+        {
+            get;
+        }
+
         public Context Parent
         {
             get;
@@ -35,9 +40,10 @@ namespace compiler
             }
         }
 
-        internal Context(Function function, Context parent = null)
+        internal Context(Function function, SourceInterval interval, Context parent = null)
         {
             Function = function;
+            Interval = interval;
             Parent = parent;
             
             variables = new List<Variable>();
@@ -114,6 +120,8 @@ namespace compiler
 
         public void Release(Assembler assembler)
         {
+            assembler.AddLine(Interval.FileName, Interval.LasttLine);
+
             Compiler comp = Function.Unity.Compiler;
             foreach (Variable v in variables)
             {

@@ -24,6 +24,7 @@ namespace compiler
         public SourceInterval Interval
         {
             get;
+            internal set;
         }
 
         public bool IsExtern
@@ -112,6 +113,8 @@ namespace compiler
 
         internal void EndBlock(Assembler assembler)
         {
+            assembler.AddLine(Interval.FileName, Interval.LasttLine);
+
             foreach (Parameter p in parameters)
             {
                 AbstractType type = p.Type;

@@ -12,7 +12,7 @@ namespace compiler
         {
             Token token = lexer.NextToken();
             if (token == null)
-                throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos), "Fim do arquivo encontrado mas token esperado.");
+                throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos, lexer.CurrentLine), "Fim do arquivo encontrado mas token esperado.");
 
             switch (token)
             {
@@ -664,7 +664,7 @@ namespace compiler
         private Statement ParseStatement()
         {
             if (lexer.NextSymbol(";", false) != null)
-                return new EmptyStatement(lexer.CurrentInterval(lexer.CurrentPos));
+                return new EmptyStatement(lexer.CurrentInterval(lexer.CurrentPos, lexer.CurrentLine));
 
             if (lexer.NextSymbol("{", false) != null)
             {
@@ -781,7 +781,7 @@ namespace compiler
                         ReadStatement result = new(kw.Interval);
 
                         if (lexer.NextSymbol(";", false) != null)
-                            throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos), "Expressão esperada.");
+                            throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos, lexer.CurrentLine), "Expressão esperada.");
 
                         Expression expression = ParseExpression();
                         result.AddExpression(expression);
@@ -804,7 +804,7 @@ namespace compiler
 
                         if (lexer.NextSymbol(";", false) != null)
                         {
-                            return result.LineBreak ? (Statement) result : throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos), "Expressão esperada.");
+                            return result.LineBreak ? (Statement) result : throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos, lexer.CurrentLine), "Expressão esperada.");
                         }
 
                         Expression expression = ParseExpression();
@@ -853,13 +853,14 @@ namespace compiler
 
         private BlockStatement ParseBlock()
         {
-            BlockStatement result = new(lexer.CurrentInterval(lexer.CurrentPos));
+            BlockStatement result = new(lexer.CurrentInterval());
             while (lexer.NextSymbol("}", false) == null)
             {
                 Statement statement = ParseStatement();
                 result.AddStatement(statement);
             }
 
+            result.Interval = SourceInterval.Merge(result.Interval, lexer.CurrentInterval());
             return result;
         }
 
@@ -912,6 +913,8 @@ namespace compiler
                 f.CreateReturnLabel();
                 f.Block = ParseBlock();
             }
+
+            f.Interval = SourceInterval.Merge(f.Interval, lexer.CurrentInterval());
         }
 
         private void ParseStructDeclaration()
@@ -1003,6 +1006,7 @@ namespace compiler
                 f.CreateEntryLabel();
                 f.CreateReturnLabel();
                 f.Block = ParseBlock();
+                f.Interval = SourceInterval.Merge(f.Interval, lexer.CurrentInterval());
 
                 return true;
             }
@@ -1028,15 +1032,15 @@ namespace compiler
                 if (lexer.NextKeyword("programa", false) == null)
                 {
                     if (programOnly)
-                        throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos), "'programa' esperado.");
+                        throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos, lexer.CurrentLine), "'programa' esperado.");
 
                     if (lexer.NextKeyword("unidade", false) == null)
-                        throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos), "'programa' ou 'unidade' esperado.");
+                        throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos, lexer.CurrentLine), "'programa' ou 'unidade' esperado.");
 
                     isUnity = true;
                 }
                 else if (program != null)
-                    throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos), "Não pode haver mais que um programa.");
+                    throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos, lexer.CurrentLine), "Não pode haver mais que um programa.");
 
                 Identifier id = lexer.NextIdentifier();
                 string name = id.Name;
@@ -1083,7 +1087,7 @@ namespace compiler
             using (lexer = Lexer.CreateFromFile(unity.FileName))
             {
                 if (lexer.NextKeyword("unidade", false) == null)
-                    throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos), "'unidade' esperado.");
+                    throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos, lexer.CurrentLine), "'unidade' esperado.");
 
                 Identifier id = lexer.NextIdentifier();
                 string name = id.Name;

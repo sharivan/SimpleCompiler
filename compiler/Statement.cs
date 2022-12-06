@@ -11,6 +11,7 @@ namespace compiler
         public SourceInterval Interval
         {
             get;
+            internal set;
         }
 
         protected Statement(SourceInterval interval) => Interval = interval;
@@ -38,7 +39,6 @@ namespace compiler
         public AbstractType Type
         {
             get => type;
-
             internal set => type = value;
         }
 
@@ -47,7 +47,6 @@ namespace compiler
         public Tuple<string, Expression> this[int index]
         {
             get => vars[index];
-
             internal set => vars[index] = value;
         }
 
@@ -124,7 +123,6 @@ namespace compiler
         public Expression this[int index]
         {
             get => expressions[index];
-
             internal set => expressions[index] = value;
         }
 

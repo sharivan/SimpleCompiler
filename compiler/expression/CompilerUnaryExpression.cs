@@ -119,7 +119,6 @@ namespace compiler
                     if (ptrType == null)
                         throw new CompilerException(operand.Interval, "Indireção de ponteiros não é valida para literais nulos.");
 
-#pragma warning disable IDE0059 // Atribuição desnecessária de um valor
                     if (ptrType is PrimitiveType pt)
                         switch (pt.Primitive)
                         {
@@ -158,7 +157,6 @@ namespace compiler
                     }
                     else if (ptrType is PointerType)
                         assembler.EmitLoadPointerPtr();
-#pragma warning restore IDE0059 // Atribuição desnecessária de um valor
 
                     result = ptrType;
                     break;

@@ -23,7 +23,7 @@ namespace compiler
         private readonly List<CompilationUnity> units;
         private readonly Dictionary<string, CompilationUnity> unityTable;
         private CompilationUnity program;
-        private readonly List<Tuple<string, int>> externalFunctions;
+        private readonly List<(string, int)> externalFunctions;
         private readonly Dictionary<string, int> externalFunctionMap;
 
         internal CompilationUnity unity;
@@ -49,7 +49,7 @@ namespace compiler
             labels = new List<Label>();
             units = new List<CompilationUnity>();
             unityTable = new Dictionary<string, CompilationUnity>();
-            externalFunctions = new List<Tuple<string, int>>();
+            externalFunctions = new List<(string, int)>();
             externalFunctionMap = new Dictionary<string, int>();
 
             unity = null;
@@ -62,7 +62,7 @@ namespace compiler
                 throw new Exception($"Função externa '{name}' já adicionada.");
 
             int index = externalFunctions.Count;
-            externalFunctions.Add(new Tuple<string, int>(name, paramSize));
+            externalFunctions.Add((name, paramSize));
             externalFunctionMap.Add(name, index);
             return index;
         }
@@ -76,7 +76,7 @@ namespace compiler
                 return index;
 
             index = externalFunctions.Count;
-            externalFunctions.Add(new Tuple<string, int>(name, paramSize));
+            externalFunctions.Add((name, paramSize));
             externalFunctionMap.Add(name, index);
             return index;
         }
@@ -435,6 +435,8 @@ namespace compiler
 
         private void CompileStatement(Context context, Assembler assembler, Statement statement)
         {
+            assembler.AddLine(statement.Interval.FileName, statement.Interval.FirstLine);
+
             switch (statement)
             {
                 case ExpressionStatement e:
@@ -736,7 +738,7 @@ namespace compiler
 
                 case ForStatement f:
                 {
-                    Context forContext = new(function, context);
+                    Context forContext = new(function, f.Interval, context);
 
                     // inicializadores
                     foreach (InitializerStatement initializer in f.Initializers)
@@ -783,7 +785,7 @@ namespace compiler
 
                 case BlockStatement bl:
                 {
-                    Context blockContext = new(function, context);
+                    Context blockContext = new(function, bl.Interval, context);
                     foreach (Statement stm in bl)
                         CompileStatement(blockContext, assembler, stm);
 
@@ -800,11 +802,8 @@ namespace compiler
         {
             statement.Resolve();
             AbstractType type = statement.Type;
-            foreach (var tuple in statement)
+            foreach (var (name, initializer) in statement)
             {
-                string name = tuple.Item1;
-                Expression initializer = tuple.Item2;
-
                 Variable var = context.DeclareLocalVariable(function, name, type, statement.Interval);
                 if (var == null)
                     throw new CompilerException(statement.Interval, $"Variável local '{name}' já declarada.");
@@ -848,10 +847,12 @@ namespace compiler
 
         internal void CompileFunction(Assembler assembler)
         {
+            assembler.AddLine(function.Interval.FileName, function.Interval.FirstLine);
+
             if (function.IsExtern)
                 return;
 
-            Context context = new(function);
+            Context context = new(function, function.Interval);
             Assembler tempAssembler = new();
 
             CompileStatement(context, tempAssembler, function.Block);

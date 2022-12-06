@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
@@ -75,7 +76,7 @@ namespace vm
 
         public const int DEFAULT_STACK_SIZE = 32798; // tamanho da pilha bytes
 
-        public delegate void DisassemblyLine(int ip, string line);
+        public delegate void DisassemblyLine(int ip, string lineText);
         public delegate string ConsoleRead();
         public delegate void ConsolePrint(string message);
         public delegate void PauseDelegate(int ip);
@@ -93,11 +94,16 @@ namespace vm
         private int calls;
         private SteppingMode steppingMode = SteppingMode.RUN;
         private int runToIP = -1;
+
+        private readonly Dictionary<(string, int), int> lineToIP;
+        private readonly Dictionary<int, (string, int)> ipToLine;
+
         private readonly List<Breakpoint> breakpoints;
-        private readonly Dictionary<int, int> breakpointTable;
+        private readonly Dictionary<int, int> breakpointTableByIP;
+        private readonly Dictionary<(string, int), int> breakpointTableByFileAndLine;
 
         private readonly List<ExternalFunctionEntry> externalFunctions;
-        private readonly Dictionary<string, Tuple<int, int>> externalFunctionMapByName;
+        private readonly Dictionary<string, (int, int)> externalFunctionMapByName;
         private readonly Dictionary<int, string> externalFunctionMapByIndex;
 
         public event DisassemblyLine OnDisassemblyLine;
@@ -162,11 +168,15 @@ namespace vm
             stack = IntPtr.Zero;
             StackSize = 0;
 
+            lineToIP = new Dictionary<(string, int), int>();
+            ipToLine = new Dictionary<int, (string, int)>();
+
             breakpoints = new List<Breakpoint>();
-            breakpointTable = new Dictionary<int, int>();
+            breakpointTableByIP = new Dictionary<int, int>();
+            breakpointTableByFileAndLine = new Dictionary<(string, int), int>();
 
             externalFunctions = new List<ExternalFunctionEntry>();
-            externalFunctionMapByName = new Dictionary<string, Tuple<int, int>>();
+            externalFunctionMapByName = new Dictionary<string, (int, int)>();
             externalFunctionMapByIndex = new Dictionary<int, string>();
 
             steppingMode = SteppingMode.RUN;
@@ -179,9 +189,25 @@ namespace vm
 
         public void Initialize(Assembler assembler, int stackSize = DEFAULT_STACK_SIZE)
         {
+            lineToIP.Clear();
+            ipToLine.Clear();
+
             code = new byte[assembler.CodeSize];
             assembler.CopyCode(code);
             SP = 0;
+
+            foreach (var (fileName, line, ip) in assembler.SourceCodeLines)
+            {
+                if (!lineToIP.ContainsKey((fileName, line)))
+                    lineToIP.Add((fileName, line), ip);
+                else
+                    lineToIP[(fileName, line)] = ip;
+
+                if (!ipToLine.ContainsKey(ip))
+                    ipToLine.Add(ip, (fileName, line));
+                else
+                    ipToLine[ip] = (fileName, line);
+            }
 
             StackSize = stackSize + (int) assembler.ConstantSize;
             stack = Marshal.AllocHGlobal(StackSize);
@@ -200,7 +226,8 @@ namespace vm
             AllocatedStringSize = 0;
 
             breakpoints.Clear();
-            breakpointTable.Clear();
+            breakpointTableByIP.Clear();
+            breakpointTableByFileAndLine.Clear();
 
             externalFunctions.Clear();
             externalFunctionMapByName.Clear();
@@ -208,8 +235,8 @@ namespace vm
 
             for (int i = 0; i < assembler.ExternalFunctionCount; i++)
             {
-                Tuple<string, int> entry = assembler.GetExternalFunction(i);
-                AddExternalFunction(entry.Item1, i, entry.Item2);
+                var (functionName, paramSize) = assembler.GetExternalFunction(i);
+                AddExternalFunction(functionName, i, paramSize);
             }
 
             foreach (var kv in UnitySystem.FUNCTIONS)
@@ -234,7 +261,8 @@ namespace vm
             FreeAllocatedStrings();
 
             breakpoints.Clear();
-            breakpointTable.Clear();
+            breakpointTableByIP.Clear();
+            breakpointTableByFileAndLine.Clear();
 
             externalFunctions.Clear();
             externalFunctionMapByName.Clear();
@@ -394,7 +422,20 @@ namespace vm
             AllocatedStringSize = 0;
         }
 
-        public Breakpoint AddBreakpoint(int ip, bool temporary = false, bool enabled = true)
+        public int GetIPFromLine(string fileName, int line) => lineToIP.TryGetValue((fileName, line), out ip) ? ip : -1;
+
+        public (string, int) GetLineFromIP(int ip) => ipToLine.TryGetValue(ip, out (string, int) entry) ? entry : (null, -1);
+
+        public Breakpoint AddBreakpoint(string fileName, int line, bool temporary = false, bool enabled = true)
+        {
+            lock (breakpoints)
+            {
+                int ip = GetIPFromLine(fileName, line);
+                return ip != -1 ? AddBreakpoint(ip, fileName, line, temporary, enabled) : null;
+            }
+        }
+
+        public Breakpoint AddBreakpoint(int ip, string fileName = null, int line = -1, bool temporary = false, bool enabled = true)
         {
             lock (breakpoints)
             {
@@ -411,9 +452,13 @@ namespace vm
 
                 int bpIP = ip;
                 var opcode = (Opcode) ReadCodeByte(ref ip);
-                result = new Breakpoint(bpIP, opcode, temporary, enabled);
+                result = new Breakpoint(bpIP, fileName, line, opcode, temporary, enabled);
                 breakpoints.Add(result);
-                breakpointTable.Add(bpIP, breakpoints.Count - 1);
+                int index = breakpoints.Count - 1;
+
+                breakpointTableByIP.Add(bpIP, index);
+                breakpointTableByFileAndLine.Add((fileName, line), index);
+
                 ip = bpIP;
                 WriteCode(ref ip, (byte) Opcode.BREAK);
                 return result;
@@ -424,18 +469,42 @@ namespace vm
         {
             lock (breakpoints)
             {
-                return breakpointTable.TryGetValue(ip, out int index) ? breakpoints[index] : null;
+                return breakpointTableByIP.TryGetValue(ip, out int index) ? breakpoints[index] : null;
+            }
+        }
+
+        public Breakpoint GetBreakpoint(string fileName, int line)
+        {
+            lock (breakpoints)
+            {
+                return breakpointTableByFileAndLine.TryGetValue((fileName, line), out int index) ? breakpoints[index] : null;
             }
         }
 
         public Breakpoint ToggleBreakPoint(int ip)
         {
-            Breakpoint bp = GetBreakpoint(ip);
-            if (bp == null)
-                return AddBreakpoint(ip);
+            lock (breakpoints)
+            {
+                Breakpoint bp = GetBreakpoint(ip);
+                if (bp == null)
+                    return AddBreakpoint(ip);
 
-            RemoveBreakpoint(bp);
-            return bp;
+                RemoveBreakpoint(bp);
+                return bp;
+            }
+        }
+
+        public Breakpoint ToggleBreakPoint(string fileName, int line)
+        {
+            lock (breakpoints)
+            {
+                Breakpoint bp = GetBreakpoint(fileName, line);
+                if (bp == null)
+                    return AddBreakpoint(fileName, line);
+
+                RemoveBreakpoint(fileName, line);
+                return bp;
+            }
         }
 
         public void RemoveBreakpoint(Breakpoint bp)
@@ -447,7 +516,8 @@ namespace vm
                     Opcode opcode = bp.opcode;
                     int ip = bp.IP;
 
-                    breakpointTable.Remove(ip);
+                    breakpointTableByIP.Remove(ip);
+                    breakpointTableByFileAndLine.Remove((bp.FileName, bp.Line));
 
                     WriteCode(ref ip, (byte) opcode);
                 }
@@ -458,16 +528,19 @@ namespace vm
         {
             lock (breakpoints)
             {
-                if (breakpointTable.TryGetValue(ip, out int index))
-                {
-                    Breakpoint bp = breakpoints[index];
-                    Opcode opcode = bp.opcode;
+                Breakpoint bp = GetBreakpoint(ip);
+                if (bp != null)
+                    RemoveBreakpoint(bp);
+            }
+        }
 
-                    breakpointTable.Remove(ip);
-                    breakpoints.RemoveAt(index);
-
-                    WriteCode(ref ip, (byte) opcode);
-                }
+        public void RemoveBreakpoint(string fileName, int line)
+        {
+            lock (breakpoints)
+            {
+                Breakpoint bp = GetBreakpoint(fileName, line);
+                if (bp != null)
+                    RemoveBreakpoint(bp);
             }
         }
 
@@ -483,7 +556,7 @@ namespace vm
                 }
 
                 breakpoints.Clear();
-                breakpointTable.Clear();
+                breakpointTableByIP.Clear();
             }
         }
 
@@ -496,14 +569,14 @@ namespace vm
                 for (int i = 0; i <= index - externalFunctions.Count; i++)
                     externalFunctions.Add(null);
 
-            externalFunctionMapByName.Add(functionName, new Tuple<int, int>(index, paramSize));
+            externalFunctionMapByName.Add(functionName, (index, paramSize));
             externalFunctionMapByIndex.Add(index, functionName);
         }
 
         public void BindExternalFunction(string functionName, ExternalFunctionHandler function)
         {
-            if (externalFunctionMapByName.TryGetValue(functionName, out Tuple<int, int> entry))
-                externalFunctions[entry.Item1] = new ExternalFunctionEntry(functionName, entry.Item1, function, entry.Item2);
+            if (externalFunctionMapByName.TryGetValue(functionName, out (int functionIndex, int paramSize) entry))
+                externalFunctions[entry.functionIndex] = new ExternalFunctionEntry(functionName, entry.functionIndex, function, entry.paramSize);
         }
 
         public byte ReadCodeByte(ref int ip) => code[ip++];
@@ -2829,7 +2902,7 @@ namespace vm
 
         private void PrintDisassembledLine() => OnDisassemblyLine?.Invoke(-1, null);
 
-        private void PrintDisassembledLine(int ip, int op, string s) => OnDisassemblyLine?.Invoke(ip, Format(ip, 8) + "  " + Format(op, 3) + "  " + s);
+        private void PrintDisassembledLine(int ip, int op, string s) => OnDisassemblyLine?.Invoke(ip, $"{Format(ip, 8)}  {Format(op, 3)}  {s}");
 
         public void Print()
         {

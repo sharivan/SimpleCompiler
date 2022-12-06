@@ -23,6 +23,7 @@ using System.Reflection;
 using System.Xml;
 using System.Configuration;
 using System.Runtime.InteropServices;
+using System.Windows.Media.TextFormatting;
 
 namespace SimpleCompiler
 {
@@ -677,7 +678,7 @@ namespace SimpleCompiler
             {
                 if (fileName != null)
                 {
-                    page.Text = Path.GetFileName(fileName) + "    ";
+                    page.Text = $"{Path.GetFileName(fileName)}    ";
                     txtSource.Save(fileName);
                     saved = true;
                 }
@@ -696,7 +697,7 @@ namespace SimpleCompiler
                     if (File.Exists(sSourceFileName))
                     {
                         fileName = sSourceFileName;
-                        page.Text = Path.GetFileName(fileName) + "    ";
+                        page.Text = $"{Path.GetFileName(fileName)}    ";
                         txtSource.Save(sSourceFileName);
                         saved = true;
                     }
@@ -751,12 +752,10 @@ namespace SimpleCompiler
         internal Dictionary<int, SourceTab> sourceTabsMapByID;
         internal Dictionary<string, SourceTab> sourceTabsMapByFileName;
 
-#pragma warning disable IDE0052 // Remover membros particulares não lidos
+        private readonly Dictionary<string, string[]> sourceCache;
         private bool compiled = false;
         private int parsedLines;
         private int totalLines;
-#pragma warning restore IDE0052 // Remover membros particulares não lidos
-
         private readonly TextEditor txtAssembly;
         private readonly SteppingRenderer lineBackgroundRenderer;
         private readonly BreakPointMargin breakpointMargin;
@@ -769,10 +768,7 @@ namespace SimpleCompiler
         private System.Drawing.Color consoleBackColor;
 
         private int stackViewAlignSize = 16;
-
-#pragma warning disable IDE0052 // Remover membros particulares não lidos
         private readonly Image addImage;
-#pragma warning restore IDE0052 // Remover membros particulares não lidos
         private readonly Image closeImage;
 
         public FrmSimpleCompiler()
@@ -796,6 +792,8 @@ namespace SimpleCompiler
             sourceTabs = new List<SourceTab>();
             sourceTabsMapByID = new Dictionary<int, SourceTab>();
             sourceTabsMapByFileName = new Dictionary<string, SourceTab>();
+
+            sourceCache = new Dictionary<string, string[]>();
 
             IHighlightingDefinition customHighlighting;
 
@@ -844,7 +842,7 @@ namespace SimpleCompiler
         {
             if (interval.IsValid())
             {
-                ConsolePrintLn($"Erro de compilação na linha {interval.Line}: {message}.");
+                ConsolePrintLn($"Erro de compilação na linha {interval.FirstLine}: {message}.");
 
                 if (interval.FileName != null && interval.Start >= 0)
                 {
@@ -860,17 +858,40 @@ namespace SimpleCompiler
                 ConsolePrintLn($"Erro de compilação: {message}.");
         });
 
-        private void DisassemblyLine(int ip, string line)
+        private void DisassemblyLine(int ip, string lineText)
         {
             if (ip == -1)
                 txtAssembly.AppendText("\n");
             else
             {
+                var (fileName, line) = vm.GetLineFromIP(ip);
+                if (line != -1)
+                {
+                    string sourceLine = GetLineFromFile(fileName, line);
+                    if (sourceLine != null)
+                        txtAssembly.AppendText($"// {sourceLine}\n");
+                }
+
                 int lineNumber = txtAssembly.LineCount;
                 lineNumberToIP.Add(lineNumber, ip);
                 ipToLineNumber.Add(ip, lineNumber);
-                txtAssembly.AppendText(line + "\n");
+
+                txtAssembly.AppendText($"{lineText}\n");
             }
+        }
+
+        private string GetLineFromFile(string fileName, int line)
+        {
+            if (line <= 0)
+                return null;
+
+            if (!sourceCache.TryGetValue(fileName, out string[] lines))
+            {
+                lines = File.ReadAllLines(fileName);
+                sourceCache.Add(fileName, lines);
+            }
+            
+            return line <= lines.Length ? lines[line - 1] : null;
         }
 
         private string ConsoleRead()
@@ -1666,27 +1687,25 @@ namespace SimpleCompiler
                     else
                         breakpointMargin.RemoveBreakpoint(line.LineNumber);
                 }
-
-                return;
             }
-
-            int selectedPageIndex = tcSources.SelectedIndex;
-            if (selectedPageIndex == -1)
-                return;
-
-            /*SourceTab sourceTab = sourceTabs[selectedPageIndex];
-
-            var line = sourceTab.txtSource.Document.GetLineByOffset(sourceTab.txtSource.SelectionStart);
-            Breakpoint breakpoint;
-            if (sourceTab.FileName != null)
-                breakpoint = vm.ToggleBreakPoint(sourceTab.FileName, line.LineNumber);
             else
-                breakpoint = vm.ToggleBreakPoint(sourceTab.ID, line.LineNumber);
+            {
+                int selectedPageIndex = tcSources.SelectedIndex;
+                if (selectedPageIndex == -1)
+                    return;
 
-            if (breakpoint != null)
-                sourceTab.breakpointMargin.ToggleBreakpoint(line.LineNumber, breakpoint);
-            else
-                sourceTab.breakpointMargin.RemoveBreakpoint(line.LineNumber);*/
+                SourceTab sourceTab = sourceTabs[selectedPageIndex];
+
+                var line = sourceTab.txtSource.Document.GetLineByOffset(sourceTab.txtSource.SelectionStart);
+                Breakpoint breakpoint = sourceTab.FileName != null
+                    ? vm.ToggleBreakPoint(sourceTab.FileName, line.LineNumber)
+                    : vm.ToggleBreakPoint($"#{sourceTab.ID}", line.LineNumber);
+
+                if (breakpoint != null)
+                    sourceTab.breakpointMargin.ToggleBreakpoint(line.LineNumber, breakpoint);
+                else
+                    sourceTab.breakpointMargin.RemoveBreakpoint(line.LineNumber);
+            }
         }
 
 #pragma warning disable IDE1006 // Estilos de Nomenclatura

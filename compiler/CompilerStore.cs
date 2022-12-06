@@ -60,9 +60,7 @@ namespace compiler
             throw new CompilerException(interval, $"Tipo desconhecido: '{type}'.");
         }
 
-#pragma warning disable IDE0060 // Remover o parâmetro não utilizado
         private void CompileStorePointer(Assembler assembler, Assembler leftAssembler, AbstractType type, SourceInterval interval)
-#pragma warning restore IDE0060 // Remover o parâmetro não utilizado
         {
             switch (type)
             {
