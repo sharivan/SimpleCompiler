@@ -45,7 +45,6 @@ namespace SimpleCompiler
             public string FileName
             {
                 get => (string) this["filename"];
-
                 set => this["filename"] = value;
             }
 
@@ -56,8 +55,27 @@ namespace SimpleCompiler
             public int TabIndex
             {
                 get => (int) this["tabindex"];
-
                 set => this["tabindex"] = value;
+            }
+
+            [ConfigurationProperty("selected",
+                IsRequired = false,
+                DefaultValue = false
+                )]
+            public bool Selected
+            {
+                get => (bool) this["selected"];
+                set => this["selected"] = value;
+            }
+
+            [ConfigurationProperty("focused",
+                IsRequired = false,
+                DefaultValue = false
+                )]
+            public bool Focused
+            {
+                get => (bool) this["focused"];
+                set => this["focused"] = value;
             }
         }
 
@@ -761,6 +779,7 @@ namespace SimpleCompiler
         private readonly BreakPointMargin breakpointMargin;
         private readonly Dictionary<int, int> lineNumberToIP;
         private readonly Dictionary<int, int> ipToLineNumber;
+        private bool assemblyFocused;
 
         private Rectangle unmaximizedBounds;
 
@@ -966,6 +985,36 @@ namespace SimpleCompiler
 
         private void ConsolePrintLn(string message) => ConsolePrint(message + "\n");
 
+        private void ShowStepCursor(int ip)
+        {
+            FetchData();
+
+            if (ipToLineNumber.TryGetValue(ip, out int lineNumber))
+            {
+                lineBackgroundRenderer.Enabled = true;
+                lineBackgroundRenderer.LineNumber = lineNumber;
+                var visualLine = txtAssembly.TextArea.TextView.VisualLines.FirstOrDefault(line => line.FirstDocumentLine.LineNumber == lineNumber);
+
+                if (visualLine == null)
+                    txtAssembly.ScrollToLine(lineNumber);
+            }
+
+            (string filename, lineNumber) = vm.GetLineFromIP(ip);
+            if (lineNumber == -1)
+                return;
+
+            SourceTab tab = SelectSourceTab(filename, true, false);
+            if (tab != null)
+            {
+                var visualLine = tab.txtSource.TextArea.TextView.VisualLines.FirstOrDefault(line => line.FirstDocumentLine.LineNumber == lineNumber);
+                if (visualLine == null)
+                    tab.txtSource.ScrollToLine(lineNumber);
+
+                tab.lineBackgroundRenderer.Enabled = true;
+                tab.lineBackgroundRenderer.LineNumber = lineNumber;
+            }
+        }
+
         private void OnPause(int ip) => BeginInvoke((MethodInvoker) delegate
         {
             paused = true;
@@ -980,17 +1029,7 @@ namespace SimpleCompiler
             btnStepReturn.Enabled = true;
             btnRunToCursor.Enabled = true;
 
-            FetchData();
-
-            if (!ipToLineNumber.TryGetValue(ip, out int lineNumber))
-                return;
-
-            lineBackgroundRenderer.Enabled = true;
-            lineBackgroundRenderer.LineNumber = lineNumber;
-            var visualLine = txtAssembly.TextArea.TextView.VisualLines.FirstOrDefault(line => line.FirstDocumentLine.LineNumber == lineNumber);
-
-            if (visualLine == null)
-                txtAssembly.ScrollToLine(lineNumber);
+            ShowStepCursor(ip);
         });
 
         private void OnStep(int ip, SteppingMode mode) => BeginInvoke((MethodInvoker) delegate
@@ -1003,7 +1042,6 @@ namespace SimpleCompiler
                 SteppingMode.INTO => "entrando em funções",
                 SteppingMode.OVER => "pulando funções",
                 SteppingMode.OUT => "saindo da função",
-                SteppingMode.RUN_TO_IP => "executado até o ip atual",
                 _ => throw new NotImplementedException()
             }}).";
 
@@ -1015,17 +1053,7 @@ namespace SimpleCompiler
             btnStepReturn.Enabled = true;
             btnRunToCursor.Enabled = true;
 
-            FetchData();
-
-            if (!ipToLineNumber.TryGetValue(ip, out int lineNumber))
-                return;
-
-            lineBackgroundRenderer.Enabled = true;
-            lineBackgroundRenderer.LineNumber = lineNumber;
-            var visualLine = txtAssembly.TextArea.TextView.VisualLines.FirstOrDefault(line => line.FirstDocumentLine.LineNumber == lineNumber);
-
-            if (visualLine == null)
-                txtAssembly.ScrollToLine(lineNumber);
+            ShowStepCursor(ip);
         });
 
         private void OnBreakpoint(Breakpoint bp) => BeginInvoke((MethodInvoker) delegate
@@ -1042,17 +1070,7 @@ namespace SimpleCompiler
             btnStepReturn.Enabled = true;
             btnRunToCursor.Enabled = true;
 
-            FetchData();
-
-            if (!ipToLineNumber.TryGetValue(bp.IP, out int lineNumber))
-                return;
-
-            lineBackgroundRenderer.Enabled = true;
-            lineBackgroundRenderer.LineNumber = lineNumber;
-            var visualLine = txtAssembly.TextArea.TextView.VisualLines.FirstOrDefault(line => line.FirstDocumentLine.LineNumber == lineNumber);
-
-            if (visualLine == null)
-                txtAssembly.ScrollToLine(lineNumber);
+            ShowStepCursor(bp.IP);
         });
 
 #pragma warning disable IDE1006 // Estilos de Nomenclatura
@@ -1083,11 +1101,11 @@ namespace SimpleCompiler
             btnRunToCursor.Enabled = true;
         });
 
-        public void VMRun(bool stepping, int runToIP)
+        public void VMRun(SteppingMode steppingMode, bool onSource, int runToIP)
         {
             try
             {
-                vm.Run(stepping, runToIP);
+                vm.Run(steppingMode, onSource, runToIP);
                 PostRun(true, false, null);
             }
             catch (ThreadAbortException)
@@ -1262,13 +1280,13 @@ namespace SimpleCompiler
             dgvStrings.ResumeLayout();
         }
 
-        private void StartVM(bool stepping = false, int runToIP = -1)
+        private void StartVM(SteppingMode steppingMode = SteppingMode.RUN, bool onSource = false, int runToIP = -1)
         {
             SetupStackView();
             SetupStringView();
 
             vmRunning = true;
-            vmThread = new Thread(() => VMRun(stepping, runToIP));
+            vmThread = new Thread(() => VMRun(steppingMode, onSource, runToIP));
             vmThread.Start();
         }
 
@@ -1386,7 +1404,7 @@ namespace SimpleCompiler
             return result;
         }
 
-        public SourceTab NewSourceTab(string fileName)
+        public SourceTab NewSourceTab(string fileName, bool selected = false, bool focused = false)
         {
             if (sourceTabsMapByFileName.TryGetValue(fileName, out SourceTab tab))
                 return tab;
@@ -1399,6 +1417,14 @@ namespace SimpleCompiler
             sourceTabs.Add(tab);
             sourceTabsMapByID[tab.ID] = tab;
             sourceTabsMapByFileName[fileName] = tab;
+
+            if (selected)
+            {
+                tcSources.SelectedTab = tab.page;
+                if (focused)
+                    tab.Focus();
+            }
+
             return tab;
         }
 
@@ -1409,20 +1435,20 @@ namespace SimpleCompiler
             return tab;
         }
 
-        public SourceTab SelectSourceTab(string fileName, bool openIfNotExist = false)
+        public SourceTab SelectSourceTab(string fileName, bool openIfNotExist = false, bool focused = true)
         {
             if (sourceTabsMapByFileName.TryGetValue(fileName, out SourceTab tab))
             {
-                tab.Focus();
+                tcSources.SelectedTab = tab.page;
+
+                if (focused)
+                    tab.Focus();
+
                 return tab;
             }
 
             if (openIfNotExist)
-            {
-                tab = NewSourceTab(fileName);
-                tab.Focus();
-                return tab;
-            }
+                return NewSourceTab(fileName, true, focused);
 
             return null;
         }
@@ -1470,10 +1496,7 @@ namespace SimpleCompiler
                         sourceTab.Focus();
                     }
                     else
-                    {
-                        SourceTab sourceTab = NewSourceTab(sSourceFileName);
-                        sourceTab.Focus();
-                    }
+                        NewSourceTab(sSourceFileName, true, true);
                 }
                 else
                     System.Windows.MessageBox.Show("Arquivo não existe.");
@@ -1537,6 +1560,24 @@ namespace SimpleCompiler
             vmThread.Abort();
         }
 
+        private bool FetchAndGetAssemblyFocused()
+        {
+            if (wpfAssemblyHost.Focused)
+                assemblyFocused = true;
+            else
+            {
+                int index = tcSources.SelectedIndex;
+                if (index != -1)
+                {
+                    SourceTab sourceTab = sourceTabs[index];
+                    if (sourceTab.wpfHost.Focused)
+                        assemblyFocused = false;
+                }
+            }
+
+            return assemblyFocused;
+        }
+
 #pragma warning disable IDE1006 // Estilos de Nomenclatura
         private void btnStepOver_Click(object sender, EventArgs e)
 #pragma warning restore IDE1006 // Estilos de Nomenclatura
@@ -1559,10 +1600,20 @@ namespace SimpleCompiler
             btnStepReturn.Enabled = false;
             btnRunToCursor.Enabled = false;
 
-            if (vmRunning)
-                vm.StepOver();
+            if (FetchAndGetAssemblyFocused())
+            {
+                if (vmRunning)
+                    vm.StepOver();
+                else
+                    StartVM(SteppingMode.INTO);
+            }
             else
-                StartVM(true);
+            {
+                if (vmRunning)
+                    vm.StepOver(true);
+                else
+                    StartVM(SteppingMode.INTO, true);
+            }
         }
 
 #pragma warning disable IDE1006 // Estilos de Nomenclatura
@@ -1586,7 +1637,7 @@ namespace SimpleCompiler
             btnStepReturn.Enabled = false;
             btnRunToCursor.Enabled = false;
 
-            vm.StepInto();
+            vm.StepInto(!FetchAndGetAssemblyFocused());
         }
 
 #pragma warning disable IDE1006 // Estilos de Nomenclatura
@@ -1609,7 +1660,7 @@ namespace SimpleCompiler
             btnStepReturn.Enabled = false;
             btnRunToCursor.Enabled = false;
 
-            vm.StepReturn();
+            vm.StepReturn(!FetchAndGetAssemblyFocused());
         }
 
 #pragma warning disable IDE1006 // Estilos de Nomenclatura
@@ -1633,43 +1684,50 @@ namespace SimpleCompiler
             btnStepReturn.Enabled = false;
             btnRunToCursor.Enabled = false;
 
-            if (wpfAssemblyHost.Focused)
+            if (FetchAndGetAssemblyFocused())
             {
                 var line = txtAssembly.Document.GetLineByOffset(txtAssembly.SelectionStart);
                 if (lineNumberToIP.TryGetValue(line.LineNumber, out int ip))
                 {
                     if (!vmRunning)
-                        StartVM(false, ip);
+                        StartVM(SteppingMode.RUN, false, ip);
                     else
                         vm.RunToIP(ip);
                 }
                 else
                 {
                     if (!vmRunning)
-                        StartVM(false);
+                        StartVM();
                     else
                         vm.Resume();
                 }
-
-                return;
             }
-
-            int currentTabIndex = tcSources.SelectedIndex;
-            if (currentTabIndex == -1)
-                return;
-
-            if (!vmRunning)
-                StartVM();
             else
-                vm.Resume();
+            {
+                int currentTabIndex = tcSources.SelectedIndex;
+                if (currentTabIndex == -1)
+                    return;
 
-            /*SourceTab currentSourceTab = sourceTabs[currentTabIndex];
+                SourceTab currentSourceTab = sourceTabs[currentTabIndex];
 
-            var line = currentSourceTab.txtSource.Document.GetLineByOffset(currentSourceTab.txtSource.SelectionStart);
-            if (currentSourceTab.fileName != null)
-                vm.RunToLine(currentSourceTab.FileName, line.LineNumber);
-            else
-                vm.RunToLine(currentSourceTab.ID, line.LineNumber);*/
+                var line = currentSourceTab.txtSource.Document.GetLineByOffset(currentSourceTab.txtSource.SelectionStart);
+                int ip = vm.GetIPFromLine(currentSourceTab.FileName, line.LineNumber);
+
+                if (ip == -1)
+                {
+                    if (!vmRunning)
+                        StartVM(SteppingMode.RUN, true);
+                    else
+                        vm.Resume();
+                }
+                else
+                {
+                    if (!vmRunning)
+                        StartVM(SteppingMode.RUN, true, ip);
+                    else
+                        vm.RunToIP(ip, true);
+                }
+            }
         }
 
 #pragma warning disable IDE1006 // Estilos de Nomenclatura
@@ -1782,10 +1840,7 @@ namespace SimpleCompiler
 
             DocumentCollection collection = section.Documents;
             foreach (DocumentConfigElement element in collection)
-            {
-                string fileName = element.FileName;
-                NewSourceTab(fileName);
-            }
+                NewSourceTab(element.FileName, element.Selected, element.Focused);
         }
 
         private void FrmSimpleCompiler_FormClosing(object sender, FormClosingEventArgs e)
@@ -1828,6 +1883,8 @@ namespace SimpleCompiler
                 {
                     DocumentConfigElement element = collection[tab.FileName];
                     element.TabIndex = i;
+                    element.Selected = tcSources.SelectedTab == tab.page;
+                    element.Focused = tab.txtSource.IsFocused;
                 }
             }
 

@@ -48,11 +48,23 @@ namespace SimpleCompiler
             this.dataGridViewTextBoxColumn2 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.txtConsole = new System.Windows.Forms.RichTextBox();
+            this.splitContainerData = new System.Windows.Forms.SplitContainer();
+            this.gbStack = new System.Windows.Forms.GroupBox();
             this.dgvStack = new System.Windows.Forms.DataGridView();
+            this.RA = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.HA = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.Value = new System.Windows.Forms.DataGridViewButtonColumn();
+            this.View = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.mnuStackView = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.mnuStackViewAlign16 = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuStackViewAlign8 = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuStackViewAlign4 = new System.Windows.Forms.ToolStripMenuItem();
+            this.gbStrings = new System.Windows.Forms.GroupBox();
+            this.dgvStrings = new System.Windows.Forms.DataGridView();
+            this.StringHA = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.StringRefCount = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.StringLen = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.StringValue = new System.Windows.Forms.DataGridViewButtonColumn();
             this.statusBar = new System.Windows.Forms.StatusStrip();
             this.progress = new System.Windows.Forms.ToolStripProgressBar();
             this.statusText = new System.Windows.Forms.ToolStripStatusLabel();
@@ -78,18 +90,6 @@ namespace SimpleCompiler
             this.openFileDialog = new System.Windows.Forms.OpenFileDialog();
             this.imageList = new System.Windows.Forms.ImageList(this.components);
             this.bwCompiler = new System.ComponentModel.BackgroundWorker();
-            this.splitContainerData = new System.Windows.Forms.SplitContainer();
-            this.gbStack = new System.Windows.Forms.GroupBox();
-            this.gbStrings = new System.Windows.Forms.GroupBox();
-            this.dgvStrings = new System.Windows.Forms.DataGridView();
-            this.RA = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.HA = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.Value = new System.Windows.Forms.DataGridViewButtonColumn();
-            this.View = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.StringHA = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.StringRefCount = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.StringLen = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.StringValue = new System.Windows.Forms.DataGridViewButtonColumn();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainerMain)).BeginInit();
             this.splitContainerMain.Panel1.SuspendLayout();
             this.splitContainerMain.Panel2.SuspendLayout();
@@ -107,17 +107,17 @@ namespace SimpleCompiler
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
             this.splitContainer1.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.dgvStack)).BeginInit();
-            this.mnuStackView.SuspendLayout();
-            this.statusBar.SuspendLayout();
-            this.toolBar.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainerData)).BeginInit();
             this.splitContainerData.Panel1.SuspendLayout();
             this.splitContainerData.Panel2.SuspendLayout();
             this.splitContainerData.SuspendLayout();
             this.gbStack.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.dgvStack)).BeginInit();
+            this.mnuStackView.SuspendLayout();
             this.gbStrings.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvStrings)).BeginInit();
+            this.statusBar.SuspendLayout();
+            this.toolBar.SuspendLayout();
             this.SuspendLayout();
             // 
             // splitContainerMain
@@ -328,6 +328,34 @@ namespace SimpleCompiler
             this.txtConsole.Text = "";
             this.txtConsole.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.txtConsole_KeyPress);
             // 
+            // splitContainerData
+            // 
+            this.splitContainerData.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitContainerData.Location = new System.Drawing.Point(0, 0);
+            this.splitContainerData.Name = "splitContainerData";
+            // 
+            // splitContainerData.Panel1
+            // 
+            this.splitContainerData.Panel1.Controls.Add(this.gbStack);
+            // 
+            // splitContainerData.Panel2
+            // 
+            this.splitContainerData.Panel2.Controls.Add(this.gbStrings);
+            this.splitContainerData.Size = new System.Drawing.Size(659, 206);
+            this.splitContainerData.SplitterDistance = 400;
+            this.splitContainerData.TabIndex = 3;
+            // 
+            // gbStack
+            // 
+            this.gbStack.Controls.Add(this.dgvStack);
+            this.gbStack.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.gbStack.Location = new System.Drawing.Point(0, 0);
+            this.gbStack.Name = "gbStack";
+            this.gbStack.Size = new System.Drawing.Size(400, 206);
+            this.gbStack.TabIndex = 0;
+            this.gbStack.TabStop = false;
+            this.gbStack.Text = "Pilha";
+            // 
             // dgvStack
             // 
             this.dgvStack.AllowUserToAddRows = false;
@@ -347,6 +375,37 @@ namespace SimpleCompiler
             this.dgvStack.TabIndex = 1;
             this.dgvStack.Scroll += new System.Windows.Forms.ScrollEventHandler(this.dgvStack_Scroll);
             this.dgvStack.Resize += new System.EventHandler(this.dgvStack_Resize);
+            // 
+            // RA
+            // 
+            this.RA.HeaderText = "RA";
+            this.RA.Name = "RA";
+            this.RA.ReadOnly = true;
+            this.RA.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            this.RA.ToolTipText = "Endereço Residente";
+            // 
+            // HA
+            // 
+            this.HA.HeaderText = "HA";
+            this.HA.Name = "HA";
+            this.HA.ReadOnly = true;
+            this.HA.ToolTipText = "Endereço Host";
+            // 
+            // Value
+            // 
+            this.Value.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.DisplayedCells;
+            this.Value.HeaderText = "Valor";
+            this.Value.Name = "Value";
+            this.Value.ReadOnly = true;
+            this.Value.Width = 37;
+            // 
+            // View
+            // 
+            this.View.HeaderText = "Visualização em caracteres";
+            this.View.Name = "View";
+            this.View.ReadOnly = true;
+            this.View.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            this.View.Width = 200;
             // 
             // mnuStackView
             // 
@@ -377,6 +436,71 @@ namespace SimpleCompiler
             this.mnuStackViewAlign4.Size = new System.Drawing.Size(192, 22);
             this.mnuStackViewAlign4.Text = "Alinhamento: 4 bytes";
             this.mnuStackViewAlign4.Click += new System.EventHandler(this.mnuStackViewAlign4_Click);
+            // 
+            // gbStrings
+            // 
+            this.gbStrings.Controls.Add(this.dgvStrings);
+            this.gbStrings.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.gbStrings.Location = new System.Drawing.Point(0, 0);
+            this.gbStrings.Name = "gbStrings";
+            this.gbStrings.Size = new System.Drawing.Size(255, 206);
+            this.gbStrings.TabIndex = 0;
+            this.gbStrings.TabStop = false;
+            this.gbStrings.Text = "Textos";
+            // 
+            // dgvStrings
+            // 
+            this.dgvStrings.AllowUserToAddRows = false;
+            this.dgvStrings.AllowUserToDeleteRows = false;
+            this.dgvStrings.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.dgvStrings.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
+            this.StringHA,
+            this.StringRefCount,
+            this.StringLen,
+            this.StringValue});
+            this.dgvStrings.ContextMenuStrip = this.mnuStackView;
+            this.dgvStrings.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.dgvStrings.Location = new System.Drawing.Point(3, 16);
+            this.dgvStrings.Name = "dgvStrings";
+            this.dgvStrings.ReadOnly = true;
+            this.dgvStrings.Size = new System.Drawing.Size(249, 187);
+            this.dgvStrings.TabIndex = 3;
+            // 
+            // StringHA
+            // 
+            this.StringHA.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.DisplayedCells;
+            this.StringHA.HeaderText = "HA";
+            this.StringHA.Name = "StringHA";
+            this.StringHA.ReadOnly = true;
+            this.StringHA.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            this.StringHA.ToolTipText = "Endereço Host";
+            this.StringHA.Width = 28;
+            // 
+            // StringRefCount
+            // 
+            this.StringRefCount.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.DisplayedCells;
+            this.StringRefCount.HeaderText = "#Referências";
+            this.StringRefCount.Name = "StringRefCount";
+            this.StringRefCount.ReadOnly = true;
+            this.StringRefCount.ToolTipText = "Número de Referências";
+            this.StringRefCount.Width = 96;
+            // 
+            // StringLen
+            // 
+            this.StringLen.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.DisplayedCells;
+            this.StringLen.HeaderText = "Tamanho";
+            this.StringLen.Name = "StringLen";
+            this.StringLen.ReadOnly = true;
+            this.StringLen.ToolTipText = "Comprimento do Texto";
+            this.StringLen.Width = 77;
+            // 
+            // StringValue
+            // 
+            this.StringValue.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.DisplayedCells;
+            this.StringValue.HeaderText = "Valor";
+            this.StringValue.Name = "StringValue";
+            this.StringValue.ReadOnly = true;
+            this.StringValue.Width = 37;
             // 
             // statusBar
             // 
@@ -615,130 +739,6 @@ namespace SimpleCompiler
             // 
             this.bwCompiler.DoWork += new System.ComponentModel.DoWorkEventHandler(this.bwCompiler_DoWork);
             // 
-            // splitContainerData
-            // 
-            this.splitContainerData.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.splitContainerData.Location = new System.Drawing.Point(0, 0);
-            this.splitContainerData.Name = "splitContainerData";
-            // 
-            // splitContainerData.Panel1
-            // 
-            this.splitContainerData.Panel1.Controls.Add(this.gbStack);
-            // 
-            // splitContainerData.Panel2
-            // 
-            this.splitContainerData.Panel2.Controls.Add(this.gbStrings);
-            this.splitContainerData.Size = new System.Drawing.Size(659, 206);
-            this.splitContainerData.SplitterDistance = 400;
-            this.splitContainerData.TabIndex = 3;
-            // 
-            // gbStack
-            // 
-            this.gbStack.Controls.Add(this.dgvStack);
-            this.gbStack.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.gbStack.Location = new System.Drawing.Point(0, 0);
-            this.gbStack.Name = "gbStack";
-            this.gbStack.Size = new System.Drawing.Size(400, 206);
-            this.gbStack.TabIndex = 0;
-            this.gbStack.TabStop = false;
-            this.gbStack.Text = "Pilha";
-            // 
-            // gbStrings
-            // 
-            this.gbStrings.Controls.Add(this.dgvStrings);
-            this.gbStrings.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.gbStrings.Location = new System.Drawing.Point(0, 0);
-            this.gbStrings.Name = "gbStrings";
-            this.gbStrings.Size = new System.Drawing.Size(255, 206);
-            this.gbStrings.TabIndex = 0;
-            this.gbStrings.TabStop = false;
-            this.gbStrings.Text = "Textos";
-            // 
-            // dgvStrings
-            // 
-            this.dgvStrings.AllowUserToAddRows = false;
-            this.dgvStrings.AllowUserToDeleteRows = false;
-            this.dgvStrings.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dgvStrings.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
-            this.StringHA,
-            this.StringRefCount,
-            this.StringLen,
-            this.StringValue});
-            this.dgvStrings.ContextMenuStrip = this.mnuStackView;
-            this.dgvStrings.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dgvStrings.Location = new System.Drawing.Point(3, 16);
-            this.dgvStrings.Name = "dgvStrings";
-            this.dgvStrings.ReadOnly = true;
-            this.dgvStrings.Size = new System.Drawing.Size(249, 187);
-            this.dgvStrings.TabIndex = 3;
-            // 
-            // RA
-            // 
-            this.RA.HeaderText = "RA";
-            this.RA.Name = "RA";
-            this.RA.ReadOnly = true;
-            this.RA.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            this.RA.ToolTipText = "Endereço Residente";
-            // 
-            // HA
-            // 
-            this.HA.HeaderText = "HA";
-            this.HA.Name = "HA";
-            this.HA.ReadOnly = true;
-            this.HA.ToolTipText = "Endereço Host";
-            // 
-            // Value
-            // 
-            this.Value.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.DisplayedCells;
-            this.Value.HeaderText = "Valor";
-            this.Value.Name = "Value";
-            this.Value.ReadOnly = true;
-            this.Value.Width = 37;
-            // 
-            // View
-            // 
-            this.View.HeaderText = "Visualização em caracteres";
-            this.View.Name = "View";
-            this.View.ReadOnly = true;
-            this.View.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            this.View.Width = 200;
-            // 
-            // StringHA
-            // 
-            this.StringHA.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.DisplayedCells;
-            this.StringHA.HeaderText = "HA";
-            this.StringHA.Name = "StringHA";
-            this.StringHA.ReadOnly = true;
-            this.StringHA.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            this.StringHA.ToolTipText = "Endereço Host";
-            this.StringHA.Width = 28;
-            // 
-            // StringRefCount
-            // 
-            this.StringRefCount.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.DisplayedCells;
-            this.StringRefCount.HeaderText = "#Referências";
-            this.StringRefCount.Name = "StringRefCount";
-            this.StringRefCount.ReadOnly = true;
-            this.StringRefCount.ToolTipText = "Número de Referências";
-            this.StringRefCount.Width = 96;
-            // 
-            // StringLen
-            // 
-            this.StringLen.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.DisplayedCells;
-            this.StringLen.HeaderText = "Tamanho";
-            this.StringLen.Name = "StringLen";
-            this.StringLen.ReadOnly = true;
-            this.StringLen.ToolTipText = "Comprimento do Texto";
-            this.StringLen.Width = 77;
-            // 
-            // StringValue
-            // 
-            this.StringValue.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.DisplayedCells;
-            this.StringValue.HeaderText = "Valor";
-            this.StringValue.Name = "StringValue";
-            this.StringValue.ReadOnly = true;
-            this.StringValue.Width = 37;
-            // 
             // FrmSimpleCompiler
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -769,19 +769,19 @@ namespace SimpleCompiler
             this.splitContainer1.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).EndInit();
             this.splitContainer1.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.dgvStack)).EndInit();
-            this.mnuStackView.ResumeLayout(false);
-            this.statusBar.ResumeLayout(false);
-            this.statusBar.PerformLayout();
-            this.toolBar.ResumeLayout(false);
-            this.toolBar.PerformLayout();
             this.splitContainerData.Panel1.ResumeLayout(false);
             this.splitContainerData.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.splitContainerData)).EndInit();
             this.splitContainerData.ResumeLayout(false);
             this.gbStack.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.dgvStack)).EndInit();
+            this.mnuStackView.ResumeLayout(false);
             this.gbStrings.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.dgvStrings)).EndInit();
+            this.statusBar.ResumeLayout(false);
+            this.statusBar.PerformLayout();
+            this.toolBar.ResumeLayout(false);
+            this.toolBar.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 

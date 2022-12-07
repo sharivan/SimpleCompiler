@@ -17,8 +17,7 @@ namespace vm
         RUN,
         OVER,
         INTO,
-        OUT,
-        RUN_TO_IP
+        OUT
     }
 
     public class VM
@@ -94,6 +93,7 @@ namespace vm
         private int calls;
         private SteppingMode steppingMode = SteppingMode.RUN;
         private int runToIP = -1;
+        private bool onSource = false;
 
         private readonly Dictionary<(string, int), int> lineToIP;
         private readonly Dictionary<int, (string, int)> ipToLine;
@@ -1031,47 +1031,61 @@ namespace vm
             }
         }
 
-        public void StepOver()
+        public void StepOver(bool onSource = false)
         {
             lock (breakpoints)
             {
                 steppingMode = SteppingMode.OVER;
+                this.onSource = onSource;
                 runToIP = -1;
                 Paused = false;
                 Monitor.PulseAll(breakpoints);
             }
         }
 
-        public void StepInto()
+        public void StepInto(bool onSource = false)
         {
             lock (breakpoints)
             {
                 steppingMode = SteppingMode.INTO;
+                this.onSource = onSource;
                 runToIP = -1;
                 Paused = false;
                 Monitor.PulseAll(breakpoints);
             }
         }
 
-        public void StepReturn()
+        public void StepReturn(bool onSource = false)
         {
             lock (breakpoints)
             {
                 steppingMode = SteppingMode.OUT;
+                this.onSource = onSource;
                 runToIP = -1;
                 Paused = false;
                 Monitor.PulseAll(breakpoints);
             }
         }
 
-        public void RunToIP(int ip)
+        public void RunToIP(int ip, bool onSource = false)
         {
             lock (breakpoints)
             {
-                steppingMode = SteppingMode.RUN_TO_IP;
+                steppingMode = SteppingMode.RUN;
+                this.onSource = onSource;
                 runToIP = ip;
                 Paused = false;
                 Monitor.PulseAll(breakpoints);
+            }
+        }
+
+        public void RunToLine(string fileName, int line)
+        {
+            lock (breakpoints)
+            {
+                int ip = GetIPFromLine(fileName, line);
+                if (ip != -1)
+                    RunToIP(ip, true);
             }
         }
 
@@ -1079,6 +1093,13 @@ namespace vm
         {
             lock (breakpoints)
             {
+                if (onSource)
+                {
+                    var (filename, line) = GetLineFromIP(lastIP);
+                    if (line == -1)
+                        return;
+                }
+
                 Paused = true;
 
                 OnStep?.Invoke(lastIP, steppingMode);
@@ -1104,7 +1125,7 @@ namespace vm
                         if (Paused)
                             OnPause?.Invoke(lastIP);
                         else
-                            OnStep?.Invoke(lastIP, SteppingMode.RUN_TO_IP);
+                            OnStep?.Invoke(lastIP, SteppingMode.RUN);
 
                         while (Paused)
                             Monitor.Wait(breakpoints);
@@ -1152,25 +1173,13 @@ namespace vm
             return false;
         }
 
-        public void Run(bool stepOver = false, int runToIP = -1)
+        public void Run(SteppingMode steppingMode = SteppingMode.RUN, bool onSource = false, int runToIP = -1)
         {
             lock (breakpoints)
             {
-                if (stepOver)
-                {
-                    this.runToIP = -1;
-                    steppingMode = SteppingMode.OVER;
-                }
-                else if (runToIP != -1)
-                {
-                    this.runToIP = runToIP;
-                    steppingMode = SteppingMode.RUN_TO_IP;
-                }
-                else
-                {
-                    this.runToIP = -1;
-                    steppingMode = SteppingMode.RUN;
-                }
+                this.steppingMode = steppingMode;
+                this.onSource = onSource;
+                this.runToIP = runToIP;
 
                 Paused = false;
             }
@@ -1187,11 +1196,10 @@ namespace vm
             {
                 while (ip < code.Length)
                 {
-                    SteppingMode oldSteppingMode = steppingMode;
-                    switch (steppingMode)
+                    SteppingMode oldSteppingMode = this.steppingMode;
+                    switch (this.steppingMode)
                     {
                         case SteppingMode.RUN:
-                        case SteppingMode.RUN_TO_IP:
                             while (ip < code.Length)
                             {
                                 lastIP = ip;
@@ -1204,7 +1212,7 @@ namespace vm
                                 if (!SingleStep(opcode))
                                     return;
 
-                                if (steppingMode != oldSteppingMode)
+                                if (this.steppingMode != oldSteppingMode)
                                     break;
                             }
 
@@ -1217,7 +1225,7 @@ namespace vm
                                 int op = ReadCodeByte(ref ip) & 0xff;
                                 var opcode = (Opcode) op;
 
-                                if (calls == 0)
+                                if (calls <= 0)
                                 {
                                     this.runToIP = -1;
                                     Step();
@@ -1228,7 +1236,7 @@ namespace vm
                                 if (!SingleStep(opcode))
                                     return;
 
-                                if (steppingMode != oldSteppingMode)
+                                if (this.steppingMode != oldSteppingMode)
                                     break;
                             }
 
@@ -1248,7 +1256,7 @@ namespace vm
                                 if (!SingleStep(opcode))
                                     return;
 
-                                if (steppingMode != oldSteppingMode)
+                                if (this.steppingMode != oldSteppingMode)
                                     break;
                             }
 
@@ -1273,7 +1281,7 @@ namespace vm
                                 if (!SingleStep(opcode))
                                     return;
 
-                                if (steppingMode != oldSteppingMode)
+                                if (this.steppingMode != oldSteppingMode)
                                     break;
                             }
 

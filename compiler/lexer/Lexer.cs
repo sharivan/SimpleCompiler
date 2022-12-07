@@ -721,7 +721,7 @@ namespace compiler.lexer
                 PreviusToken();
 
                 return throwException
-                    ? throw new CompilerException(CurrentInterval(CurrentPos, CurrentLine), errorMessage ?? "Número esperado mas fim do arquivo encontrado.")
+                    ? throw new CompilerException(CurrentInterval(), errorMessage ?? "Número esperado mas fim do arquivo encontrado.")
                     : null;
             }
 
@@ -745,7 +745,7 @@ namespace compiler.lexer
                 PreviusToken();
 
                 return throwException
-                    ? throw new CompilerException(CurrentInterval(CurrentPos, CurrentLine), errorMessage ?? "Símbolo esperado mas fim do arquivo encontrado.")
+                    ? throw new CompilerException(CurrentInterval(), errorMessage ?? "Símbolo esperado mas fim do arquivo encontrado.")
                     : null;
             }
 
@@ -769,7 +769,7 @@ namespace compiler.lexer
                 PreviusToken();
 
                 return throwException
-                    ? throw new CompilerException(CurrentInterval(CurrentPos, CurrentLine), errorMessage ?? $"'{expectedValue}' esperado mas fim da expressão encontrado.")
+                    ? throw new CompilerException(CurrentInterval(), errorMessage ?? $"'{expectedValue}' esperado mas fim da expressão encontrado.")
                     : null;
             }
 
@@ -803,7 +803,7 @@ namespace compiler.lexer
                 PreviusToken();
 
                 return throwException
-                    ? throw new CompilerException(CurrentInterval(CurrentPos, CurrentLine), errorMessage ?? "Palavra reservada esperada mas fim do arquivo encontrado.")
+                    ? throw new CompilerException(CurrentInterval(), errorMessage ?? "Palavra reservada esperada mas fim do arquivo encontrado.")
                     : null;
             }
 
@@ -827,7 +827,7 @@ namespace compiler.lexer
                 PreviusToken();
 
                 return throwException
-                    ? throw new CompilerException(CurrentInterval(CurrentPos, CurrentLine), errorMessage ?? $"'{expectedValue}' esperado mas fim do arquivo encontrado.")
+                    ? throw new CompilerException(CurrentInterval(), errorMessage ?? $"'{expectedValue}' esperado mas fim do arquivo encontrado.")
                     : null;
             }
 
@@ -861,7 +861,7 @@ namespace compiler.lexer
                 PreviusToken();
 
                 return throwException
-                    ? throw new CompilerException(CurrentInterval(CurrentPos, CurrentLine), errorMessage ?? "Identificador esperado mas fim do arquivo encontrado.")
+                    ? throw new CompilerException(CurrentInterval(), errorMessage ?? "Identificador esperado mas fim do arquivo encontrado.")
                     : null;
             }
 
@@ -885,7 +885,7 @@ namespace compiler.lexer
                 PreviusToken();
 
                 return throwException
-                    ? throw new CompilerException(CurrentInterval(CurrentPos, CurrentLine), errorMessage ?? $"'{expectedValue}' mas fim do arquivo encontrado.")
+                    ? throw new CompilerException(CurrentInterval(), errorMessage ?? $"'{expectedValue}' mas fim do arquivo encontrado.")
                     : null;
             }
 

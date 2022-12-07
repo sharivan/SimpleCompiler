@@ -12,7 +12,7 @@ namespace compiler
         {
             Token token = lexer.NextToken();
             if (token == null)
-                throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos, lexer.CurrentLine), "Fim do arquivo encontrado mas token esperado.");
+                throw new CompilerException(lexer.CurrentInterval(), "Fim do arquivo encontrado mas token esperado.");
 
             switch (token)
             {
@@ -664,7 +664,7 @@ namespace compiler
         private Statement ParseStatement()
         {
             if (lexer.NextSymbol(";", false) != null)
-                return new EmptyStatement(lexer.CurrentInterval(lexer.CurrentPos, lexer.CurrentLine));
+                return new EmptyStatement(lexer.CurrentInterval());
 
             if (lexer.NextSymbol("{", false) != null)
             {
@@ -781,7 +781,7 @@ namespace compiler
                         ReadStatement result = new(kw.Interval);
 
                         if (lexer.NextSymbol(";", false) != null)
-                            throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos, lexer.CurrentLine), "Expressão esperada.");
+                            throw new CompilerException(lexer.CurrentInterval(), "Expressão esperada.");
 
                         Expression expression = ParseExpression();
                         result.AddExpression(expression);
@@ -804,7 +804,7 @@ namespace compiler
 
                         if (lexer.NextSymbol(";", false) != null)
                         {
-                            return result.LineBreak ? (Statement) result : throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos, lexer.CurrentLine), "Expressão esperada.");
+                            return result.LineBreak ? (Statement) result : throw new CompilerException(lexer.CurrentInterval(), "Expressão esperada.");
                         }
 
                         Expression expression = ParseExpression();
@@ -1032,15 +1032,15 @@ namespace compiler
                 if (lexer.NextKeyword("programa", false) == null)
                 {
                     if (programOnly)
-                        throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos, lexer.CurrentLine), "'programa' esperado.");
+                        throw new CompilerException(lexer.CurrentInterval(), "'programa' esperado.");
 
                     if (lexer.NextKeyword("unidade", false) == null)
-                        throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos, lexer.CurrentLine), "'programa' ou 'unidade' esperado.");
+                        throw new CompilerException(lexer.CurrentInterval(), "'programa' ou 'unidade' esperado.");
 
                     isUnity = true;
                 }
                 else if (program != null)
-                    throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos, lexer.CurrentLine), "Não pode haver mais que um programa.");
+                    throw new CompilerException(lexer.CurrentInterval(), "Não pode haver mais que um programa.");
 
                 Identifier id = lexer.NextIdentifier();
                 string name = id.Name;
@@ -1087,7 +1087,7 @@ namespace compiler
             using (lexer = Lexer.CreateFromFile(unity.FileName))
             {
                 if (lexer.NextKeyword("unidade", false) == null)
-                    throw new CompilerException(lexer.CurrentInterval(lexer.CurrentPos, lexer.CurrentLine), "'unidade' esperado.");
+                    throw new CompilerException(lexer.CurrentInterval(), "'unidade' esperado.");
 
                 Identifier id = lexer.NextIdentifier();
                 string name = id.Name;
