@@ -97,7 +97,7 @@ namespace compiler
             throw new CompilerException(interval, $"Tipo desconhecido: '{type}'.");
         }
 
-        private void CompileLoad(Assembler assembler, Variable loadVar, SourceInterval interval)
+        internal void CompileLoad(Assembler assembler, Variable loadVar, SourceInterval interval)
         {
             AbstractType type = loadVar.Type;
             switch (type)

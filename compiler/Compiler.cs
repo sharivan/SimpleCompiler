@@ -108,7 +108,7 @@ namespace compiler
             }
         }
 
-        private void CompileCast(Context context, Assembler assembler, Assembler beforeCastAssembler, AbstractType fromType, AbstractType toType, bool isExplicit, SourceInterval interval, out LocalVariable tempVar)
+        private void CompileCast(Context context, Assembler assembler, Assembler beforeCastAssembler, AbstractType fromType, AbstractType toType, bool isExplicit, SourceInterval interval, out Variable tempVar)
         {
             tempVar = null;
 
@@ -333,7 +333,7 @@ namespace compiler
                             if (!PrimitiveType.IsPrimitiveChar(type))
                                 throw new CompilerException(interval, $"Não é permitido atribuir um pointeiro do tipo '{type}' para uma string.");
 
-                            tempVar = context.AcquireTemporaryVariable(function, StringType.STRING, interval);
+                            tempVar = context.AcquireTemporaryVariable(StringType.STRING, interval);
                             beforeCastAssembler.EmitLoadLocalHostAddress(tempVar.Offset);
 
                             Function f = unitySystem.FindFunction("NovoTexto2");
@@ -442,7 +442,7 @@ namespace compiler
                 case ExpressionStatement e:
                 {
                     Expression expression = e.Expression;
-                    AbstractType type = CompileExpression(context, assembler, expression, out LocalVariable tempVar);
+                    AbstractType type = CompileExpression(context, assembler, expression, out Variable tempVar);
                     CompilePop(assembler, type);
 
                     tempVar?.Release();
@@ -469,10 +469,10 @@ namespace compiler
                         Assembler beforeCastAssembler = new();
                         Assembler castAssembler = new();
                         Assembler storeAssembler = new();
-                        LocalVariable castTempVar = null;
+                        Variable castTempVar = null;
                         if (function.ReturnType is PrimitiveType or PointerType)
                         {
-                            AbstractType returnType = CompileExpression(context, castAssembler, expr, out LocalVariable tempVar);
+                            AbstractType returnType = CompileExpression(context, castAssembler, expr, out Variable tempVar);
                             CompileCast(context, castAssembler, beforeCastAssembler, returnType, function.ReturnType, false, expr.Interval, out castTempVar);
                             CompileStoreLocal(storeAssembler, beforeStoreAssembler, function.ReturnType, function.ReturnOffset, expr.Interval);
 
@@ -481,7 +481,7 @@ namespace compiler
                         else
                         {
                             storeAssembler.EmitLoadLocalResidentAddress(function.ReturnOffset);
-                            AbstractType returnType = CompileExpression(context, castAssembler, expr, out LocalVariable tempVar);
+                            AbstractType returnType = CompileExpression(context, castAssembler, expr, out Variable tempVar);
                             CompileCast(context, castAssembler, beforeCastAssembler, returnType, function.ReturnType, false, expr.Interval, out castTempVar);
                             CompileStoreStack(storeAssembler, beforeStoreAssembler, function.ReturnType, expr.Interval);
 
@@ -582,7 +582,7 @@ namespace compiler
                 {
                     foreach (Expression expr in p)
                     {
-                        AbstractType exprType = CompileExpression(context, assembler, expr, out LocalVariable tempVar, true);
+                        AbstractType exprType = CompileExpression(context, assembler, expr, out Variable tempVar, true);
                         switch (exprType)
                         {
                             case PrimitiveType pt:
@@ -658,7 +658,7 @@ namespace compiler
                     Statement thenStatement = i.ThenStatement;
                     Statement elseStatement = i.ElseStatement;
 
-                    AbstractType exprType = CompileExpression(context, assembler, expression, out LocalVariable tempVar);
+                    AbstractType exprType = CompileExpression(context, assembler, expression, out Variable tempVar);
 
                     if (!PrimitiveType.IsPrimitiveBool(exprType))
                         throw new CompilerException(expression.Interval, "Expressão do tipo bool experada.");
@@ -689,7 +689,7 @@ namespace compiler
                     Label lblLoop = CreateLabel();
                     assembler.BindLabel(lblLoop);
 
-                    AbstractType exprType = CompileExpression(context, assembler, expression, out LocalVariable tempVar);
+                    AbstractType exprType = CompileExpression(context, assembler, expression, out Variable tempVar);
 
                     Label lblEnd = CreateLabel();
                     context.PushBreakLabel(lblEnd);
@@ -723,7 +723,7 @@ namespace compiler
 
                     CompileStatement(context, assembler, stm);
 
-                    AbstractType exprType = CompileExpression(context, assembler, expr, out LocalVariable tempVar);
+                    AbstractType exprType = CompileExpression(context, assembler, expr, out Variable tempVar);
                     if (!PrimitiveType.IsPrimitiveBool(exprType))
                         throw new CompilerException(expr.Interval, "Expressão do tipo bool experada.");
 
@@ -769,7 +769,7 @@ namespace compiler
                     // atualizadores
                     foreach (Expression updater in f.Updaters)
                     {
-                        AbstractType updaterType = CompileExpression(forContext, assembler, updater, out LocalVariable tempVar);
+                        AbstractType updaterType = CompileExpression(forContext, assembler, updater, out Variable tempVar);
                         CompilePop(assembler, updaterType);
 
                         tempVar?.Release();
@@ -804,7 +804,7 @@ namespace compiler
             AbstractType type = statement.Type;
             foreach (var (name, initializer) in statement)
             {
-                Variable var = context.DeclareLocalVariable(function, name, type, statement.Interval);
+                Variable var = context.DeclareVariable(name, type, statement.Interval);
                 if (var == null)
                     throw new CompilerException(statement.Interval, $"Variável local '{name}' já declarada.");
 
@@ -824,8 +824,8 @@ namespace compiler
 
                     Assembler beforeCastAssembler = new();
                     Assembler castAssembler = new();
-                    AbstractType initializerType = CompileExpression(context, castAssembler, initializer, out LocalVariable tempVar);
-                    CompileCast(context, castAssembler, beforeCastAssembler, initializerType, type, false, initializer.Interval, out LocalVariable castTempVar);
+                    AbstractType initializerType = CompileExpression(context, castAssembler, initializer, out Variable tempVar);
+                    CompileCast(context, castAssembler, beforeCastAssembler, initializerType, type, false, initializer.Interval, out Variable castTempVar);
 
                     tempVar?.Release();
 
@@ -887,18 +887,15 @@ namespace compiler
             return Compile("#" + sourceID, input, assembler);
         }
 
-        public bool CompileFromSources(Tuple<int, string>[] sources, Assembler assembler)
+        public bool CompileFromSources((int, string)[] sources, Assembler assembler)
         {
             try
             {
                 Initialize();
 
-                foreach (var source in sources)
+                foreach (var (sourceID, sourceText) in sources)
                 {
-                    int sourceID = source.Item1;
-                    string sourceText = source.Item2;
                     string fileName = "#" + sourceID;
-
                     using var input = new StringReader(sourceText);
                     Parse(fileName, input);
                 }

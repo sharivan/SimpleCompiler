@@ -1,4 +1,6 @@
-﻿namespace compiler.types
+﻿using assembler;
+
+namespace compiler.types
 {
     public class TypeSetType : NamedType
     {
@@ -35,5 +37,9 @@
             else
                 Resolve(ref type);
         }
+
+        public override bool ContainsString() => type.ContainsString();
+
+        internal override void EmitStringRelease(Context context, Compiler compiler, Assembler assembler, int offset, ReleaseType releaseType) => type.EmitStringRelease(context, compiler, assembler, offset, releaseType);
     }
 }

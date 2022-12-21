@@ -90,6 +90,8 @@ namespace SimpleCompiler
             this.openFileDialog = new System.Windows.Forms.OpenFileDialog();
             this.imageList = new System.Windows.Forms.ImageList(this.components);
             this.bwCompiler = new System.ComponentModel.BackgroundWorker();
+            this.gbRegisters = new System.Windows.Forms.GroupBox();
+            this.lblRegisters = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainerMain)).BeginInit();
             this.splitContainerMain.Panel1.SuspendLayout();
             this.splitContainerMain.Panel2.SuspendLayout();
@@ -118,6 +120,7 @@ namespace SimpleCompiler
             ((System.ComponentModel.ISupportInitialize)(this.dgvStrings)).BeginInit();
             this.statusBar.SuspendLayout();
             this.toolBar.SuspendLayout();
+            this.gbRegisters.SuspendLayout();
             this.SuspendLayout();
             // 
             // splitContainerMain
@@ -309,6 +312,7 @@ namespace SimpleCompiler
             // splitContainer1.Panel2
             // 
             this.splitContainer1.Panel2.Controls.Add(this.splitContainerData);
+            this.splitContainer1.Panel2.Controls.Add(this.gbRegisters);
             this.splitContainer1.Size = new System.Drawing.Size(1462, 206);
             this.splitContainer1.SplitterDistance = 793;
             this.splitContainer1.SplitterWidth = 10;
@@ -331,7 +335,7 @@ namespace SimpleCompiler
             // splitContainerData
             // 
             this.splitContainerData.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.splitContainerData.Location = new System.Drawing.Point(0, 0);
+            this.splitContainerData.Location = new System.Drawing.Point(0, 46);
             this.splitContainerData.Name = "splitContainerData";
             // 
             // splitContainerData.Panel1
@@ -341,7 +345,7 @@ namespace SimpleCompiler
             // splitContainerData.Panel2
             // 
             this.splitContainerData.Panel2.Controls.Add(this.gbStrings);
-            this.splitContainerData.Size = new System.Drawing.Size(659, 206);
+            this.splitContainerData.Size = new System.Drawing.Size(659, 160);
             this.splitContainerData.SplitterDistance = 400;
             this.splitContainerData.TabIndex = 3;
             // 
@@ -351,7 +355,7 @@ namespace SimpleCompiler
             this.gbStack.Dock = System.Windows.Forms.DockStyle.Fill;
             this.gbStack.Location = new System.Drawing.Point(0, 0);
             this.gbStack.Name = "gbStack";
-            this.gbStack.Size = new System.Drawing.Size(400, 206);
+            this.gbStack.Size = new System.Drawing.Size(400, 160);
             this.gbStack.TabIndex = 0;
             this.gbStack.TabStop = false;
             this.gbStack.Text = "Pilha";
@@ -371,7 +375,7 @@ namespace SimpleCompiler
             this.dgvStack.Location = new System.Drawing.Point(3, 16);
             this.dgvStack.Name = "dgvStack";
             this.dgvStack.ReadOnly = true;
-            this.dgvStack.Size = new System.Drawing.Size(394, 187);
+            this.dgvStack.Size = new System.Drawing.Size(394, 141);
             this.dgvStack.TabIndex = 1;
             this.dgvStack.Scroll += new System.Windows.Forms.ScrollEventHandler(this.dgvStack_Scroll);
             this.dgvStack.Resize += new System.EventHandler(this.dgvStack_Resize);
@@ -443,7 +447,7 @@ namespace SimpleCompiler
             this.gbStrings.Dock = System.Windows.Forms.DockStyle.Fill;
             this.gbStrings.Location = new System.Drawing.Point(0, 0);
             this.gbStrings.Name = "gbStrings";
-            this.gbStrings.Size = new System.Drawing.Size(255, 206);
+            this.gbStrings.Size = new System.Drawing.Size(255, 160);
             this.gbStrings.TabIndex = 0;
             this.gbStrings.TabStop = false;
             this.gbStrings.Text = "Textos";
@@ -463,7 +467,7 @@ namespace SimpleCompiler
             this.dgvStrings.Location = new System.Drawing.Point(3, 16);
             this.dgvStrings.Name = "dgvStrings";
             this.dgvStrings.ReadOnly = true;
-            this.dgvStrings.Size = new System.Drawing.Size(249, 187);
+            this.dgvStrings.Size = new System.Drawing.Size(249, 141);
             this.dgvStrings.TabIndex = 3;
             // 
             // StringHA
@@ -739,6 +743,27 @@ namespace SimpleCompiler
             // 
             this.bwCompiler.DoWork += new System.ComponentModel.DoWorkEventHandler(this.bwCompiler_DoWork);
             // 
+            // gbRegisters
+            // 
+            this.gbRegisters.Controls.Add(this.lblRegisters);
+            this.gbRegisters.Dock = System.Windows.Forms.DockStyle.Top;
+            this.gbRegisters.Location = new System.Drawing.Point(0, 0);
+            this.gbRegisters.Name = "gbRegisters";
+            this.gbRegisters.Size = new System.Drawing.Size(659, 46);
+            this.gbRegisters.TabIndex = 2;
+            this.gbRegisters.TabStop = false;
+            this.gbRegisters.Text = "Registradores";
+            // 
+            // lblRegisters
+            // 
+            this.lblRegisters.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.lblRegisters.Location = new System.Drawing.Point(7, 16);
+            this.lblRegisters.Name = "lblRegisters";
+            this.lblRegisters.Size = new System.Drawing.Size(646, 24);
+            this.lblRegisters.TabIndex = 3;
+            // 
             // FrmSimpleCompiler
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -782,6 +807,7 @@ namespace SimpleCompiler
             this.statusBar.PerformLayout();
             this.toolBar.ResumeLayout(false);
             this.toolBar.PerformLayout();
+            this.gbRegisters.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -848,6 +874,8 @@ namespace SimpleCompiler
         private System.Windows.Forms.DataGridViewTextBoxColumn StringRefCount;
         private System.Windows.Forms.DataGridViewTextBoxColumn StringLen;
         private System.Windows.Forms.DataGridViewButtonColumn StringValue;
+        private System.Windows.Forms.GroupBox gbRegisters;
+        private System.Windows.Forms.Label lblRegisters;
     }
 }
 

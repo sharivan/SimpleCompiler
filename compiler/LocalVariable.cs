@@ -4,12 +4,7 @@ namespace compiler
 {
     public class LocalVariable : Variable
     {
-        public bool Temporary
-        {
-            get; internal set;
-        }
-
-        public bool Acquired
+        public SourceInterval Scope
         {
             get; internal set;
         }
@@ -21,8 +16,10 @@ namespace compiler
 
         public bool Param => Offset < 0;
 
-        internal LocalVariable(Function function, string name, AbstractType type, SourceInterval interval, int offset = -1) : base(name, type, interval, offset) => Function = function;
-
-        internal void Release() => Acquired = false;
+        internal LocalVariable(Function function, string name, AbstractType type, SourceInterval declaration, int offset = -1) : base(name, type, declaration, offset)
+        {
+            Function = function;
+            Scope = declaration;
+        }
     }
 }

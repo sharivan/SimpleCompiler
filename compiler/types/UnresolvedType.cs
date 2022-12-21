@@ -1,4 +1,5 @@
-﻿using System;
+﻿using assembler;
+using System;
 
 namespace compiler.types
 {
@@ -9,7 +10,6 @@ namespace compiler.types
         public AbstractType ReferencedType
         {
             get => referencedType;
-
             internal set => referencedType = value;
         }
 
@@ -17,9 +17,9 @@ namespace compiler.types
         {
         }
 
-        public override bool CoerceWith(AbstractType other, bool isExplicit) => throw new NotImplementedException();
+        public override bool CoerceWith(AbstractType other, bool isExplicit) => throw new CompilerException(Interval, $"Tipo não resolvido: '{Name}'.");
 
-        protected override int GetSize() => throw new NotImplementedException();
+        protected override int GetSize() => throw new CompilerException(Interval, $"Tipo não resolvido: '{Name}'.");
 
         public override bool IsUnresolved() => referencedType == null;
 
@@ -34,5 +34,9 @@ namespace compiler.types
                 Resolve(ref referencedType);
             }
         }
+
+        public override bool ContainsString() => throw new CompilerException(Interval, $"Tipo não resolvido: '{Name}'.");
+
+        internal override void EmitStringRelease(Context context, Compiler compiler, Assembler assembler, int offset, ReleaseType releaseType) => throw new CompilerException(Interval, $"Tipo não resolvido: '{Name}'.");
     }
 }

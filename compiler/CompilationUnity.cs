@@ -13,7 +13,7 @@ namespace compiler
             UNITY_NOT_FOUND,
             UNITY_ALREADY_IMPORTED,
             UNITY_IS_PROGRAM,
-            SELF_REFERENCE_UNITY 
+            SELF_REFERENCE_UNITY
         }
 
         private readonly List<CompilationUnity> imports;
@@ -75,8 +75,17 @@ namespace compiler
 
         public int UndeclaredCount => undeclaredTypes.Count;
 
-        public Function EntryPoint { get;
-            internal set; }
+        public Function EntryPoint
+        {
+            get;
+            internal set;
+        }
+
+        public SourceInterval Interval
+        {
+            get;
+            internal set;
+        }
 
         internal CompilationUnity(Compiler compiler, string name, string fileName, bool isUnity = false)
         {
@@ -94,7 +103,7 @@ namespace compiler
             typeSets = new();
             typeSetTable = new();
             functions = new();
-            functionTable = new();           
+            functionTable = new();
             stringTable = new();
             undeclaredTypes = new();
             undeclaredTypeTable = new();
@@ -176,7 +185,7 @@ namespace compiler
             if (result != null)
                 return null;
 
-            result = new GlobalVariable(this, name, type, interval);            
+            result = new GlobalVariable(this, name, type, interval);
             globals.Add(result);
             globalTable.Add(name, result);
             return result;
@@ -358,16 +367,12 @@ namespace compiler
 
         internal void EmitStringRelease(Assembler assembler)
         {
-            foreach (GlobalVariable g in globals)
+            Context context = new(this, Interval);
+            for (int i = 0; i < globals.Count; i++)
             {
+                GlobalVariable g = globals[i];
                 AbstractType type = g.Type;
-                if (type is StringType)
-                {
-                    Function f = Compiler.unitySystem.FindFunction("DecrementaReferenciaTexto");
-                    int index = Compiler.GetOrAddExternalFunction(f.Name, f.ParameterSize);
-                    assembler.EmitLoadGlobalHostAddress(GlobalStartOffset + g.Offset);
-                    assembler.EmitExternCall(index);
-                }
+                type.EmitStringRelease(context, Compiler, assembler, GlobalStartOffset + g.Offset, AbstractType.ReleaseType.GLOBAL);
             }
         }
     }

@@ -29,7 +29,8 @@ namespace units
         private static readonly int CONCATENATE_STRING3_PARAM_SIZE = POINTER_SIZE + 2 * STRING_SIZE;
         private static readonly int STRING_STORE_PARAM_SIZE = POINTER_SIZE + STRING_SIZE;
         private static readonly int STRING_ADDREF_PARAM_SIZE = STRING_SIZE;
-        private static readonly int STRING_RELEASE_PARAM_SIZE = STRING_SIZE;
+        private static readonly int STRING_RELEASE_PARAM_SIZE = POINTER_SIZE + sizeof(int);
+        private static readonly int STRING_ARRAY_RELEASE_PARAM_SIZE = POINTER_SIZE + 2 * sizeof(int);
 
         public static readonly int POINTER_COUNT = POINTER_SIZE / sizeof(int);
         public static readonly int STRING_COUNT = POINTER_COUNT;
@@ -313,9 +314,18 @@ namespace units
         public static void StringRelease(VM vm)
         {
             IntPtr strAddr = vm.LoadParamPtr(STRING_RELEASE_PARAM_SIZE, 0);
+            bool setNull = vm.LoadParam(STRING_RELEASE_PARAM_SIZE, POINTER_COUNT) != 0;
             IntPtr str = ReadPointerPtr(strAddr);
             str = vm.StringRelease(str);
-            WritePointer(strAddr, str);
+            WritePointer(strAddr, setNull ? IntPtr.Zero : str);
+        }
+
+        public static void StringArrayRelease(VM vm)
+        {
+            IntPtr ptr = vm.LoadParamPtr(STRING_ARRAY_RELEASE_PARAM_SIZE, 0);
+            int count = vm.LoadParam(STRING_ARRAY_RELEASE_PARAM_SIZE, POINTER_COUNT);
+            bool setNull = vm.LoadParam(STRING_RELEASE_PARAM_SIZE, POINTER_COUNT + 1) != 0;
+            vm.StringArrayRelease(ptr, count, setNull);
         }
 
         static UnitySystem() => FUNCTIONS = new Dictionary<string, VM.ExternalFunctionHandler>
@@ -343,7 +353,8 @@ namespace units
                 { "ConcatenaTextos2", ConcatenateStrings3 },
                 { "AtribuiTexto", StringStore },
                 { "IncrementaReferenciaTexto", StringAddRef },
-                { "DecrementaReferenciaTexto", StringRelease }
+                { "DecrementaReferenciaTexto", StringRelease },
+                { "DecrementaReferenciaArrayTexto", StringArrayRelease }
             };
     }
 }

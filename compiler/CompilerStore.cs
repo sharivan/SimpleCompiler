@@ -210,7 +210,7 @@ namespace compiler
             throw new CompilerException(interval, $"Tipo desconhecido: '{type}'.");
         }
 
-        private void CompileStore(Assembler assembler, Assembler leftAssembler, Variable storeVar, SourceInterval interval)
+        internal void CompileStore(Assembler assembler, Assembler leftAssembler, Variable storeVar, SourceInterval interval)
         {
             if (storeVar is GlobalVariable)
                 CompileStoreGlobal(assembler, leftAssembler, storeVar.Type, unity.GlobalStartOffset + storeVar.Offset, interval);
@@ -330,7 +330,7 @@ namespace compiler
             throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
-        private void CompileStoreAdd(Assembler assembler, Assembler leftAssembler, Variable storeVar, SourceInterval interval)
+        internal void CompileStoreAdd(Assembler assembler, Assembler leftAssembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
             switch (type)
@@ -526,7 +526,7 @@ namespace compiler
             throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
         }
 
-        private void CompileStoreSub(Assembler assembler, Variable storeVar, SourceInterval interval)
+        internal void CompileStoreSub(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
             switch (type)
@@ -689,7 +689,7 @@ namespace compiler
             }
         }
 
-        private void CompileStoreMul(Assembler assembler, Variable storeVar, SourceInterval interval)
+        internal void CompileStoreMul(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
             if (type is not PrimitiveType p)
@@ -837,7 +837,7 @@ namespace compiler
             } 
         }
 
-        private void CompileStoreDiv(Assembler assembler, Variable storeVar, SourceInterval interval)
+        internal void CompileStoreDiv(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
             if (type is not PrimitiveType p)
@@ -965,7 +965,7 @@ namespace compiler
             } 
         }
 
-        private void CompileStoreMod(Assembler assembler, Variable storeVar, SourceInterval interval)
+        internal void CompileStoreMod(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
             if (type is not PrimitiveType p)
@@ -1075,7 +1075,7 @@ namespace compiler
             }
         }
 
-        private void CompileStoreAnd(Assembler assembler, Variable storeVar, SourceInterval interval)
+        internal void CompileStoreAnd(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
             if (type is not PrimitiveType p)
@@ -1186,7 +1186,7 @@ namespace compiler
             }
         }
 
-        private void CompileStoreOr(Assembler assembler, Variable storeVar, SourceInterval interval)
+        internal void CompileStoreOr(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
             if (type is not PrimitiveType p)
@@ -1297,7 +1297,7 @@ namespace compiler
             }
         }
 
-        private void CompileStoreXor(Assembler assembler, Variable storeVar, SourceInterval interval)
+        internal void CompileStoreXor(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
             if (type is not PrimitiveType p)
@@ -1406,7 +1406,7 @@ namespace compiler
             }
         }
 
-        private void CompileStoreShiftLeft(Assembler assembler, Variable storeVar, SourceInterval interval)
+        internal void CompileStoreShiftLeft(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
             if (type is not PrimitiveType p)
@@ -1514,7 +1514,7 @@ namespace compiler
             }
         }
 
-        private void CompileStoreShiftRight(Assembler assembler, Variable storeVar, SourceInterval interval)
+        internal void CompileStoreShiftRight(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
             if (type is not PrimitiveType p)
@@ -1622,7 +1622,7 @@ namespace compiler
             }
         }
 
-        private void CompileStoreUnsignedShiftRight(Assembler assembler, Variable storeVar, SourceInterval interval)
+        internal void CompileStoreUnsignedShiftRight(Assembler assembler, Variable storeVar, SourceInterval interval)
         {
             AbstractType type = storeVar.Type;
             if (type is not PrimitiveType p)
@@ -1681,8 +1681,8 @@ namespace compiler
             Assembler rightAssembler;
             Assembler storeAssembler;
             Variable storeVar;
-            LocalVariable tempVar;
-            LocalVariable castTempVar;
+            Variable tempVar;
+            Variable castTempVar;
             bool isPointerDeference;
 
             if (operation == BinaryOperation.STORE)

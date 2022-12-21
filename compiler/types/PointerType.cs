@@ -1,4 +1,5 @@
-﻿using System;
+﻿using assembler;
+using System;
 using System.Collections.Generic;
 
 namespace compiler.types
@@ -104,6 +105,12 @@ namespace compiler.types
             }
             else
                 Resolve(ref type);
+        }
+
+        public override bool ContainsString() => false;
+
+        internal override void EmitStringRelease(Context context, Compiler compiler, Assembler assembler, int offset, ReleaseType releaseType)
+        {
         }
     }
 }

@@ -31,10 +31,10 @@ namespace compiler
         }
     }
 
-    public class DeclarationStatement : InitializerStatement, IEnumerable<Tuple<string, Expression>>
+    public class DeclarationStatement : InitializerStatement, IEnumerable<(string, Expression)>
     {
         private AbstractType type;
-        private readonly List<Tuple<string, Expression>> vars;
+        private readonly List<(string, Expression)> vars;
 
         public AbstractType Type
         {
@@ -44,7 +44,7 @@ namespace compiler
 
         public int VariableCount => vars.Count;
 
-        public Tuple<string, Expression> this[int index]
+        public (string, Expression) this[int index]
         {
             get => vars[index];
             internal set => vars[index] = value;
@@ -54,14 +54,14 @@ namespace compiler
         {
             this.type = type;
 
-            vars = new List<Tuple<string, Expression>>();
+            vars = new List<(string, Expression)>();
         }
 
-        internal void AddVariable(string name, Expression initializer = null) => vars.Add(new Tuple<string, Expression>(name, initializer));
+        internal void AddVariable(string name, Expression initializer = null) => vars.Add((name, initializer));
 
         internal void Resolve() => AbstractType.Resolve(ref type);
 
-        public IEnumerator<Tuple<string, Expression>> GetEnumerator() => vars.GetEnumerator();
+        public IEnumerator<(string, Expression)> GetEnumerator() => vars.GetEnumerator();
 
         IEnumerator IEnumerable.GetEnumerator() => vars.GetEnumerator();
     }

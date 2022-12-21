@@ -1,4 +1,5 @@
-﻿using System;
+﻿using assembler;
+using System;
 
 namespace compiler.types
 {
@@ -188,6 +189,12 @@ namespace compiler.types
         public override bool IsUnresolved() => false;
 
         protected override void UncheckedResolve()
+        {
+        }
+
+        public override bool ContainsString() => false;
+
+        internal override void EmitStringRelease(Context context, Compiler compiler, Assembler assembler, int offset, ReleaseType releaseType)
         {
         }
     }

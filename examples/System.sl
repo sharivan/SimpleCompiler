@@ -48,5 +48,7 @@ unidade System
 	
 	função externa IncrementaReferenciaTexto(str:texto);
 	
-	função externa DecrementaReferenciaTexto(&str:texto);
+	função externa DecrementaReferenciaTexto(&str:texto, anule:bool);
+
+	função externa DecrementaReferenciaArrayTexto(str:texto[], count:int, anule:bool);
 }

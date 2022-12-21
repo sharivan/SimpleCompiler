@@ -99,46 +99,54 @@ namespace compiler
         {
             Expression operand = ParsePrimaryExpression();
 
-            Symbol symbol = lexer.NextSymbol(false);
-            if (symbol == null)
-                return operand;
-
-            switch (symbol.Value)
+            while (true)
             {
-                case "++":
-                    return new UnaryExpression(SourceInterval.Merge(operand.Interval, symbol.Interval), UnaryOperation.POST_INCREMENT, operand);
+                Symbol symbol = lexer.NextSymbol(false);
+                if (symbol == null)
+                    return operand;
 
-                case "--":
-                    return new UnaryExpression(SourceInterval.Merge(operand.Interval, symbol.Interval), UnaryOperation.POST_DECREMENT, operand);
-
-                case ".":
+                switch (symbol.Value)
                 {
-                    Identifier id = lexer.NextIdentifier();
-                    return new FieldAccessorExpression(SourceInterval.Merge(operand.Interval, id.Interval), operand, id.Name);
-                }
+                    case "++":
+                        operand = new UnaryExpression(SourceInterval.Merge(operand.Interval, symbol.Interval), UnaryOperation.POST_INCREMENT, operand);
+                        break;
 
-                case "[":
-                {
-                    if (lexer.NextSymbol("]", false) != null)
-                        throw new CompilerException(operand.Interval, "Índice de array esperado.");
+                    case "--":
+                        operand = new UnaryExpression(SourceInterval.Merge(operand.Interval, symbol.Interval), UnaryOperation.POST_DECREMENT, operand);
+                        break;
 
-                    ArrayAccessorExpression result = new(SourceInterval.Merge(operand.Interval, symbol.Interval), operand);
-                    Expression indexer = ParseExpression();
-                    result.AddIndexer(indexer);
-
-                    while (lexer.NextSymbol(",", false) != null)
+                    case ".":
                     {
-                        indexer = ParseExpression();
-                        result.AddIndexer(indexer);
+                        Identifier id = lexer.NextIdentifier();
+                        operand = new FieldAccessorExpression(SourceInterval.Merge(operand.Interval, id.Interval), operand, id.Name);
+                        break;
                     }
 
-                    lexer.NextSymbol("]");
-                    return result;
-                }
-            }
+                    case "[":
+                    {
+                        if (lexer.NextSymbol("]", false) != null)
+                            throw new CompilerException(operand.Interval, "Índice de array esperado.");
 
-            lexer.PreviusToken();
-            return operand;
+                        ArrayAccessorExpression result = new(SourceInterval.Merge(operand.Interval, symbol.Interval), operand);
+                        Expression indexer = ParseExpression();
+                        result.AddIndexer(indexer);
+
+                        while (lexer.NextSymbol(",", false) != null)
+                        {
+                            indexer = ParseExpression();
+                            result.AddIndexer(indexer);
+                        }
+
+                        lexer.NextSymbol("]");
+                        operand = result;
+                        break;
+                    }
+
+                    default:
+                        lexer.PreviusToken();
+                        return operand;
+                }      
+            }
         }
 
         private Expression ParseUnaryExpression()
@@ -151,40 +159,41 @@ namespace compiler
             switch (symbol.Value)
             {
                 case "+":
-                    return ParsePostFixExpression();
+                    return ParseUnaryExpression();
 
                 case "-":
-                    operand = ParsePostFixExpression();
+                    operand = ParseUnaryExpression();
                     return new UnaryExpression(SourceInterval.Merge(symbol.Interval, operand.Interval), UnaryOperation.NEGATION, operand);
 
                 case "*":
-                    operand = ParsePostFixExpression();
+                    operand = ParseUnaryExpression();
                     return new UnaryExpression(SourceInterval.Merge(symbol.Interval, operand.Interval), UnaryOperation.POINTER_INDIRECTION, operand);
 
                 case "!":
-                    operand = ParsePostFixExpression();
+                    operand = ParseUnaryExpression();
                     return new UnaryExpression(SourceInterval.Merge(symbol.Interval, operand.Interval), UnaryOperation.LOGICAL_NOT, operand);
 
                 case "~":
-                    operand = ParsePostFixExpression();
+                    operand = ParseUnaryExpression();
                     return new UnaryExpression(SourceInterval.Merge(symbol.Interval, operand.Interval), UnaryOperation.BITWISE_NOT, operand);
 
                 case "++":
-                    operand = ParsePostFixExpression();
+                    operand = ParseUnaryExpression();
                     return new UnaryExpression(SourceInterval.Merge(symbol.Interval, operand.Interval), UnaryOperation.PRE_INCREMENT, operand);
 
                 case "--":
-                    operand = ParsePostFixExpression();
+                    operand = ParseUnaryExpression();
                     return new UnaryExpression(SourceInterval.Merge(symbol.Interval, operand.Interval), UnaryOperation.PRE_DECREMENT, operand);
 
                 case "&":
-                    operand = ParsePostFixExpression();
+                    operand = ParseUnaryExpression();
                     return new UnaryExpression(SourceInterval.Merge(symbol.Interval, operand.Interval), UnaryOperation.POINTER_TO, operand);
             }
 
             lexer.PreviusToken();
             return ParsePostFixExpression();
         }
+
         private Expression ParseCastExpression()
         {
             if (lexer.NextKeyword("cast", false) == null)
@@ -975,8 +984,7 @@ namespace compiler
                     case "var":
                     {
                         DeclarationStatement declaration = ParseVariableDeclaration(false);
-                        Tuple<string, Expression> tuple = declaration[0];
-                        string name = tuple.Item1;
+                        var (name, _) = declaration[0];
                         Variable var = unity.DeclareGlobalVariable(name, declaration.Type, declaration.Interval);
                         if (var == null)
                             throw new CompilerException(declaration.Interval, $"Variável global '{name}' já declarada.");

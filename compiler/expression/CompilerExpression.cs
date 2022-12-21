@@ -216,7 +216,7 @@ namespace compiler
             };
         }
 
-        private AbstractType CompileFieldAccessorExpression(Context context, Assembler assembler, FieldAccessorExpression expression, out LocalVariable tempVar, bool getArrayAddress = false)
+        private AbstractType CompileFieldAccessorExpression(Context context, Assembler assembler, FieldAccessorExpression expression, out Variable tempVar, bool getArrayAddress = false)
         {
             tempVar = null;
 
@@ -296,7 +296,7 @@ namespace compiler
             throw new CompilerException(operand.Interval, $"Acesso de membros em um tipo que não é estrutura, ponteiro ou texto: '{operandType}'.");
         }
 
-        private AbstractType CompileArrayAccessorExpression(Context context, Assembler assembler, ArrayAccessorExpression expression, out LocalVariable tempVar, bool getArrayAddress = false)
+        private AbstractType CompileArrayAccessorExpression(Context context, Assembler assembler, ArrayAccessorExpression expression, out Variable tempVar, bool getArrayAddress = false)
         {
             tempVar = null;
             AbstractType result = null;
@@ -383,7 +383,7 @@ namespace compiler
             return result;
         }
 
-        private AbstractType CompilePrimaryExpression(Context context, Assembler assembler, PrimaryExpression expression, out LocalVariable tempVar, bool getArrayAddress = false)
+        private AbstractType CompilePrimaryExpression(Context context, Assembler assembler, PrimaryExpression expression, out Variable tempVar, bool getArrayAddress = false)
         {
             tempVar = null;
             AbstractType result = null;
@@ -481,7 +481,7 @@ namespace compiler
             return result;
         }
 
-        private AbstractType CompileCallExpression(Context context, Assembler assembler, CallExpression c, out LocalVariable tempVar)
+        private AbstractType CompileCallExpression(Context context, Assembler assembler, CallExpression c, out Variable tempVar)
         {
             tempVar = null;
 
@@ -499,7 +499,7 @@ namespace compiler
             {
                 if (returnType is StringType)
                 {
-                    tempVar = context.DeclareTemporaryVariable(function, returnType, c.Interval);
+                    tempVar = context.DeclareTemporaryVariable(returnType, c.Interval);
                     assembler.EmitLoadLocalHostAddress(tempVar.Offset);
                 }
 
@@ -509,7 +509,7 @@ namespace compiler
             if (func.ParamCount != c.ParameterCount)
                 throw new CompilerException(id.Interval, "A quantidade de parâmetros fornecido é diferente da quantidade total de parâmetros esperada.");
 
-            var castTempVars = new LocalVariable[func.ParamCount];
+            var castTempVars = new Variable[func.ParamCount];
             for (int j = 0; j < func.ParamCount; j++)
             {
                 Parameter parameter = func[j];
@@ -530,7 +530,7 @@ namespace compiler
                 else
                 {
                     Assembler castAssembler = new();
-                    AbstractType paramType = CompileExpression(context, castAssembler, expressionParameter, out LocalVariable paramTempVar, parameter.Type is PointerType);
+                    AbstractType paramType = CompileExpression(context, castAssembler, expressionParameter, out Variable paramTempVar, parameter.Type is PointerType);
                     CompileCast(context, castAssembler, assembler, paramType, parameter.Type, false, expressionParameter.Interval, out castTempVars[j]);
                     assembler.Emit(castAssembler);
 
@@ -561,13 +561,13 @@ namespace compiler
             return func.ReturnType;
         }
 
-        private AbstractType CompileCastExpression(Context context, Assembler assembler, CastExpression cs, out LocalVariable tempVar)
+        private AbstractType CompileCastExpression(Context context, Assembler assembler, CastExpression cs, out Variable tempVar)
         {
             Expression operand = cs.Operand;
             AbstractType type = cs.Type;
 
             Assembler castAssembler = new();
-            AbstractType operandType = CompileExpression(context, castAssembler, operand, out LocalVariable operandTempVar);
+            AbstractType operandType = CompileExpression(context, castAssembler, operand, out Variable operandTempVar);
             CompileCast(context, castAssembler, assembler, operandType, type, true, operand.Interval, out tempVar);
             assembler.Emit(castAssembler);
 
@@ -576,7 +576,7 @@ namespace compiler
             return type;
         }
 
-        private AbstractType CompileExpression(Context context, Assembler assembler, Expression expression, out LocalVariable tempVar, bool getArrayAddress = false)
+        private AbstractType CompileExpression(Context context, Assembler assembler, Expression expression, out Variable tempVar, bool getArrayAddress = false)
         {
             switch (expression)
             {

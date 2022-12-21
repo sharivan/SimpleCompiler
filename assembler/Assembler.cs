@@ -241,13 +241,9 @@ namespace assembler
 
                 for (int j = 0; j < label.references.Count; j++)
                 {
-                    Tuple<Assembler, int> reference = label.references[j];
-                    Assembler referenceAssembler = reference.Item1;
+                    var (referenceAssembler, referenceIP) = label.references[j];
                     if (referenceAssembler == other)
-                    {
-                        int referenceIP = reference.Item2;
-                        label.references[j] = new Tuple<Assembler, int>(this, (int) (referenceIP + startPosition));
-                    }
+                        label.references[j] = (this, (int) (referenceIP + startPosition));
                 }
 
                 issuedLabels.Add(label);
@@ -747,6 +743,8 @@ namespace assembler
 
         public void EmitDup64() => writer.Write((byte) Opcode.DUP64);
 
+        public void EmitDupPtr() => writer.Write((byte) Opcode.DUPPTR);
+
         public void EmitDupN(int n)
         {
             writer.Write((byte) Opcode.DUPN);
@@ -756,6 +754,12 @@ namespace assembler
         public void EmitDup64N(int n)
         {
             writer.Write((byte) Opcode.DUP64N);
+            writer.Write((byte) n);
+        }
+
+        public void EmitDupPtrN(int n)
+        {
+            writer.Write((byte) Opcode.DUPPTRN);
             writer.Write((byte) n);
         }
 

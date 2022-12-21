@@ -1207,8 +1207,13 @@ namespace SimpleCompiler
 
         private void FetchData()
         {
+            if (!paused)
+                return;
+
             FetchStackData();
             FetchStringData();
+
+            lblRegisters.Text = $"IP: {vm.IP:x8} - BP: {vm.BP:x8} - SP: {vm.SP:x8}";
         }
 
         private void FetchStackData()
@@ -1240,6 +1245,9 @@ namespace SimpleCompiler
 
         private void FetchStringData()
         {
+            if (!paused)
+                return;
+
             dgvStrings.SuspendLayout();
 
             SetupStringView();
@@ -1447,10 +1455,7 @@ namespace SimpleCompiler
                 return tab;
             }
 
-            if (openIfNotExist)
-                return NewSourceTab(fileName, true, focused);
-
-            return null;
+            return openIfNotExist ? NewSourceTab(fileName, true, focused) : null;
         }
 
         public void CloseSourceTab(int index)

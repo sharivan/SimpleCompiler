@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using assembler;
+using System.Collections.Generic;
 
 namespace compiler.types
 {
@@ -62,11 +63,16 @@ namespace compiler.types
             return result + "]";
         }
 
-        protected override int GetSize()
+        protected override int GetSize() => GetLength() * type.Size;
+
+        public int GetLength()
         {
-            int result = type.Size;
-            for (int i = 0; i < boundaries.Count; i++)
-                result *= boundaries[i];
+            if (boundaries.Count == 0)
+                return 0;
+
+            int result = 1;
+            foreach (int bondary in boundaries)
+                result *= bondary;
 
             return result;
         }
@@ -107,6 +113,87 @@ namespace compiler.types
             }
             else
                 Resolve(ref type);
+        }
+
+        public override bool ContainsString() => type.ContainsString();
+
+        internal override void EmitStringRelease(Context context, Compiler compiler, Assembler assembler, int offset, ReleaseType releaseType)
+        {
+            if (type is StringType)
+            {
+                Function f = compiler.unitySystem.FindFunction("DecrementaReferenciaArrayTexto");
+                int index = compiler.GetOrAddExternalFunction(f.Name, f.ParameterSize);
+
+                switch (releaseType)
+                {
+                    case ReleaseType.GLOBAL:
+                        assembler.EmitLoadGlobalHostAddress(offset);
+                        break;
+
+                    case ReleaseType.LOCAL:
+                        assembler.EmitLoadLocalHostAddress(offset);
+                        break;
+
+                    case ReleaseType.PTR:
+                        if (offset != 0)
+                        {
+                            assembler.EmitLoadConst(offset);
+                            assembler.EmitPtrAdd();
+                        }
+
+                        break;
+                }
+
+                assembler.EmitLoadConst(GetLength());
+                assembler.EmitLoadConst(true);
+                assembler.EmitExternCall(index);
+            }
+            else if (type.ContainsString())
+            {
+                Variable counter = context.DeclareTemporaryVariable(PrimitiveType.INT, context.Interval);
+                assembler.EmitLoadConst(0);
+                compiler.CompileStore(assembler, null, counter, context.Interval);
+
+                Label lblLoop = compiler.CreateLabel();
+                assembler.BindLabel(lblLoop);
+                compiler.CompileLoad(assembler, counter, context.Interval);
+                assembler.EmitLoadConst(GetLength());
+                assembler.EmitCompareLess();
+                Label lblEnd = compiler.CreateLabel();
+                assembler.EmitJumpIfFalse(lblEnd);
+
+                switch (releaseType)
+                {
+                    case ReleaseType.GLOBAL:
+                        assembler.EmitLoadGlobalHostAddress(offset);
+                        break;
+
+                    case ReleaseType.LOCAL:
+                        assembler.EmitLoadLocalHostAddress(offset);
+                        break;
+
+                    case ReleaseType.PTR:
+                        if (offset != 0)
+                        {
+                            assembler.EmitLoadConst(offset);
+                            assembler.EmitPtrAdd();
+                        }
+
+                        break;
+                }
+
+                compiler.CompileLoad(assembler, counter, context.Interval);
+                assembler.EmitLoadConst(type.Size);
+                assembler.EmitMul();
+                assembler.EmitPtrAdd();
+                type.EmitStringRelease(context, compiler, assembler, 0, ReleaseType.PTR);
+
+                compiler.CompileLoad(assembler, counter, context.Interval);
+                assembler.EmitLoadConst(1);
+                compiler.CompileStoreAdd(assembler, null, counter, context.Interval);
+                assembler.EmitJump(lblLoop);
+                assembler.BindLabel(lblEnd);
+            }
         }
     }
 }

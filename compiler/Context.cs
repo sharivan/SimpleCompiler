@@ -7,11 +7,16 @@ namespace compiler
 {
     public class Context
     {
-        private readonly List<Variable> variables;
-        private readonly List<LocalVariable> temporaryVariables;
-        private readonly Dictionary<string, Variable> variableTable;
+        private List<Variable> variables;
+        private List<LocalVariable> temporaryVariables;
+        private Dictionary<string, Variable> variableTable;
         private int offset;
-        private readonly Stack<Label> breakLabels;
+        private Stack<Label> breakLabels;
+
+        public CompilationUnity Unity
+        {
+            get;
+        }
 
         public Function Function
         {
@@ -43,9 +48,25 @@ namespace compiler
         internal Context(Function function, SourceInterval interval, Context parent = null)
         {
             Function = function;
+            Unity = function.Unity;
             Interval = interval;
             Parent = parent;
-            
+
+            Initalize();
+        }
+
+        internal Context(CompilationUnity unity, SourceInterval interval, Context parent = null)
+        {
+            Function = null;
+            Unity = unity;
+            Interval = interval;
+            Parent = parent;
+
+            Initalize();
+        }
+
+        private void Initalize()
+        {
             variables = new List<Variable>();
             temporaryVariables = new List<LocalVariable>();
             variableTable = new Dictionary<string, Variable>();
@@ -53,13 +74,13 @@ namespace compiler
 
             offset = 0;
 
-            if (parent == null)
-                AddParams(function);
+            if (Parent == null && Function != null)
+                AddParams(Function);
         }
 
         public bool IsRoot() => Parent == null;
 
-        internal Variable DeclareLocalVariable(Function function, string name, AbstractType type, SourceInterval interval, bool recursive = true)
+        internal Variable DeclareVariable(string name, AbstractType type, SourceInterval interval, bool recursive = true)
         {
             if (variableTable.TryGetValue(name, out Variable result))
                 return result;
@@ -67,22 +88,31 @@ namespace compiler
             if (recursive && Parent != null && Parent.FindVariable(name, true) != null)
                 return null;
 
-            result = new LocalVariable(function, name, type, interval, RealOffset);
-            offset += Compiler.GetAlignedSize(type.Size);
-            function.CheckLocalVariableOffset(RealOffset);
+            if (Function != null)
+            {
+                result = new LocalVariable(Function, name, type, interval, RealOffset);
+                offset += Compiler.GetAlignedSize(type.Size);
+                Function.CheckLocalVariableOffset(RealOffset);
+            }
+            else
+            {
+                result = Unity.DeclareGlobalVariable(name, type, interval);
+                offset += Compiler.GetAlignedSize(type.Size);
+            }
+
             variables.Add(result);
             variableTable.Add(name, result);
             return result;
         }
 
-        internal LocalVariable DeclareTemporaryVariable(Function function, AbstractType type, SourceInterval interval)
+        internal Variable DeclareTemporaryVariable(AbstractType type, SourceInterval interval)
         {
-            var tempVar = (LocalVariable) DeclareLocalVariable(function, "@tempvar" + temporaryVariables.Count, type, interval);
+            var tempVar = DeclareVariable($"@tempvar_{type}_{temporaryVariables.Count}", type, interval, false);
             tempVar.Temporary = true;
             return tempVar;
         }
 
-        internal LocalVariable AcquireTemporaryVariable(Function function, AbstractType type, SourceInterval interval)
+        internal Variable AcquireTemporaryVariable(AbstractType type, SourceInterval interval)
         {
             foreach (var tempVar in temporaryVariables)
             {
@@ -93,7 +123,7 @@ namespace compiler
                 }
             }
 
-            LocalVariable tempVar2 = DeclareTemporaryVariable(function, type, interval);
+            Variable tempVar2 = DeclareTemporaryVariable(type, interval);
             tempVar2.Acquired = true;
             return tempVar2;
         }
@@ -122,17 +152,21 @@ namespace compiler
         {
             assembler.AddLine(Interval.FileName, Interval.LasttLine);
 
-            Compiler comp = Function.Unity.Compiler;
-            foreach (Variable v in variables)
+            Compiler comp = Unity.Compiler;
+            for (int i = 0; i < variables.Count; i++)
             {
-                AbstractType type = v.Type;
-                if (type is StringType)
+                var v = variables[i];
+                AbstractType.ReleaseType releaseType;
+                if (v is LocalVariable local)
                 {
-                    Function f = comp.unitySystem.FindFunction("DecrementaReferenciaTexto");
-                    int index = comp.GetOrAddExternalFunction(f.Name, f.ParameterSize);
-                    assembler.EmitLoadLocalHostAddress(v.Offset);
-                    assembler.EmitExternCall(index);
+                    releaseType = AbstractType.ReleaseType.LOCAL;
+                    local.Scope = SourceInterval.Append(local.Scope, Interval);
                 }
+                else
+                    releaseType = AbstractType.ReleaseType.GLOBAL;
+
+                AbstractType type = v.Type;
+                type.EmitStringRelease(this, comp, assembler, v.Offset, releaseType);
             }
         }
     }

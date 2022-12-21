@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using assembler;
+using System.Collections.Generic;
 
 namespace compiler.types
 {
@@ -43,7 +44,7 @@ namespace compiler.types
             if (result != null)
                 return null;
 
-            result = new Field(this, name, type, interval);            
+            result = new Field(this, name, type, interval);
             fields.Add(result);
             return result;
         }
@@ -60,7 +61,7 @@ namespace compiler.types
         protected override void UncheckedResolve()
         {
             size = 0;
-            foreach (Field field in fields)
+            foreach (var field in fields)
             {
                 field.Resolve();
                 AbstractType type = field.Type;
@@ -70,7 +71,7 @@ namespace compiler.types
                     case ArrayType t:
                     {
                         if (t.Type is StructType st && st == this)
-                            throw new CompilerException(field.Interval, "Uma estrutura não pode conter um tipo de campo que faz referência direta a ela mesma.");
+                            throw new CompilerException(field.Declaration, "Uma estrutura não pode conter um tipo de campo que faz referência direta a ela mesma.");
 
                         break;
                     }
@@ -78,7 +79,7 @@ namespace compiler.types
                     case StructType t:
                     {
                         if (t == this)
-                            throw new CompilerException(field.Interval, "Uma estrutura não pode conter um tipo de campo que faz referência direta a ela mesma.");
+                            throw new CompilerException(field.Declaration, "Uma estrutura não pode conter um tipo de campo que faz referência direta a ela mesma.");
 
                         break;
                     }
@@ -86,7 +87,7 @@ namespace compiler.types
                     case TypeSetType t:
                     {
                         if (t.Type is StructType st && st == this)
-                            throw new CompilerException(field.Interval, "Uma estrutura não pode conter um tipo de campo que faz referência direta a ela mesma.");
+                            throw new CompilerException(field.Declaration, "Uma estrutura não pode conter um tipo de campo que faz referência direta a ela mesma.");
 
                         break;
                     }
@@ -121,5 +122,44 @@ namespace compiler.types
         }
 
         public override bool IsUnresolved() => false;
+        public override bool ContainsString()
+        {
+            foreach (var field in fields)
+                if (field.Type.ContainsString())
+                    return true;
+
+            return false;
+        }
+
+        internal override void EmitStringRelease(Context context, Compiler compiler, Assembler assembler, int offset, ReleaseType releaseType)
+        {
+            int fieldCount = 0;
+            foreach (var field in fields)
+                if (field.Type.ContainsString())
+                    fieldCount++;
+
+            if (fieldCount == 0)
+                return;
+
+            int counter = 0;
+            foreach (var field in fields)
+                if (field.Type.ContainsString())
+                {
+                    if (releaseType == ReleaseType.PTR)
+                    {
+                        if (counter < fieldCount)
+                            assembler.EmitDupPtr();
+
+                        if (offset != 0)
+                        {
+                            assembler.EmitLoadConst(offset);
+                            assembler.EmitPtrAdd();
+                        }
+                    }
+
+                    field.Type.EmitStringRelease(context, compiler, assembler, offset + field.Offset, releaseType);
+                    counter++;
+                }
+        }
     }
 }

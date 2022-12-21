@@ -8,7 +8,7 @@ namespace compiler
         private AbstractType CompileAssignableUnaryExpression(Context context, Assembler assembler, UnaryExpression expression, out bool isPointerDeference)
         {
             Expression operand = expression.Operand;
-            AbstractType operandType = CompileExpression(context, assembler, operand, out LocalVariable tempVar);
+            AbstractType operandType = CompileExpression(context, assembler, operand, out Variable tempVar);
             if (expression.Operation != UnaryOperation.POINTER_INDIRECTION)
                 throw new CompilerException(operand.Interval, "A expressão do lado esquerdo não é atribuível.");
 

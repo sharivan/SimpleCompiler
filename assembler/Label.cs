@@ -7,7 +7,7 @@ namespace assembler
     {
         internal Assembler bindedAssembler;
         internal int bindedIP;
-        internal List<Tuple<Assembler, int>> references;
+        internal List<(Assembler, int)> references;
 
         public Assembler BindedAssembler => bindedAssembler;
 
@@ -15,19 +15,19 @@ namespace assembler
 
         public int ReferenceCount => references.Count;
 
-        public Tuple<Assembler, int> this[int index] => references[index];
+        public (Assembler, int) this[int index] => references[index];
 
         internal Label()
         {
             bindedAssembler = null;
             bindedIP = -1;
 
-            references = new List<Tuple<Assembler, int>>();
+            references = new List<(Assembler, int)>();
         }
 
         private void UpdateReference(Assembler assembler, int index)
         {
-            Tuple<Assembler, int> reference = references[index];
+            (Assembler, int) reference = references[index];
             Assembler referenceAssembler = reference.Item1;
             if (assembler != referenceAssembler)
                 return;
@@ -52,6 +52,6 @@ namespace assembler
             bindedIP = ip;
         }
 
-        internal void AddReference(Assembler assembler, int ip) => references.Add(new Tuple<Assembler, int>(assembler, ip));
+        internal void AddReference(Assembler assembler, int ip) => references.Add((assembler, ip));
     }
 }

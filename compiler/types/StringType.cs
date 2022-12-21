@@ -1,4 +1,5 @@
-﻿using System;
+﻿using assembler;
+using System;
 
 namespace compiler.types
 {
@@ -24,6 +25,37 @@ namespace compiler.types
 
         protected override void UncheckedResolve()
         {
+        }
+
+        public override bool ContainsString() => true;
+
+        internal override void EmitStringRelease(Context context, Compiler compiler, Assembler assembler, int offset, ReleaseType releaseType)
+        {
+            Function f = compiler.unitySystem.FindFunction("DecrementaReferenciaTexto");
+            int index = compiler.GetOrAddExternalFunction(f.Name, f.ParameterSize);
+
+            switch (releaseType)
+            {
+                case ReleaseType.GLOBAL:
+                    assembler.EmitLoadGlobalHostAddress(offset);
+                    break;
+
+                case ReleaseType.LOCAL:
+                    assembler.EmitLoadLocalHostAddress(offset);
+                    break;
+
+                case ReleaseType.PTR:
+                    if (offset != 0)
+                    {
+                        assembler.EmitLoadConst(offset);
+                        assembler.EmitPtrAdd();
+                    }
+
+                    break;
+            }
+
+            assembler.EmitLoadConst(true);
+            assembler.EmitExternCall(index);
         }
     }
 }

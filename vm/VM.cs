@@ -8,6 +8,8 @@ using System.Security.RightsManagement;
 using System.Threading;
 
 using assembler;
+using compiler;
+using compiler.types;
 using units;
 
 namespace vm
@@ -95,8 +97,10 @@ namespace vm
         private int runToIP = -1;
         private bool onSource = false;
 
+        // informações de depuração
         private readonly Dictionary<(string, int), int> lineToIP;
         private readonly Dictionary<int, (string, int)> ipToLine;
+        private readonly List<Variable> vars;
 
         private readonly List<Breakpoint> breakpoints;
         private readonly Dictionary<int, int> breakpointTableByIP;
@@ -209,13 +213,20 @@ namespace vm
                     ipToLine[ip] = (fileName, line);
             }
 
-            StackSize = stackSize + (int) assembler.ConstantSize;
+            if (stackSize % POINTER_SIZE != 0)
+                stackSize = (stackSize / POINTER_SIZE + 1) * POINTER_SIZE;
+
+            int constantSize = (int) assembler.ConstantSize;
+            if (constantSize % POINTER_SIZE != 0)
+                constantSize = (constantSize / POINTER_SIZE + 1) * POINTER_SIZE;
+
+            StackSize = stackSize + constantSize;
             stack = Marshal.AllocHGlobal(StackSize);
             KernelZeroMemory(stack, StackSize);
 
-            if (assembler.ConstantSize > 0)
+            if (constantSize > 0)
             {
-                byte[] constantBuffer = new byte[assembler.ConstantSize];
+                byte[] constantBuffer = new byte[constantSize];
                 assembler.CopyConstantBuffer(constantBuffer);
                 Push(constantBuffer);
             }
@@ -406,6 +417,18 @@ namespace vm
             }
 
             return str;
+        }
+
+        public void StringArrayRelease(IntPtr ptr, int count, bool setNull = false)
+        {
+            unsafe
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    IntPtr result = StringRelease(*(IntPtr*) (ptr + i * STRING_SIZE));
+                    *(IntPtr*) (ptr + i * STRING_SIZE) = setNull ? IntPtr.Zero : result;
+                }
+            }
         }
 
         private void FreeAllocatedStrings()
@@ -2540,6 +2563,13 @@ namespace vm
                     break;
                 }
 
+                case Opcode.DUPPTR:
+                {
+                    IntPtr value = ReadStackTopPtr();
+                    Push(value);
+                    break;
+                }
+
                 case Opcode.DUPN:
                 {
                     byte n = ReadCodeByte(ref ip);
@@ -2555,6 +2585,17 @@ namespace vm
                 {
                     byte n = ReadCodeByte(ref ip);
                     long value = ReadStackTop64();
+
+                    for (int i = 0; i < n; i++)
+                        Push(value);
+
+                    break;
+                }
+
+                case Opcode.DUPPTRN:
+                {
+                    byte n = ReadCodeByte(ref ip);
+                    IntPtr value = ReadStackTopPtr();
 
                     for (int i = 0; i < n; i++)
                         Push(value);
@@ -2910,7 +2951,7 @@ namespace vm
 
         private void PrintDisassembledLine() => OnDisassemblyLine?.Invoke(-1, null);
 
-        private void PrintDisassembledLine(int ip, int op, string s) => OnDisassemblyLine?.Invoke(ip, $"{Format(ip, 8)}  {Format(op, 3)}  {s}");
+        private void PrintDisassembledLine(int ip, int op, string s) => OnDisassemblyLine?.Invoke(ip, $"{ip:x8}  {op:x2}  {s}");
 
         public void Print()
         {
@@ -3001,35 +3042,35 @@ namespace vm
                     case Opcode.ADDSP:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"ADDSP {offset}");
+                        PrintDisassembledLine(lastIP, op, $"ADDSP {offset:x8}");
                         break;
                     }
 
                     case Opcode.SUBSP:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"SUBSP {offset}");
+                        PrintDisassembledLine(lastIP, op, $"SUBSP {offset:x8}");
                         break;
                     }
 
                     case Opcode.LGHA:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"LGHA {offset}");
+                        PrintDisassembledLine(lastIP, op, $"LGHA {offset:x8}");
                         break;
                     }
 
                     case Opcode.LLHA:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"LLHA {offset}{(offset < 0 ? " // param" : "")}");
+                        PrintDisassembledLine(lastIP, op, $"LLHA {offset:x8}{(offset < 0 ? " // param" : "")}");
                         break;
                     }
 
                     case Opcode.LLRA:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"LLRA {offset}{(offset < 0 ? " // param" : "")}");
+                        PrintDisassembledLine(lastIP, op, $"LLRA {offset:x8}{(offset < 0 ? " // param" : "")}");
                         break;
                     }
 
@@ -3108,140 +3149,140 @@ namespace vm
                     case Opcode.LG8:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"LG8 {offset}");
+                        PrintDisassembledLine(lastIP, op, $"LG8 {offset:x8}");
                         break;
                     }
 
                     case Opcode.LG16:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"LG16 {offset}");
+                        PrintDisassembledLine(lastIP, op, $"LG16 {offset:x8}");
                         break;
                     }
 
                     case Opcode.LG32:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"LG32 {offset}");
+                        PrintDisassembledLine(lastIP, op, $"LG32 {offset:x8}");
                         break;
                     }
 
                     case Opcode.LG64:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"LG64 {offset}");
+                        PrintDisassembledLine(lastIP, op, $"LG64 {offset:x8}");
                         break;
                     }
 
                     case Opcode.LGPTR:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"LGPTR {offset}");
+                        PrintDisassembledLine(lastIP, op, $"LGPTR {offset:x8}");
                         break;
                     }
 
                     case Opcode.LL8:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"LL8 {offset}{(offset < 0 ? " // param" : "")}");
+                        PrintDisassembledLine(lastIP, op, $"LL8 {offset:x8}{(offset < 0 ? " // param" : "")}");
                         break;
                     }
 
                     case Opcode.LL16:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"LL16 {offset}{(offset < 0 ? " // param" : "")}");
+                        PrintDisassembledLine(lastIP, op, $"LL16 {offset:x8}{(offset < 0 ? " // param" : "")}");
                         break;
                     }
 
                     case Opcode.LL32:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"LL32 {offset}{(offset < 0 ? " // param" : "")}");
+                        PrintDisassembledLine(lastIP, op, $"LL32 {offset:x8}{(offset < 0 ? " // param" : "")}");
                         break;
                     }
 
                     case Opcode.LL64:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"LL64 {offset}{(offset < 0 ? " // param" : "")}");
+                        PrintDisassembledLine(lastIP, op, $"LL64 {offset:x8}{(offset < 0 ? " // param" : "")}");
                         break;
                     }
 
                     case Opcode.LLPTR:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"LLPTR {offset}{(offset < 0 ? " // param" : "")}");
+                        PrintDisassembledLine(lastIP, op, $"LLPTR {offset:x8}{(offset < 0 ? " // param" : "")}");
                         break;
                     }
 
                     case Opcode.SG8:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"SG8 {offset}");
+                        PrintDisassembledLine(lastIP, op, $"SG8 {offset:x8}");
                         break;
                     }
 
                     case Opcode.SG16:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"SG16 {offset}");
+                        PrintDisassembledLine(lastIP, op, $"SG16 {offset:x8}");
                         break;
                     }
 
                     case Opcode.SG32:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"SG32 {offset}");
+                        PrintDisassembledLine(lastIP, op, $"SG32 {offset:x8}");
                         break;
                     }
 
                     case Opcode.SG64:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"SG64 {offset}");
+                        PrintDisassembledLine(lastIP, op, $"SG64 {offset:x8}");
                         break;
                     }
 
                     case Opcode.SGPTR:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"SGPTR {offset}");
+                        PrintDisassembledLine(lastIP, op, $"SGPTR {offset:x8}");
                         break;
                     }
 
                     case Opcode.SL8:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"SL8 {offset}{(offset < 0 ? " // param" : "")}");
+                        PrintDisassembledLine(lastIP, op, $"SL8 {offset:x8}{(offset < 0 ? " // param" : "")}");
                         break;
                     }
 
                     case Opcode.SL16:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"SL16 {offset}{(offset < 0 ? " // param" : "")}");
+                        PrintDisassembledLine(lastIP, op, $"SL16 {offset:x8}{(offset < 0 ? " // param" : "")}");
                         break;
                     }
 
                     case Opcode.SL32:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"SL32 {offset}{(offset < 0 ? " // param" : "")}");
+                        PrintDisassembledLine(lastIP, op, $"SL32 {offset:x8}{(offset < 0 ? " // param" : "")}");
                         break;
                     }
 
                     case Opcode.SL64:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"SL64 {offset}{(offset < 0 ? " // param" : "")}");
+                        PrintDisassembledLine(lastIP, op, $"SL64 {offset:x8}{(offset < 0 ? " // param" : "")}");
                         break;
                     }
 
                     case Opcode.SLPTR:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"SLPTR {offset}{(offset < 0 ? " // param" : "")}");
+                        PrintDisassembledLine(lastIP, op, $"SLPTR {offset:x8}{(offset < 0 ? " // param" : "")}");
                         break;
                     }
 
@@ -3800,21 +3841,21 @@ namespace vm
                     case Opcode.JMP:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"JMP {Format(lastIP + offset, 8)} //{(offset > 0 ? "+" : "")}{offset}");
+                        PrintDisassembledLine(lastIP, op, $"JMP {lastIP + offset:x8} //{(offset > 0 ? "+" : "")}{offset:x8}");
                         break;
                     }
 
                     case Opcode.JT:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"JT {Format(lastIP + offset, 8)} //{(offset > 0 ? "+" : "")}{offset}");
+                        PrintDisassembledLine(lastIP, op, $"JT {lastIP + offset:x8} //{(offset > 0 ? "+" : "")}{offset:x8}");
                         break;
                     }
 
                     case Opcode.JF:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"JF {Format(lastIP + offset, 8)} //{(offset > 0 ? "+" : "")}{offset}");
+                        PrintDisassembledLine(lastIP, op, $"JF {lastIP + offset:x8} //{(offset > 0 ? "+" : "")}{offset:x8}");
                         break;
                     }
 
@@ -3849,6 +3890,12 @@ namespace vm
                         break;
                     }
 
+                    case Opcode.DUPPTR:
+                    {
+                        PrintDisassembledLine(lastIP, op, "DUPPTR");
+                        break;
+                    }
+
                     case Opcode.DUPN:
                     {
                         byte n = ReadCodeByte(ref ip);
@@ -3863,10 +3910,17 @@ namespace vm
                         break;
                     }
 
+                    case Opcode.DUPPTRN:
+                    {
+                        byte n = ReadCodeByte(ref ip);
+                        PrintDisassembledLine(lastIP, op, $"DUPPTRN {n}");
+                        break;
+                    }
+
                     case Opcode.CALL:
                     {
                         int offset = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"CALL {Format(lastIP + offset, 8)} //{(offset > 0 ? "+" : "")}{offset}");
+                        PrintDisassembledLine(lastIP, op, $"CALL {lastIP + offset:x8} //{(offset > 0 ? "+" : "")}{offset:x8}");
                         break;
                     }
 
@@ -3893,7 +3947,7 @@ namespace vm
                     case Opcode.RETN:
                     {
                         int count = ReadCodeInt(ref ip);
-                        PrintDisassembledLine(lastIP, op, $"RETN {count}");
+                        PrintDisassembledLine(lastIP, op, $"RETN {count:x8}");
                         PrintDisassembledLine();
                         break;
                     }
@@ -4002,7 +4056,7 @@ namespace vm
                     }
 
                     default:
-                        PrintDisassembledLine(lastIP, op, $"? ({op})");
+                        PrintDisassembledLine(lastIP, op, $"? ({op:x2})");
                         break;
                 }
             }

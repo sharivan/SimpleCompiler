@@ -5,7 +5,7 @@ namespace compiler
 {
     public partial class Compiler
     {
-        private AbstractType CompileBinaryExpression(Context context, Assembler assembler, BinaryExpression expression, out LocalVariable tempVar)
+        private AbstractType CompileBinaryExpression(Context context, Assembler assembler, BinaryExpression expression, out Variable tempVar)
         {
             tempVar = null;
             AbstractType result = null;
@@ -21,10 +21,10 @@ namespace compiler
             else
             {
                 Assembler leftAssembler = new();
-                AbstractType leftType = CompileExpression(context, leftAssembler, leftOperand, out LocalVariable leftTempVar);
+                AbstractType leftType = CompileExpression(context, leftAssembler, leftOperand, out Variable leftTempVar);
 
                 Assembler rightAssembler = new();
-                AbstractType rightType = CompileExpression(context, rightAssembler, rightOperand, out LocalVariable rightTempVar);
+                AbstractType rightType = CompileExpression(context, rightAssembler, rightOperand, out Variable rightTempVar);
 
                 switch (expression.Operation)
                 {
@@ -149,7 +149,7 @@ namespace compiler
                         if (PrimitiveType.IsPrimitiveNumber(leftType) && PrimitiveType.IsPrimitiveNumber(rightType))
                         {
                             PrimitiveType resultType = null;
-                            LocalVariable castTempVar = null;
+                            Variable castTempVar = null;
                             if (leftType.CoerceWith(rightType, false))
                             {
                                 resultType = (PrimitiveType) rightType;
@@ -234,7 +234,7 @@ namespace compiler
                         else if (PrimitiveType.IsPrimitiveNumber(leftType) && PrimitiveType.IsPrimitiveNumber(rightType))
                         {
                             PrimitiveType resultType = null;
-                            LocalVariable castTempVar = null;
+                            Variable castTempVar = null;
                             if (leftType.CoerceWith(rightType, false))
                             {
                                 resultType = (PrimitiveType) rightType;
@@ -307,7 +307,7 @@ namespace compiler
                         if (PrimitiveType.IsPrimitiveNumber(leftType) && PrimitiveType.IsPrimitiveNumber(rightType))
                         {
                             PrimitiveType resultType = null;
-                            LocalVariable castTempVar = null;
+                            Variable castTempVar = null;
                             if (leftType.CoerceWith(rightType, false))
                             {
                                 resultType = (PrimitiveType) rightType;
@@ -374,7 +374,7 @@ namespace compiler
                         if (PrimitiveType.IsPrimitiveNumber(leftType) && PrimitiveType.IsPrimitiveNumber(rightType))
                         {
                             PrimitiveType resultType = null;
-                            LocalVariable castTempVar = null;
+                            Variable castTempVar = null;
                             if (leftType.CoerceWith(rightType, false))
                             {
                                 resultType = (PrimitiveType) rightType;
@@ -441,7 +441,7 @@ namespace compiler
                         if (PrimitiveType.IsPrimitiveNumber(leftType) && PrimitiveType.IsPrimitiveNumber(rightType))
                         {
                             PrimitiveType resultType = null;
-                            LocalVariable castTempVar = null;
+                            Variable castTempVar = null;
                             if (leftType.CoerceWith(rightType, false))
                             {
                                 resultType = (PrimitiveType) rightType;
@@ -508,7 +508,7 @@ namespace compiler
                         if (PrimitiveType.IsPrimitiveNumber(leftType) && PrimitiveType.IsPrimitiveNumber(rightType))
                         {
                             PrimitiveType resultType = null;
-                            LocalVariable castTempVar = null;
+                            Variable castTempVar = null;
                             if (leftType.CoerceWith(rightType, false))
                             {
                                 resultType = (PrimitiveType) rightType;
@@ -575,7 +575,7 @@ namespace compiler
                             throw new CompilerException(expression.Interval, $"Tipos imcompatíveis: '{leftType}' e '{rightType}'.");
 
                         PrimitiveType resultType = null;
-                        LocalVariable castTempVar = null;
+                        Variable castTempVar = null;
                         if (leftType.CoerceWith(rightType, false))
                         {
                             resultType = (PrimitiveType) rightType;
@@ -615,7 +615,7 @@ namespace compiler
                             throw new CompilerException(expression.Interval, $"Tipos imcompatíveis: '{leftType}' e '{rightType}'.");
 
                         PrimitiveType resultType = null;
-                        LocalVariable castTempVar = null;
+                        Variable castTempVar = null;
                         if (leftType.CoerceWith(rightType, false))
                         {
                             resultType = (PrimitiveType) rightType;
@@ -655,7 +655,7 @@ namespace compiler
                             throw new CompilerException(expression.Interval, $"Tipos imcompatíveis: '{leftType}' e '{rightType}'.");
 
                         PrimitiveType resultType = null;
-                        LocalVariable castTempVar = null;
+                        Variable castTempVar = null;
                         if (leftType.CoerceWith(rightType, false))
                         {
                             resultType = (PrimitiveType) rightType;
@@ -694,7 +694,7 @@ namespace compiler
                         if (PrimitiveType.IsPrimitiveNumber(leftType) && PrimitiveType.IsPrimitiveNumber(rightType))
                         {
                             PrimitiveType resultType = null;
-                            LocalVariable castTempVar = null;
+                            Variable castTempVar = null;
                             if (leftType.CoerceWith(rightType, false))
                             {
                                 resultType = (PrimitiveType) rightType;
@@ -769,10 +769,10 @@ namespace compiler
                                             Assembler beforeLeftAssembler = new();
                                             Assembler beforeRightAssembler = new();
 
-                                            CompileCast(context, leftAssembler, beforeLeftAssembler, leftType, StringType.STRING, false, leftOperand.Interval, out LocalVariable leftCastTempVar);
-                                            CompileCast(context, rightAssembler, beforeRightAssembler, rightType, StringType.STRING, false, rightOperand.Interval, out LocalVariable rightCastTempVar);
+                                            CompileCast(context, leftAssembler, beforeLeftAssembler, leftType, StringType.STRING, false, leftOperand.Interval, out Variable leftCastTempVar);
+                                            CompileCast(context, rightAssembler, beforeRightAssembler, rightType, StringType.STRING, false, rightOperand.Interval, out Variable rightCastTempVar);
 
-                                            tempVar = context.AcquireTemporaryVariable(function, StringType.STRING, expression.Interval);
+                                            tempVar = context.AcquireTemporaryVariable(StringType.STRING, expression.Interval);
                                             assembler.EmitLoadLocalHostAddress(tempVar.Offset);
 
                                             assembler.Emit(beforeLeftAssembler);
@@ -797,9 +797,9 @@ namespace compiler
                                         {
                                             Assembler beforeLeftAssembler = new();
 
-                                            CompileCast(context, leftAssembler, beforeLeftAssembler, leftType, rightType, false, leftOperand.Interval, out LocalVariable leftCastTempVar);
+                                            CompileCast(context, leftAssembler, beforeLeftAssembler, leftType, rightType, false, leftOperand.Interval, out Variable leftCastTempVar);
 
-                                            tempVar = context.AcquireTemporaryVariable(function, StringType.STRING, expression.Interval);
+                                            tempVar = context.AcquireTemporaryVariable(StringType.STRING, expression.Interval);
                                             assembler.EmitLoadLocalHostAddress(tempVar.Offset);
 
                                             assembler.Emit(beforeLeftAssembler);
@@ -828,7 +828,7 @@ namespace compiler
                                 case StringType:
                                 {
                                     Assembler beforeRightAssembler = new();
-                                    LocalVariable rightCastTempVar = null;
+                                    Variable rightCastTempVar = null;
                                     if (rightType is PointerType rptr)
                                     {
                                         if (!PrimitiveType.IsPrimitiveChar(rptr.Type))
@@ -839,7 +839,7 @@ namespace compiler
                                     else if (rightType is not StringType)
                                         throw new CompilerException(rightOperand.Interval, $"Concatenação de strings não pode ser feita com o tipo '{rightType}'.");
 
-                                    tempVar = context.AcquireTemporaryVariable(function, StringType.STRING, expression.Interval);
+                                    tempVar = context.AcquireTemporaryVariable(StringType.STRING, expression.Interval);
                                     assembler.EmitLoadLocalHostAddress(tempVar.Offset);
 
                                     assembler.Emit(leftAssembler);
@@ -864,7 +864,7 @@ namespace compiler
                                         throw new CompilerException(expression.Interval, $"Tipos imcompatíveis: '{leftType}' e '{rightType}'.");
 
                                     Assembler beforeLefttAssembler = new();
-                                    LocalVariable leftCastTempVar = null;
+                                    Variable leftCastTempVar = null;
                                     if (leftType is PointerType lptr)
                                     {
                                         if (!PrimitiveType.IsPrimitiveChar(lptr.Type))
@@ -875,7 +875,7 @@ namespace compiler
                                     else if (leftType is not StringType)
                                         throw new CompilerException(rightOperand.Interval, $"Concatenação de strings não pode ser feita com o tipo '{leftType}'.");
 
-                                    tempVar = context.AcquireTemporaryVariable(function, StringType.STRING, expression.Interval);
+                                    tempVar = context.AcquireTemporaryVariable(StringType.STRING, expression.Interval);
                                     assembler.EmitLoadLocalHostAddress(tempVar.Offset);
 
                                     assembler.Emit(beforeLefttAssembler);
@@ -903,7 +903,7 @@ namespace compiler
                         if (PrimitiveType.IsPrimitiveNumber(leftType) && PrimitiveType.IsPrimitiveNumber(rightType))
                         {
                             PrimitiveType resultType = null;
-                            LocalVariable castTempVar = null;
+                            Variable castTempVar = null;
                             if (leftType.CoerceWith(rightType, false))
                             {
                                 resultType = (PrimitiveType) rightType;
@@ -977,7 +977,7 @@ namespace compiler
                             throw new CompilerException(expression.Interval, $"Tipos imcompatíveis: '{leftType}' e '{rightType}'.");
 
                         PrimitiveType resultType = null;
-                        LocalVariable castTempVar = null;
+                        Variable castTempVar = null;
                         if (leftType.CoerceWith(rightType, false))
                         {
                             resultType = (PrimitiveType) rightType;
@@ -1028,7 +1028,7 @@ namespace compiler
                             throw new CompilerException(expression.Interval, $"Tipos imcompatíveis: '{leftType}' e '{rightType}'.");
 
                         PrimitiveType resultType = null;
-                        LocalVariable castTempVar = null;
+                        Variable castTempVar = null;
                         if (leftType.CoerceWith(rightType, false))
                         {
                             resultType = (PrimitiveType) rightType;
@@ -1079,7 +1079,7 @@ namespace compiler
                             throw new CompilerException(expression.Interval, $"Tipos imcompatíveis: '{leftType}' e '{rightType}'.");
 
                         PrimitiveType resultType = null;
-                        LocalVariable castTempVar = null;
+                        Variable castTempVar = null;
                         if (leftType.CoerceWith(rightType, false))
                         {
                             resultType = (PrimitiveType) rightType;

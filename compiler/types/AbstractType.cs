@@ -1,9 +1,17 @@
-﻿using System;
+﻿using assembler;
+using System;
 
 namespace compiler.types
 {
     public abstract class AbstractType
     {
+        internal enum ReleaseType
+        {
+            GLOBAL,
+            LOCAL,
+            PTR
+        }
+
         protected bool resolved = false;
 
         public int Size => GetSize();
@@ -12,9 +20,9 @@ namespace compiler.types
 
         public abstract bool CoerceWith(AbstractType other, bool isExplicit);
 
-        public override bool Equals(object other) => throw new Exception("Método não implementado");
+        public override bool Equals(object other) => throw new NotImplementedException();
 
-        public override int GetHashCode() => throw new Exception("Método não implementado");
+        public override int GetHashCode() => throw new NotImplementedException();
 
         public static bool operator ==(AbstractType t1, AbstractType t2) => ReferenceEquals(t1, t2) || t1 is not null && t2 is not null && t1.Equals(t2);
 
@@ -34,5 +42,9 @@ namespace compiler.types
         }
 
         protected abstract void UncheckedResolve();
+
+        public abstract bool ContainsString();
+
+        internal abstract void EmitStringRelease(Context context, Compiler compiler, Assembler assembler, int offset, ReleaseType releaseType);
     }
 }

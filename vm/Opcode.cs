@@ -154,9 +154,11 @@
 		POPN, // decrementa sp em n
 		DUP, // duplica o topo da pilha
 		DUP64, // duplica o topo da pilha (64 bits)
-		DUPN, // duplica o top da pilha n vezes
-		DUP64N, // duplica o top da pilha n vezes (64 bits)
-		CALL, // chama uma função
+		DUPPTR,	// duplica o topo da pilha (ponteiro)
+		DUPN, // duplica o topo da pilha n vezes
+		DUP64N, // duplica o topo da pilha n vezes (64 bits)
+        DUPPTRN, // duplica o topo da pilha n vezes (ponteiro)
+        CALL, // chama uma função
 		ICALL, // chama uma função de forma indireta
 		ECALL, // chama uma função externa
 		RET, // retorne de uma função para o seu chamador
