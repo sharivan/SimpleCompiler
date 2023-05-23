@@ -1,12 +1,14 @@
-﻿namespace compiler.lexer
-{
-    public abstract class Token
-    {
-        public SourceInterval Interval
-        {
-            get;
-        }
+﻿namespace compiler.lexer;
 
-        protected Token(SourceInterval interval) => Interval = interval;
+public abstract class Token
+{
+    public SourceInterval Interval
+    {
+        get;
+    }
+
+    protected Token(SourceInterval interval)
+    {
+        Interval = interval;
     }
 }

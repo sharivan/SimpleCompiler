@@ -1,28 +1,51 @@
 ﻿using System.Globalization;
 
-namespace compiler.lexer
+namespace compiler.lexer;
+
+public class FloatLiteral : NumericLiteral
 {
-    public class FloatLiteral : NumericLiteral
+    public float Value
     {
-        public float Value
-        {
-            get;
-        }
+        get;
+    }
 
-        internal FloatLiteral(SourceInterval interval, float value) : base(interval) => Value = value;
+    internal FloatLiteral(SourceInterval interval, float value) : base(interval)
+    {
+        Value = value;
+    }
 
-        public override string ToString() => Value.ToString(CultureInfo.InvariantCulture);
+    public override string ToString()
+    {
+        return Value.ToString(CultureInfo.InvariantCulture);
+    }
 
-        public override byte AsByte() => (byte) Value;
+    public override byte AsByte()
+    {
+        return (byte) Value;
+    }
 
-        public override short AsShort() => (short) Value;
+    public override short AsShort()
+    {
+        return (short) Value;
+    }
 
-        public override int AsInt() => (int) Value;
+    public override int AsInt()
+    {
+        return (int) Value;
+    }
 
-        public override long AsLong() => (long) Value;
+    public override long AsLong()
+    {
+        return (long) Value;
+    }
 
-        public override float AsFloat() => Value;
+    public override float AsFloat()
+    {
+        return Value;
+    }
 
-        public override double AsDouble() => Value;
+    public override double AsDouble()
+    {
+        return Value;
     }
 }

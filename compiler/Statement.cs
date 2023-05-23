@@ -1,244 +1,347 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 
 using compiler.types;
 
-namespace compiler
+namespace compiler;
+
+public abstract class Statement
 {
-    public abstract class Statement
+    public SourceInterval Interval
     {
-        public SourceInterval Interval
-        {
-            get;
-            internal set;
-        }
-
-        protected Statement(SourceInterval interval) => Interval = interval;
+        get;
+        internal set;
     }
 
-    public class EmptyStatement : Statement
+    protected Statement(SourceInterval interval)
     {
-        internal EmptyStatement(SourceInterval interval) : base(interval)
-        {
-        }
+        Interval = interval;
+    }
+}
+
+public class EmptyStatement : Statement
+{
+    internal EmptyStatement(SourceInterval interval) : base(interval)
+    {
+    }
+}
+
+public abstract class InitializerStatement : Statement
+{
+    protected InitializerStatement(SourceInterval interval) : base(interval)
+    {
+    }
+}
+
+public class DeclarationStatement : InitializerStatement, IEnumerable<(string, Expression)>
+{
+    private AbstractType type;
+    private readonly List<(string, Expression)> vars;
+
+    public AbstractType Type
+    {
+        get => type;
+        internal set => type = value;
     }
 
-    public abstract class InitializerStatement : Statement
+    public int VariableCount => vars.Count;
+
+    public (string, Expression) this[int index]
     {
-        protected InitializerStatement(SourceInterval interval) : base(interval)
-        {
-        }
+        get => vars[index];
+        internal set => vars[index] = value;
     }
 
-    public class DeclarationStatement : InitializerStatement, IEnumerable<(string, Expression)>
+    internal DeclarationStatement(SourceInterval interval, AbstractType type) : base(interval)
     {
-        private AbstractType type;
-        private readonly List<(string, Expression)> vars;
+        this.type = type;
 
-        public AbstractType Type
-        {
-            get => type;
-            internal set => type = value;
-        }
-
-        public int VariableCount => vars.Count;
-
-        public (string, Expression) this[int index]
-        {
-            get => vars[index];
-            internal set => vars[index] = value;
-        }
-
-        internal DeclarationStatement(SourceInterval interval, AbstractType type) : base(interval)
-        {
-            this.type = type;
-
-            vars = new List<(string, Expression)>();
-        }
-
-        internal void AddVariable(string name, Expression initializer = null) => vars.Add((name, initializer));
-
-        internal void Resolve() => AbstractType.Resolve(ref type);
-
-        public IEnumerator<(string, Expression)> GetEnumerator() => vars.GetEnumerator();
-
-        IEnumerator IEnumerable.GetEnumerator() => vars.GetEnumerator();
+        vars = new List<(string, Expression)>();
     }
 
-    public class ExpressionStatement : InitializerStatement
+    internal void AddVariable(string name, Expression initializer = null)
     {
-        public Expression Expression { get; internal set; }
-
-        internal ExpressionStatement(SourceInterval interval, Expression expression) : base(interval) => Expression = expression;
+        vars.Add((name, initializer));
     }
 
-    public class ReturnStatement : Statement
+    internal void Resolve()
     {
-        public Expression Expression { get; internal set; }
-
-        internal ReturnStatement(SourceInterval interval, Expression expression = null) : base(interval) => Expression = expression;
+        AbstractType.Resolve(ref type);
     }
 
-    public class BreakStatement : Statement
+    public IEnumerator<(string, Expression)> GetEnumerator()
     {
-        internal BreakStatement(SourceInterval interval) : base(interval)
-        {
-        }
+        return vars.GetEnumerator();
     }
 
-    public class ReadStatement : Statement, IEnumerable<Expression>
+    IEnumerator IEnumerable.GetEnumerator()
     {
-        private readonly List<Expression> expressions;
+        return vars.GetEnumerator();
+    }
+}
 
-        public int ExpressionCount => expressions.Count;
-
-        public Expression this[int index]
-        {
-            get => expressions[index];
-
-            internal set => expressions[index] = value;
-        }
-
-        internal ReadStatement(SourceInterval interval) : base(interval) => expressions = new List<Expression>();
-
-        internal void AddExpression(Expression expression) => expressions.Add(expression);
-
-        public IEnumerator<Expression> GetEnumerator() => expressions.GetEnumerator();
-
-        IEnumerator IEnumerable.GetEnumerator() => expressions.GetEnumerator();
+public class ExpressionStatement : InitializerStatement
+{
+    public Expression Expression
+    {
+        get; internal set;
     }
 
-    public class PrintStatement : Statement, IEnumerable<Expression>
+    internal ExpressionStatement(SourceInterval interval, Expression expression) : base(interval)
     {
-        private readonly List<Expression> expressions;
+        Expression = expression;
+    }
+}
 
-        public bool LineBreak
-        {
-            get;
-        }
-
-        public int ExpressionCount => expressions.Count;
-
-        public Expression this[int index]
-        {
-            get => expressions[index];
-            internal set => expressions[index] = value;
-        }
-
-        internal PrintStatement(SourceInterval interval, bool lineBreak) : base(interval)
-        {
-            LineBreak = lineBreak;
-
-            expressions = new List<Expression>();
-        }
-
-        internal void AddExpression(Expression expression) => expressions.Add(expression);
-
-        public IEnumerator<Expression> GetEnumerator() => expressions.GetEnumerator();
-
-        IEnumerator IEnumerable.GetEnumerator() => expressions.GetEnumerator();
+public class ReturnStatement : Statement
+{
+    public Expression Expression
+    {
+        get; internal set;
     }
 
-    public class IfStatement : Statement
+    internal ReturnStatement(SourceInterval interval, Expression expression = null) : base(interval)
     {
-        public Expression Expression { get; internal set; }
+        Expression = expression;
+    }
+}
 
-        public Statement ThenStatement { get; internal set; }
+public class BreakStatement : Statement
+{
+    internal BreakStatement(SourceInterval interval) : base(interval)
+    {
+    }
+}
 
-        public Statement ElseStatement { get; internal set; }
+public class ReadStatement : Statement, IEnumerable<Expression>
+{
+    private readonly List<Expression> expressions;
 
-        internal IfStatement(SourceInterval interval, Expression expression, Statement thenStatement, Statement elseStatement = null) : base(interval)
-        {
-            Expression = expression;
-            ThenStatement = thenStatement;
-            ElseStatement = elseStatement;
-        }
+    public int ExpressionCount => expressions.Count;
+
+    public Expression this[int index]
+    {
+        get => expressions[index];
+
+        internal set => expressions[index] = value;
     }
 
-    public class WhileStatement : Statement
+    internal ReadStatement(SourceInterval interval) : base(interval)
     {
-        public Expression Expression { get; internal set; }
-
-        public Statement Statement { get; internal set; }
-
-        internal WhileStatement(SourceInterval interval, Expression expression, Statement statement) : base(interval)
-        {
-            Expression = expression;
-            Statement = statement;
-        }
+        expressions = new List<Expression>();
     }
 
-    public class DoStatement : Statement
+    internal void AddExpression(Expression expression)
     {
-        public Expression Expression { get; internal set; }
-
-        public Statement Statement { get; internal set; }
-
-        internal DoStatement(SourceInterval interval, Expression expression, Statement statement) : base(interval)
-        {
-            Expression = expression;
-            Statement = statement;
-        }
+        expressions.Add(expression);
     }
 
-    public class ForStatement : Statement
+    public IEnumerator<Expression> GetEnumerator()
     {
-        private readonly List<InitializerStatement> initializers;
-        private readonly List<Expression> updaters;
-
-        public IEnumerable<InitializerStatement> Initializers => initializers;
-
-        public IEnumerable<Expression> Updaters => updaters;
-
-        public int InitializerCount => initializers.Count;
-
-        public Expression Expression { get; internal set; }
-
-        public int UpdaterCount => updaters.Count;
-
-        public Statement Statement { get; internal set; }
-
-        internal ForStatement(SourceInterval interval, Expression expression = null) : base(interval)
-        {
-            Expression = expression;
-
-            initializers = new List<InitializerStatement>();
-            updaters = new List<Expression>();
-        }
-
-        internal void AddInitializer(InitializerStatement initializer) => initializers.Add(initializer);
-
-        public InitializerStatement GetInitializer(int index) => initializers[index];
-
-        internal void SetInitializer(int index, InitializerStatement value) => initializers[index] = value;
-
-        internal void AddUpdater(Expression updater) => updaters.Add(updater);
-
-        public Expression GetUpdater(int index) => updaters[index];
-
-        internal void SetUpdater(int index, Expression value) => updaters[index] = value;
+        return expressions.GetEnumerator();
     }
 
-    public class BlockStatement : Statement, IEnumerable<Statement>
+    IEnumerator IEnumerable.GetEnumerator()
     {
-        private readonly List<Statement> statements;
+        return expressions.GetEnumerator();
+    }
+}
 
-        public int StatementCount => statements.Count;
+public class PrintStatement : Statement, IEnumerable<Expression>
+{
+    private readonly List<Expression> expressions;
 
-        public Statement this[int index]
-        {
-            get => statements[index];
+    public bool LineBreak
+    {
+        get;
+    }
 
-            internal set => statements[index] = value;
-        }
+    public int ExpressionCount => expressions.Count;
 
-        internal BlockStatement(SourceInterval interval) : base(interval) => statements = new List<Statement>();
+    public Expression this[int index]
+    {
+        get => expressions[index];
+        internal set => expressions[index] = value;
+    }
 
-        internal void AddStatement(Statement statement) => statements.Add(statement);
+    internal PrintStatement(SourceInterval interval, bool lineBreak) : base(interval)
+    {
+        LineBreak = lineBreak;
 
-        public IEnumerator<Statement> GetEnumerator() => statements.GetEnumerator();
+        expressions = new List<Expression>();
+    }
 
-        IEnumerator IEnumerable.GetEnumerator() => statements.GetEnumerator();
+    internal void AddExpression(Expression expression)
+    {
+        expressions.Add(expression);
+    }
+
+    public IEnumerator<Expression> GetEnumerator()
+    {
+        return expressions.GetEnumerator();
+    }
+
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+        return expressions.GetEnumerator();
+    }
+}
+
+public class IfStatement : Statement
+{
+    public Expression Expression
+    {
+        get; internal set;
+    }
+
+    public Statement ThenStatement
+    {
+        get; internal set;
+    }
+
+    public Statement ElseStatement
+    {
+        get; internal set;
+    }
+
+    internal IfStatement(SourceInterval interval, Expression expression, Statement thenStatement, Statement elseStatement = null) : base(interval)
+    {
+        Expression = expression;
+        ThenStatement = thenStatement;
+        ElseStatement = elseStatement;
+    }
+}
+
+public class WhileStatement : Statement
+{
+    public Expression Expression
+    {
+        get; internal set;
+    }
+
+    public Statement Statement
+    {
+        get; internal set;
+    }
+
+    internal WhileStatement(SourceInterval interval, Expression expression, Statement statement) : base(interval)
+    {
+        Expression = expression;
+        Statement = statement;
+    }
+}
+
+public class DoStatement : Statement
+{
+    public Expression Expression
+    {
+        get; internal set;
+    }
+
+    public Statement Statement
+    {
+        get; internal set;
+    }
+
+    internal DoStatement(SourceInterval interval, Expression expression, Statement statement) : base(interval)
+    {
+        Expression = expression;
+        Statement = statement;
+    }
+}
+
+public class ForStatement : Statement
+{
+    private readonly List<InitializerStatement> initializers;
+    private readonly List<Expression> updaters;
+
+    public IEnumerable<InitializerStatement> Initializers => initializers;
+
+    public IEnumerable<Expression> Updaters => updaters;
+
+    public int InitializerCount => initializers.Count;
+
+    public Expression Expression
+    {
+        get; internal set;
+    }
+
+    public int UpdaterCount => updaters.Count;
+
+    public Statement Statement
+    {
+        get; internal set;
+    }
+
+    internal ForStatement(SourceInterval interval, Expression expression = null) : base(interval)
+    {
+        Expression = expression;
+
+        initializers = new List<InitializerStatement>();
+        updaters = new List<Expression>();
+    }
+
+    internal void AddInitializer(InitializerStatement initializer)
+    {
+        initializers.Add(initializer);
+    }
+
+    public InitializerStatement GetInitializer(int index)
+    {
+        return initializers[index];
+    }
+
+    internal void SetInitializer(int index, InitializerStatement value)
+    {
+        initializers[index] = value;
+    }
+
+    internal void AddUpdater(Expression updater)
+    {
+        updaters.Add(updater);
+    }
+
+    public Expression GetUpdater(int index)
+    {
+        return updaters[index];
+    }
+
+    internal void SetUpdater(int index, Expression value)
+    {
+        updaters[index] = value;
+    }
+}
+
+public class BlockStatement : Statement, IEnumerable<Statement>
+{
+    private readonly List<Statement> statements;
+
+    public int StatementCount => statements.Count;
+
+    public Statement this[int index]
+    {
+        get => statements[index];
+
+        internal set => statements[index] = value;
+    }
+
+    internal BlockStatement(SourceInterval interval) : base(interval)
+    {
+        statements = new List<Statement>();
+    }
+
+    internal void AddStatement(Statement statement)
+    {
+        statements.Add(statement);
+    }
+
+    public IEnumerator<Statement> GetEnumerator()
+    {
+        return statements.GetEnumerator();
+    }
+
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+        return statements.GetEnumerator();
     }
 }

@@ -1,45 +1,64 @@
 ﻿using assembler;
 
-namespace compiler.types
+namespace compiler.types;
+
+public class TypeSetType : NamedType
 {
-    public class TypeSetType : NamedType
+    private AbstractType type;
+
+    public AbstractType Type => type;
+
+    internal TypeSetType(CompilationUnity unity, string name, AbstractType type, SourceInterval interval) : base(unity, name, interval)
     {
-        private AbstractType type;
+        this.type = type;
+    }
 
-        public AbstractType Type => type;
+    public override bool CoerceWith(AbstractType other, bool isExplicit)
+    {
+        return type.CoerceWith(other, isExplicit);
+    }
 
-        internal TypeSetType(CompilationUnity unity, string name, AbstractType type, SourceInterval interval) : base(unity, name, interval) => this.type = type;
+    protected override int GetSize()
+    {
+        return type.Size;
+    }
 
-        public override bool CoerceWith(AbstractType other, bool isExplicit) => type.CoerceWith(other, isExplicit);
+    public override bool IsUnresolved()
+    {
+        return type.IsUnresolved();
+    }
 
-        protected override int GetSize() => type.Size;
-
-        public override bool IsUnresolved() => type.IsUnresolved();
-
-        internal void Resolve()
+    internal void Resolve()
+    {
+        if (!resolved)
         {
-            if (!resolved)
-            {
-                resolved = true;
-                UncheckedResolve();
-            }
+            resolved = true;
+            UncheckedResolve();
         }
+    }
 
-        protected override void UncheckedResolve()
+    protected override void UncheckedResolve()
+    {
+        if (type is UnresolvedType u)
         {
-            if (type is UnresolvedType u)
-            {
-                if (u.ReferencedType == null)
-                    throw new CompilerException(u.Interval, $"Tipo não declarado: '{u.Name}'.");
+            if (u.ReferencedType == null)
+                throw new CompilerException(u.Interval, $"Tipo não declarado: '{u.Name}'.");
 
-                type = u.ReferencedType;
-            }
-            else
-                Resolve(ref type);
+            type = u.ReferencedType;
         }
+        else
+        {
+            Resolve(ref type);
+        }
+    }
 
-        public override bool ContainsString() => type.ContainsString();
+    public override bool ContainsString()
+    {
+        return type.ContainsString();
+    }
 
-        internal override void EmitStringRelease(Context context, Compiler compiler, Assembler assembler, int offset, ReleaseType releaseType) => type.EmitStringRelease(context, compiler, assembler, offset, releaseType);
+    internal override void EmitStringRelease(Context context, Compiler compiler, Assembler assembler, int offset, ReleaseType releaseType)
+    {
+        type.EmitStringRelease(context, compiler, assembler, offset, releaseType);
     }
 }

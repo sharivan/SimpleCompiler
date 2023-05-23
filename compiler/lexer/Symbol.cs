@@ -1,84 +1,92 @@
-﻿namespace compiler.lexer
+﻿namespace compiler.lexer;
+
+public class Symbol : Token
 {
-    public class Symbol : Token
+    public static readonly string[] SYMBOLS = { 
+        // operadores aritiméticos
+        "+",
+        "-",
+        "*",
+        "/",
+        "%",
+        // operadores bit a bit
+        "&",
+        "|",
+        "^",
+        "~", 
+        // operadores de incremento e decremento
+        "++",
+        "--", 
+        // operadores relacionais
+        "==",
+        "!=",
+        ">",
+        "<",
+        ">=",
+        "<=",
+        // operadores lógicos
+        "&&" ,
+        "||",
+        "^^",
+        "!", 
+        // operadores de deslocamento
+        "<<",
+        ">>",
+        ">>>",
+        // operadores de atribuição
+        "=",
+        "+=",
+        "-=",
+        "*=",
+        "/=",
+        "%=",
+        "&=",
+        "|=",
+        "^=",
+        "<<=",
+        ">>=",
+        ">>>=",
+        // outros
+        "(",
+        ")",
+        "[",
+        "]",
+        "{",
+        "}",
+        ",",
+        ".",
+        ":",
+        ";"
+    };
+
+    public static bool IsSymbol(string s)
     {
-        public static readonly string[] SYMBOLS = { 
-            // operadores aritiméticos
-            "+", 
-            "-", 
-            "*", 
-            "/",
-            "%",
-            // operadores bit a bit
-            "&", 
-            "|", 
-            "^",
-            "~", 
-            // operadores de incremento e decremento
-            "++",
-            "--", 
-            // operadores relacionais
-            "==",
-            "!=",
-            ">",
-            "<",
-            ">=",
-            "<=",
-            // operadores lógicos
-            "&&" , 
-            "||", 
-            "^^", 
-            "!", 
-            // operadores de deslocamento
-            "<<", 
-            ">>", 
-            ">>>",
-            // operadores de atribuição
-            "=",
-            "+=",
-            "-=",
-            "*=",
-            "/=",
-            "%=",
-            "&=",
-            "|=",
-            "^=",
-            "<<=",
-            ">>=",
-            ">>>=",
-            // outros
-            "(",
-            ")",
-            "[",
-            "]",
-            "{",
-            "}",
-            ",",
-            ".",
-            ":",
-            ";"
-        };
-
-        public static bool IsSymbol(string s)
+        for (int i = 0; i < SYMBOLS.Length; i++)
         {
-            for (int i = 0; i < SYMBOLS.Length; i++)
-            {
-                if (s == SYMBOLS[i])
-                    return true;
-            }
-
-            return false;
+            if (s == SYMBOLS[i])
+                return true;
         }
 
-        public static bool IsSymbol(char c) => IsSymbol(c.ToString());
+        return false;
+    }
 
-        public string Value
-        {
-            get;
-        }
+    public static bool IsSymbol(char c)
+    {
+        return IsSymbol(c.ToString());
+    }
 
-        internal Symbol(SourceInterval interval, string value) : base(interval) => Value = value;
+    public string Value
+    {
+        get;
+    }
 
-        public override string ToString() => $"symbol '{Value}'";
+    internal Symbol(SourceInterval interval, string value) : base(interval)
+    {
+        Value = value;
+    }
+
+    public override string ToString()
+    {
+        return $"symbol '{Value}'";
     }
 }

@@ -1,25 +1,24 @@
 ﻿using compiler.types;
 
-namespace compiler
+namespace compiler;
+
+public class LocalVariable : Variable
 {
-    public class LocalVariable : Variable
+    public SourceInterval Scope
     {
-        public SourceInterval Scope
-        {
-            get; internal set;
-        }
+        get; internal set;
+    }
 
-        public Function Function
-        {
-            get;
-        }
+    public Function Function
+    {
+        get;
+    }
 
-        public bool Param => Offset < 0;
+    public bool Param => Offset < 0;
 
-        internal LocalVariable(Function function, string name, AbstractType type, SourceInterval declaration, int offset = -1) : base(name, type, declaration, offset)
-        {
-            Function = function;
-            Scope = declaration;
-        }
+    internal LocalVariable(Function function, string name, AbstractType type, SourceInterval declaration, int offset = -1) : base(name, type, declaration, offset)
+    {
+        Function = function;
+        Scope = declaration;
     }
 }

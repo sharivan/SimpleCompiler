@@ -1,25 +1,27 @@
 ﻿using compiler.types;
 
-namespace compiler
+namespace compiler;
+
+public class Parameter : Variable
 {
-    public class Parameter : Variable
+    public Function Function
     {
-        public Function Function
-        {
-            get;
-        }
+        get;
+    }
 
-        public bool ByRef
-        {
-            get;
-        }
+    public bool ByRef
+    {
+        get;
+    }
 
-        internal Parameter(Function function, string name, AbstractType type, SourceInterval interval, int offset = -1, bool byRef = false) : base(name, type, interval, offset)
-        {
-            Function = function;
-            ByRef = byRef;
-        }
+    internal Parameter(Function function, string name, AbstractType type, SourceInterval interval, int offset = -1, bool byRef = false) : base(name, type, interval, offset)
+    {
+        Function = function;
+        ByRef = byRef;
+    }
 
-        public override string ToString() => (ByRef ? "&" : "") + base.ToString();
+    public override string ToString()
+    {
+        return (ByRef ? "&" : "") + base.ToString();
     }
 }

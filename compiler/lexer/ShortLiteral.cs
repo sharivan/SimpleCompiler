@@ -1,26 +1,49 @@
-﻿namespace compiler.lexer
+﻿namespace compiler.lexer;
+
+public class ShortLiteral : NumericLiteral
 {
-    public class ShortLiteral : NumericLiteral
+    public short Value
     {
-        public short Value
-        {
-            get;
-        }
+        get;
+    }
 
-        internal ShortLiteral(SourceInterval interval, short value) : base(interval) => Value = value;
+    internal ShortLiteral(SourceInterval interval, short value) : base(interval)
+    {
+        Value = value;
+    }
 
-        public override string ToString() => Value.ToString();
+    public override string ToString()
+    {
+        return Value.ToString();
+    }
 
-        public override byte AsByte() => (byte) Value;
+    public override byte AsByte()
+    {
+        return (byte) Value;
+    }
 
-        public override short AsShort() => Value;
+    public override short AsShort()
+    {
+        return Value;
+    }
 
-        public override int AsInt() => Value;
+    public override int AsInt()
+    {
+        return Value;
+    }
 
-        public override long AsLong() => (long) Value;
+    public override long AsLong()
+    {
+        return (long) Value;
+    }
 
-        public override float AsFloat() => Value;
+    public override float AsFloat()
+    {
+        return Value;
+    }
 
-        public override double AsDouble() => Value;
+    public override double AsDouble()
+    {
+        return Value;
     }
 }

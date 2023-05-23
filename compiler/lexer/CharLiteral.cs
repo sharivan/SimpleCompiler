@@ -1,14 +1,19 @@
-﻿namespace compiler.lexer
+﻿namespace compiler.lexer;
+
+public class CharLiteral : Literal
 {
-    public class CharLiteral : Literal
+    public char Value
     {
-        public char Value
-        {
-            get;
-        }
+        get;
+    }
 
-        internal CharLiteral(SourceInterval interval, char value) : base(interval) => Value = value;
+    internal CharLiteral(SourceInterval interval, char value) : base(interval)
+    {
+        Value = value;
+    }
 
-        public override string ToString() => Value.ToString();
+    public override string ToString()
+    {
+        return Value.ToString();
     }
 }
