@@ -37,7 +37,7 @@ programa TesteUnidades
 		
 		// saída esperada:
 		// "abcdefgh" + "1234567890" = "abcdefgh1234567890"
-		// Tamanho do texto "abcdefgh1234567890" =1 8;
+		// Tamanho do texto "abcdefgh1234567890" = 18;
 		// StringParaInt("4567")=4567
 		
 		// Teste da unidade Sorts:
