@@ -16,52 +16,51 @@ Uma nova gramática foi criada para ser aceita por este compilador, a sintaxe de
 A seguir, temos um exemplo simples de um programa escrito nessa linguagem:
 
 ```c++
-programa TesteUnidades
-{
-	usando Sorts;
-	
-	{
-		// Teste da unidade padrão System:
-		
-		var str:texto = "abcdefgh"; // string dinâmica contada por referência
-		str = str + "1234567890";
-		escrevaln "\"abcdefgh\" + \"1234567890\" = \"", str, '"';
-		
-		escrevaln "Tamanho do texto \"", str, "\" = ", str.tamanho;
-		
-		var str2:char[16]; // string estática
-		CopiaString("4567", str2);
-		var str2Int:int;
-		StringParaInt(str2, str2Int);
-		escrevaln "StringParaInt(\"", str2, "\")=", str2Int;
-		
-		// saída esperada:
-		// "abcdefgh" + "1234567890" = "abcdefgh1234567890"
-		// Tamanho do texto "abcdefgh1234567890" = 18;
-		// StringParaInt("4567")=4567
-		
-		// Teste da unidade Sorts:
-		// teste de entrada: {9, -2, 6, 3)
-		
-		var a:int[4];
+programa TesteUnidades;
 
-		para (var i:int = 0; i < 4; i++)
-		{
-			escrevaln "Digite um númeero inteiro para a[", i, "]";
-			leia a[i];
-		}
+usando Sorts;
+	
+{
+	// Teste da unidade padrão System:
 		
-		QuickSort(a, 0, 3);
+	var str:texto = "abcdefgh"; // string dinâmica contada por referência
+	str = str + "1234567890";
+	escrevaln "\"abcdefgh\" + \"1234567890\" = \"", str, '"';
 		
-		escreva "{", a[0];
-		para (var i:int = 1; i < 4; i++)
-			escreva ", ", a[i];
-			
-		escrevaln "}";
+	escrevaln "Tamanho do texto \"", str, "\" = ", str.tamanho;
 		
-		// saída esperada:
-		// {-2, 3, 6, 9)
+	var str2:char[16]; // string estática
+	CopiaString("4567", str2);
+	var str2Int:int;
+	StringParaInt(str2, str2Int);
+	escrevaln "StringParaInt(\"", str2, "\")=", str2Int;
+		
+	// saída esperada:
+	// "abcdefgh" + "1234567890" = "abcdefgh1234567890"
+	// Tamanho do texto "abcdefgh1234567890" = 18;
+	// StringParaInt("4567")=4567
+		
+	// Teste da unidade Sorts:
+	// teste de entrada: {9, -2, 6, 3)
+		
+	var a:int[4];
+
+	para (var i:int = 0; i < 4; i++)
+	{
+		escrevaln "Digite um númeero inteiro para a[", i, "]";
+		leia a[i];
 	}
+		
+	QuickSort(a, 0, 3);
+		
+	escreva "{", a[0];
+	para (var i:int = 1; i < 4; i++)
+		escreva ", ", a[i];
+			
+	escrevaln "}";
+		
+	// saída esperada:
+	// {-2, 3, 6, 9)
 }
 ```
 

@@ -1,6 +1,5 @@
-programa OláMundo
+programa OláMundo;
+
 {
-	{
-		escrevaln "Olá mundo!";
-	}
+	escrevaln "Olá mundo!";
 }

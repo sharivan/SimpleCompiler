@@ -749,6 +749,18 @@ public class Lexer : IDisposable
         return result;
     }
 
+    public bool IsNextToken()
+    {
+        var token = NextToken();
+        if (token == null)
+        {
+            PreviusToken();
+            return false;
+        }
+
+        return true;
+    }
+
     public NumericLiteral NextNumber(bool throwException = true, string errorMessage = null)
     {
         Token token = NextToken();
@@ -773,6 +785,11 @@ public class Lexer : IDisposable
         return (NumericLiteral) token;
     }
 
+    public bool IsNextNumber()
+    {
+        return NextNumber(false) != null;
+    }
+
     public Symbol NextSymbol(bool throwException = true, string errorMessage = null)
     {
         Token token = NextToken();
@@ -795,6 +812,11 @@ public class Lexer : IDisposable
         }
 
         return (Symbol) token;
+    }
+
+    public bool IsNextSymbol()
+    {
+        return NextSymbol(false) != null;
     }
 
     public Symbol NextSymbol(string expectedValue, bool throwException = true, string errorMessage = null)
@@ -831,6 +853,11 @@ public class Lexer : IDisposable
         return symbol;
     }
 
+    public bool IsNextSymbol(string expectedValue)
+    {
+        return NextSymbol(expectedValue, false) != null;
+    }
+
     public Keyword NextKeyword(bool throwException = true, string errorMessage = null)
     {
         Token token = NextToken();
@@ -853,6 +880,11 @@ public class Lexer : IDisposable
         }
 
         return (Keyword) token;
+    }
+
+    public bool IsNextKeyword()
+    {
+        return NextKeyword(false) != null;
     }
 
     public Keyword NextKeyword(string expectedValue, bool throwException = true, string errorMessage = null)
@@ -889,6 +921,11 @@ public class Lexer : IDisposable
         return keyword;
     }
 
+    public bool IsNextKeyword(string expectedValue)
+    {
+        return NextKeyword(expectedValue, false) != null;
+    }
+
     public Identifier NextIdentifier(bool throwException = true, string errorMessage = null)
     {
         Token token = NextToken();
@@ -911,6 +948,11 @@ public class Lexer : IDisposable
         }
 
         return (Identifier) token;
+    }
+
+    public bool IsNextIdentifier()
+    {
+        return NextIdentifier(false) != null;
     }
 
     public Identifier NextIdentifier(string expectedValue, bool throwException = true, string errorMessage = null)
@@ -945,6 +987,11 @@ public class Lexer : IDisposable
         }
 
         return variable;
+    }
+
+    public bool IsNextIdentifier(string expectedValue)
+    {
+        return NextIdentifier(expectedValue, false) != null;
     }
 
     public Token PreviusToken()

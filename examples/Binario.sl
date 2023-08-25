@@ -1,29 +1,28 @@
-programa Binario
+programa Binario;
+
 {
+	var n:int;
+
+	escrevaln "Digite um número inteiro:";
+	leia n;
+
+	escreva "Seu valor em binário é ";
+		
+	var i:int;
+	var b:bool = falso;
+	para (i = 31; i >= 0; i = i - 1)
 	{
-		var n:int;
-
-		escrevaln "Digite um número inteiro:";
-		leia n;
-
-		escreva "Seu valor em binário é ";
-		
-		var i:int;
-		var b:bool = falso;
-		para (i = 31; i >= 0; i = i - 1)
+		se ((n & (1 << i)) != 0)
 		{
-			se ((n & (1 << i)) != 0)
-			{
-				b = verdade;
-				escreva 1;
-			}
-			senão se (b)
-				escreva 0;
+			b = verdade;
+			escreva 1;
 		}
-		
-		se (!b)
+		senão se (b)
 			escreva 0;
-
-		escrevaln;
 	}
+		
+	se (!b)
+		escreva 0;
+
+	escrevaln;
 }

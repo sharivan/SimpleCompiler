@@ -858,6 +858,7 @@ public partial class Compiler
     private BlockStatement ParseBlock()
     {
         BlockStatement result = new(lexer.CurrentInterval());
+
         while (lexer.NextSymbol("}", false) == null)
         {
             Statement statement = ParseStatement();
@@ -951,7 +952,7 @@ public partial class Compiler
         }
     }
 
-    private bool ParseDeclaration()
+    private bool ParseDeclaration(bool endsWithBraces = true)
     {
         Keyword kw = lexer.NextKeyword(false);
         if (kw != null)
@@ -1010,7 +1011,9 @@ public partial class Compiler
             return true;
         }
 
-        lexer.NextSymbol("}", true, "Declaração ou '}' esperados.");
+        if (endsWithBraces)
+            lexer.NextSymbol("}", true, "Declaração ou '}' esperados.");
+
         return false;
     }
 
@@ -1063,9 +1066,18 @@ public partial class Compiler
             if (!isUnity)
                 program = unity;
 
-            lexer.NextSymbol("{");
+            bool endsWithBraces;
+            if (!lexer.IsNextSymbol("{"))
+            {
+                lexer.NextSymbol(";", true, "Declaração, '{' ou ';' esperados.");
+                endsWithBraces = false;
+            }
+            else
+            {
+                endsWithBraces = true;
+            }
 
-            while (ParseDeclaration())
+            while (ParseDeclaration(endsWithBraces))
             {
             }
 
@@ -1102,9 +1114,18 @@ public partial class Compiler
             if (unity.Name != name)
                 throw new CompilerException(id.Interval, "Nome da unidade é diferente do nome do arquivo.");
 
-            lexer.NextSymbol("{");
+            bool endsWithBraces;
+            if (!lexer.IsNextSymbol("{"))
+            {
+                lexer.NextSymbol(";", true, "Declaração, '{' ou ';' esperados.");
+                endsWithBraces = false;
+            }
+            else
+            {
+                endsWithBraces = true;
+            }
 
-            while (ParseDeclaration())
+            while (ParseDeclaration(endsWithBraces))
             {
             }
 
