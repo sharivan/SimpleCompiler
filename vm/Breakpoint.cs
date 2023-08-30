@@ -1,4 +1,4 @@
-﻿namespace vm;
+﻿namespace VM;
 
 public class Breakpoint
 {

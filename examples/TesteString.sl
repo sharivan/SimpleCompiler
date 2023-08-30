@@ -20,7 +20,13 @@ var s:texto;
 var t:E1;
 
 /*
-	Saída esperada (excluindo o último escrevaln):
+	Teste de entrada:
+	
+	string
+	123
+	abc
+	
+	Saída esperada:
 	
 	123
 	123456
@@ -34,6 +40,10 @@ var t:E1;
 	1 texto 2 textoabcdef 3.1
 	3 textotextoabcdef 4
 	987123-- 789321++ abcxyz a1b2c3
+	Digite o valor de s: string
+	Digite o valor de s2: 123
+	Digite o valor de s3: abc
+	string123abc
 */
 
 {
@@ -100,7 +110,7 @@ var t:E1;
 	
 	escrevaln a1[0].s1, " ", a1[1].s2, " ", a2[2].s, " ", a3[2];
 	
-	/*escreva "Digite o valor de s: ";
+	escreva "Digite o valor de s: ";
 	leia s;
 	
 	escreva "Digite o valor de s2: ";
@@ -110,5 +120,5 @@ var t:E1;
 	leia s3;
 	
 	s += s2 + s3;
-	escrevaln s;*/
+	escrevaln s;
 }

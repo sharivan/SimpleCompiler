@@ -59,67 +59,79 @@
     <Reference Include="WindowsFormsIntegration" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="compiler\expression\CompilerBinaryExpression.cs" />
-    <Compile Include="compiler\CompilationUnity.cs" />
-    <Compile Include="compiler\expression\CompilerExpression.cs" />
-    <Compile Include="compiler\CompilerLoad.cs" />
-    <Compile Include="compiler\CompilerParser.cs" />
-    <Compile Include="compiler\CompilerStore.cs" />
-    <Compile Include="compiler\expression\CompilerUnaryExpression.cs" />
-    <Compile Include="compiler\types\ArrayType.cs" />
-    <Compile Include="assembler\Assembler.cs" />
-    <Compile Include="compiler\lexer\ByteLiteral.cs" />
-    <Compile Include="compiler\lexer\CharLiteral.cs" />
-    <Compile Include="compiler\Context.cs" />
-    <Compile Include="compiler\lexer\DoubleLiteral.cs" />
-    <Compile Include="compiler\Expression.cs" />
-    <Compile Include="compiler\Field.cs" />
-    <Compile Include="compiler\Function.cs" />
-    <Compile Include="compiler\GlobalVariable.cs" />
-    <Compile Include="assembler\Label.cs" />
-    <Compile Include="compiler\lexer\Literal.cs" />
-    <Compile Include="compiler\LocalVariable.cs" />
-    <Compile Include="compiler\types\NamedType.cs" />
-    <Compile Include="compiler\types\StringType.cs" />
-    <Compile Include="compiler\types\TypeSetType.cs" />
-    <Compile Include="compiler\types\UnresolvedType.cs" />
-    <None Include="examples\TesteAritimetico.sl">
+    <Compile Include="Comp\Expr\CompilerBinaryExpression.cs" />
+    <Compile Include="Comp\CompilationUnity.cs" />
+    <Compile Include="Comp\Expr\CompilerExpression.cs" />
+    <Compile Include="Comp\CompilerLoad.cs" />
+    <Compile Include="Comp\CompilerParser.cs" />
+    <Compile Include="Comp\CompilerStore.cs" />
+    <Compile Include="Comp\Expr\CompilerUnaryExpression.cs" />
+    <Compile Include="Comp\Types\ArrayType.cs" />
+    <Compile Include="Asm\Assembler.cs" />
+    <Compile Include="Comp\Lex\ByteLiteral.cs" />
+    <Compile Include="Comp\Lex\CharLiteral.cs" />
+    <Compile Include="Comp\Context.cs" />
+    <Compile Include="Comp\Lex\DoubleLiteral.cs" />
+    <Compile Include="Comp\Expression.cs" />
+    <Compile Include="Comp\Field.cs" />
+    <Compile Include="Comp\Function.cs" />
+    <Compile Include="Comp\GlobalVariable.cs" />
+    <Compile Include="Asm\Label.cs" />
+    <Compile Include="Comp\Lex\Literal.cs" />
+    <Compile Include="Comp\LocalVariable.cs" />
+    <Compile Include="Comp\Types\NamedType.cs" />
+    <Compile Include="Comp\Types\StringType.cs" />
+    <Compile Include="Comp\Types\TypeSetType.cs" />
+    <Compile Include="Comp\Types\UnresolvedType.cs" />
+    <None Include="Examples\TesteAritimetico.sl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <Compile Include="vm\Breakpoint.cs" />
-    <Compile Include="vm\Opcode.cs" />
-    <Compile Include="compiler\Compiler.cs" />
-    <Compile Include="compiler\lexer\FloatLiteral.cs" />
-    <Compile Include="compiler\lexer\IntLiteral.cs" />
-    <Compile Include="compiler\lexer\Keyword.cs" />
-    <Compile Include="compiler\lexer\LongLiteral.cs" />
-    <Compile Include="compiler\lexer\NumericLiteral.cs" />
-    <Compile Include="compiler\lexer\Lexer.cs" />
-    <Compile Include="compiler\Parameter.cs" />
-    <Compile Include="compiler\CompilerException.cs" />
-    <Compile Include="compiler\SourceInterval.cs" />
-    <Compile Include="compiler\types\PointerType.cs" />
-    <Compile Include="compiler\types\PrimitiveType.cs" />
-    <Compile Include="compiler\lexer\ShortLiteral.cs" />
-    <Compile Include="compiler\Statement.cs" />
-    <Compile Include="compiler\lexer\StringLiteral.cs" />
-    <Compile Include="compiler\types\StructType.cs" />
-    <Compile Include="compiler\lexer\Symbol.cs" />
-    <Compile Include="compiler\lexer\Token.cs" />
-    <Compile Include="compiler\lexer\Identifier.cs" />
-    <Compile Include="compiler\types\AbstractType.cs" />
-    <Compile Include="units\UnitySystem.cs" />
-    <Compile Include="compiler\Variable.cs" />
-    <Compile Include="vm\VM.cs" />
-    <Compile Include="FrmSimpleCompiler.cs">
+    <Compile Include="GUI\BreakPointMargin.cs" />
+    <Compile Include="GUI\DocumentCollection.cs" />
+    <Compile Include="GUI\DocumentConfigElement.cs" />
+    <Compile Include="GUI\ErrorRenderer.cs" />
+    <Compile Include="GUI\Interval.cs" />
+    <Compile Include="GUI\Line.cs" />
+    <Compile Include="GUI\ProgramConfiguratinSection.cs" />
+    <Compile Include="GUI\SourceTab.cs" />
+    <Compile Include="GUI\SteppingRenderer.cs" />
+    <Compile Include="VM\Breakpoint.cs" />
+    <Compile Include="VM\IPRange.cs" />
+    <Compile Include="VM\LineKey.cs" />
+    <Compile Include="VM\SourceIntervalNode.cs" />
+    <Compile Include="VM\Opcode.cs" />
+    <Compile Include="Comp\Compiler.cs" />
+    <Compile Include="Comp\Lex\FloatLiteral.cs" />
+    <Compile Include="Comp\Lex\IntLiteral.cs" />
+    <Compile Include="Comp\Lex\Keyword.cs" />
+    <Compile Include="Comp\Lex\LongLiteral.cs" />
+    <Compile Include="Comp\Lex\NumericLiteral.cs" />
+    <Compile Include="Comp\Lex\Lexer.cs" />
+    <Compile Include="Comp\Parameter.cs" />
+    <Compile Include="Comp\CompilerException.cs" />
+    <Compile Include="Comp\SourceInterval.cs" />
+    <Compile Include="Comp\Types\PointerType.cs" />
+    <Compile Include="Comp\Types\PrimitiveType.cs" />
+    <Compile Include="Comp\Lex\ShortLiteral.cs" />
+    <Compile Include="Comp\Statement.cs" />
+    <Compile Include="Comp\Lex\StringLiteral.cs" />
+    <Compile Include="Comp\Types\StructType.cs" />
+    <Compile Include="Comp\Lex\Symbol.cs" />
+    <Compile Include="Comp\Lex\Token.cs" />
+    <Compile Include="Comp\Lex\Identifier.cs" />
+    <Compile Include="Comp\Types\AbstractType.cs" />
+    <Compile Include="Units\UnitySystem.cs" />
+    <Compile Include="Comp\Variable.cs" />
+    <Compile Include="VM\VirtualMachine.cs" />
+    <Compile Include="GUI\FrmSimpleCompiler.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="FrmSimpleCompiler.Designer.cs">
+    <Compile Include="GUI\FrmSimpleCompiler.Designer.cs">
       <DependentUpon>FrmSimpleCompiler.cs</DependentUpon>
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <EmbeddedResource Include="FrmSimpleCompiler.resx">
+    <EmbeddedResource Include="GUI\FrmSimpleCompiler.resx">
       <DependentUpon>FrmSimpleCompiler.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
@@ -130,44 +142,45 @@
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
     </Compile>
-    <None Include="examples\Binario.sl">
+    <None Include="Examples\Binario.sl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="examples\NumerosPerfeitos.sl">
+    <None Include="Examples\NumerosPerfeitos.sl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="examples\OláMundo.sl">
+    <None Include="Examples\OláMundo.sl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="examples\Programa1.sl">
+    <None Include="Examples\Programa1.sl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="examples\Programa2.sl">
+    <None Include="Examples\Programa2.sl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="examples\Sorts.sl">
+    <None Include="Examples\Sorts.sl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="examples\System.sl">
+    <None Include="Examples\System.sl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="examples\TesteArray.sl">
+    <None Include="Examples\TesteArray.sl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="examples\TesteEstrutura.sl">
+    <None Include="Examples\TesteEstrutura.sl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="examples\TesteQuickSort.sl">
+    <None Include="Examples\TesteQuickSort.sl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="examples\TesteString.sl">
+    <None Include="Examples\TesteString.sl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="examples\TesteUnidades.sl">
+    <None Include="Examples\TesteUnidades.sl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="examples\Teste_Passagem_Por_Referência.sl">
+    <None Include="Examples\Teste_Passagem_Por_Referência.sl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="packages.config" />
@@ -181,20 +194,47 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
     <None Include="README.md" />
-    <EmbeddedResource Include="resources\slHighlighting.xshd" />
+    <EmbeddedResource Include="Resources\slHighlighting.xshd" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <Resource Include="resources\img\BreakpointEnabled_6584_16x.png" />
-    <Resource Include="resources\img\breakpoint_Off_16xMD.png" />
+    <Resource Include="Resources\Img\BreakpointEnabled_6584_16x.png" />
+    <Resource Include="Resources\Img\breakpoint_Off_16xMD.png" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="resources\img\5657.close.png" />
+    <EmbeddedResource Include="Resources\Img\5657.close.png" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="resources\img\5700.add.png" />
+    <EmbeddedResource Include="Resources\Img\5700.add.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Img\run.bmp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Img\Run[2].png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Img\pause.bmp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Img\stop.bmp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Img\BreakpointEnabled_6584_32x.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Img\run_to_cursor.bmp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Img\Stepout_6327.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Img\StepIn_6326.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Img\StepOver_6328.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

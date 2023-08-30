@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Windows.Forms;
 
+using SimpleCompiler.GUI;
+
 namespace SimpleCompiler;
 
 static class Program
