@@ -3,6 +3,8 @@
 using Comp.Lex;
 using Comp.Types;
 
+using SimpleCompiler.GUI;
+
 namespace Comp;
 
 public partial class Compiler
@@ -676,9 +678,13 @@ public partial class Compiler
             return result;
         }
 
+        Symbol end;
+        SourceInterval interval;
+
         Keyword kw = lexer.NextKeyword(false);
         if (kw != null)
         {
+            interval = kw.Interval;
             switch (kw.Value)
             {
                 case "var":
@@ -694,15 +700,19 @@ public partial class Compiler
 
                     Expression expression = ParseExpression();
 
-                    Symbol end = lexer.NextSymbol(")");
+                    end = lexer.NextSymbol(")");
 
                     Statement thenStatement = ParseStatement();
+                    interval = interval.Merge(thenStatement.Interval);
 
                     Statement elseStatement = null;
                     if (lexer.NextKeyword("senão", false) != null)
+                    {
                         elseStatement = ParseStatement();
+                        interval = interval.Merge(elseStatement.Interval);
+                    }
 
-                    IfStatement result = new(kw.Interval.Merge(end.Interval), expression, thenStatement, elseStatement);
+                    IfStatement result = new(interval, expression, thenStatement, elseStatement);
                     return result;
                 }
 
@@ -710,7 +720,7 @@ public partial class Compiler
                 {
                     lexer.NextSymbol("(");
 
-                    ForStatement result = new(kw.Interval);
+                    ForStatement result = new(interval);
 
                     // inicializadores
                     if (lexer.NextSymbol(";", false) == null)
@@ -747,42 +757,38 @@ public partial class Compiler
                         lexer.NextSymbol(")");
                     }
 
-                    Statement stateent = ParseStatement();
-                    result.Statement = stateent;
+                    Statement statement = ParseStatement();
+                    result.Statement = statement;
 
+                    result.Interval = result.Interval.Merge(statement.Interval);
                     return result;
                 }
 
                 case "enquanto":
                 {
                     lexer.NextSymbol("(");
-
                     Expression expression = ParseExpression();
-
-                    Symbol end = lexer.NextSymbol(")");
-
+                    end = lexer.NextSymbol(")");
                     Statement statement = ParseStatement();
 
-                    return new WhileStatement(kw.Interval.Merge(end.Interval), expression, statement);
+                    return new WhileStatement(interval.Merge(end.Interval), expression, statement);
                 }
 
                 case "repita":
                 {
                     Statement statement = ParseStatement();
-
                     lexer.NextKeyword("enquanto");
                     lexer.NextSymbol("(");
-
                     Expression expression = ParseExpression();
+                    end = lexer.NextSymbol(")");
 
-                    Symbol end = lexer.NextSymbol(")");
-
-                    return new DoStatement(kw.Interval.Merge(end.Interval), expression, statement);
+                    interval = interval.Merge(statement.Interval).Merge(end.Interval);
+                    return new DoStatement(interval, expression, statement);
                 }
 
                 case "leia":
                 {
-                    ReadStatement result = new(kw.Interval);
+                    ReadStatement result = new(interval);
 
                     if (lexer.NextSymbol(";", false) != null)
                         throw new CompilerException(lexer.CurrentInterval(), "Expressão esperada.");
@@ -796,8 +802,9 @@ public partial class Compiler
                         result.AddExpression(expression);
                     }
 
-                    lexer.NextSymbol(";");
+                    end = lexer.NextSymbol(";");
 
+                    result.Interval = result.Interval.Merge(end.Interval);
                     return result;
                 }
 
@@ -820,8 +827,9 @@ public partial class Compiler
                         result.AddExpression(expression);
                     }
 
-                    lexer.NextSymbol(";");
+                    end = lexer.NextSymbol(";");
 
+                    result.Interval = result.Interval.Merge(end.Interval);
                     return result;
                 }
 
@@ -829,21 +837,22 @@ public partial class Compiler
                 {
                     Expression expression = null;
 
-                    Symbol end;
                     if ((end = lexer.NextSymbol(";", false)) == null)
                     {
                         expression = ParseExpression();
                         end = lexer.NextSymbol(";");
                     }
 
-                    return new ReturnStatement(kw.Interval.Merge(end.Interval), expression);
+                    interval = interval.Merge(end.Interval);
+                    return new ReturnStatement(interval, expression);
                 }
 
                 case "quebra":
                 {
-                    Symbol end = lexer.NextSymbol(";");
+                    end = lexer.NextSymbol(";");
 
-                    return new BreakStatement(kw.Interval.Merge(end.Interval));
+                    interval = interval.Merge(end.Interval);
+                    return new BreakStatement(interval);
                 }
             }
 
@@ -851,8 +860,10 @@ public partial class Compiler
         }
 
         Expression expr = ParseExpression();
-        lexer.NextSymbol(";");
-        return new ExpressionStatement(expr.Interval, expr);
+        end = lexer.NextSymbol(";");
+
+        interval = expr.Interval.Merge(end.Interval);
+        return new ExpressionStatement(interval, expr);
     }
 
     private BlockStatement ParseBlock()
