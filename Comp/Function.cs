@@ -7,7 +7,7 @@ using Comp.Types;
 
 namespace Comp;
 
-public class Function
+public class Function : IMember
 {
     private readonly List<Parameter> parameters;
     private AbstractType returnType;
@@ -88,9 +88,15 @@ public class Function
         private set;
     }
 
-    internal Function(CompilationUnity unity, string name, SourceInterval interval, bool isExtern = false)
+    public FieldAggregationType DeclaringType
+    {
+        get;
+    }
+
+    internal Function(CompilationUnity unity, FieldAggregationType declaringType, string name, SourceInterval interval, bool isExtern = false)
     {
         Unity = unity;
+        DeclaringType = declaringType;
         Name = name;
         Interval = interval;
         IsExtern = isExtern;

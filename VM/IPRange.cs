@@ -16,7 +16,12 @@ public readonly struct IPRange(int minIP, int maxIP) : IEquatable<IPRange>
 
     public bool Contains(int ip)
     {
-        return ip >= MinIP && ip <= MaxIP;
+        return MinIP <= ip && ip <= MaxIP;
+    }
+
+    public bool Contains(IPRange range)
+    {
+        return MinIP <= range.MinIP && range.MaxIP <= MaxIP;
     }
 
     public override string ToString()

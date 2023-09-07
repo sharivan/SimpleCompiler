@@ -1,62 +1,12 @@
-﻿using System.Collections.Generic;
-
-using Asm;
+﻿using Asm;
 
 namespace Comp.Types;
 
-public class StructType : NamedType
+public class StructType : FieldAggregationType
 {
-    private readonly List<Field> fields;
-    private int size;
-
-    public int FieldAlignSize
+    internal StructType(CompilationUnity unity, string name, SourceInterval interval, int fieldAlignSize = sizeof(byte))
+        : base(unity, name, interval, fieldAlignSize)
     {
-        get;
-    }
-
-    public int FieldCount => fields.Count;
-
-    public Field this[int index] => fields[index];
-
-    internal StructType(CompilationUnity unity, string name, SourceInterval interval, int fieldAlignSize = sizeof(byte)) : base(unity, name, interval)
-    {
-        FieldAlignSize = fieldAlignSize;
-
-        fields = new List<Field>();
-
-        size = 0;
-    }
-
-    public Field FindField(string name)
-    {
-        for (int i = 0; i < fields.Count; i++)
-        {
-            Field field = fields[i];
-            if (field.Name == name)
-                return field;
-        }
-
-        return null;
-    }
-
-    internal Field DeclareField(string name, AbstractType type, SourceInterval interval)
-    {
-        Field result = FindField(name);
-        if (result != null)
-            return null;
-
-        result = new Field(this, name, type, interval);
-        fields.Add(result);
-        return result;
-    }
-
-    internal void Resolve()
-    {
-        if (!resolved)
-        {
-            resolved = true;
-            UncheckedResolve();
-        }
     }
 
     protected override void UncheckedResolve()
@@ -110,27 +60,9 @@ public class StructType : NamedType
         return result + "}";
     }
 
-    protected override int GetSize()
-    {
-        return size;
-    }
-
     public override bool CoerceWith(AbstractType other, bool isExplicit)
     {
         return Equals(other);
-    }
-
-    public override int GetHashCode()
-    {
-        int hashCode = -1735305858;
-        hashCode = hashCode * -1521134295 + EqualityComparer<string>.Default.GetHashCode(Name);
-        hashCode = hashCode * -1521134295 + EqualityComparer<List<Field>>.Default.GetHashCode(fields);
-        return hashCode;
-    }
-
-    public override bool IsUnresolved()
-    {
-        return false;
     }
 
     public override bool ContainsString()
@@ -144,7 +76,7 @@ public class StructType : NamedType
         return false;
     }
 
-    internal override void EmitStringRelease(Context context, Compiler compiler, Assembler assembler, int offset, ReleaseType releaseType)
+    protected internal override void EmitStringRelease(Context context, Compiler compiler, Assembler assembler, int offset, ReleaseType releaseType)
     {
         int fieldCount = 0;
         foreach (var field in fields)

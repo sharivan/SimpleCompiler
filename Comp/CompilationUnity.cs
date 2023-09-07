@@ -21,8 +21,8 @@ public class CompilationUnity
     private readonly Dictionary<string, CompilationUnity> importTable;
     private readonly List<GlobalVariable> globals;
     private readonly Dictionary<string, GlobalVariable> globalTable;
-    private readonly List<StructType> structs;
-    private readonly Dictionary<string, StructType> structTable;
+    private readonly List<FieldAggregationType> fieldAggregations;
+    private readonly Dictionary<string, FieldAggregationType> fieldAggregationTable;
     private readonly List<TypeSetType> typeSets;
     private readonly Dictionary<string, TypeSetType> typeSetTable;
     private readonly List<Function> functions;
@@ -66,7 +66,7 @@ public class CompilationUnity
         private set;
     }
 
-    public int StructCount => structs.Count;
+    public int FieldAggregationCount => fieldAggregations.Count;
 
     public int TypeSetCount => typeSets.Count;
 
@@ -99,8 +99,8 @@ public class CompilationUnity
         importTable = new();
         globals = new();
         globalTable = new();
-        structs = new();
-        structTable = new();
+        fieldAggregations = new();
+        fieldAggregationTable = new();
         typeSets = new();
         typeSetTable = new();
         functions = new();
@@ -216,16 +216,16 @@ public class CompilationUnity
         return result;
     }
 
-    public StructType FindStruct(string name, bool searchInImports = true)
+    public FieldAggregationType FindFieldAggregation(string name, bool searchInImports = true)
     {
-        if (structTable.TryGetValue(name, out StructType result))
+        if (fieldAggregationTable.TryGetValue(name, out FieldAggregationType result))
             return result;
 
         if (searchInImports)
         {
             foreach (CompilationUnity unity in imports)
             {
-                result = unity.FindStruct(name, false);
+                result = unity.FindFieldAggregation(name, false);
                 if (result != null)
                     return result;
             }
@@ -234,9 +234,9 @@ public class CompilationUnity
         return null;
     }
 
-    public StructType GetStruct(int index)
+    public FieldAggregationType GeFieldAggregation(int index)
     {
-        return structs[index];
+        return fieldAggregations[index];
     }
 
     internal StructType DeclareStruct(string name, SourceInterval interval)
@@ -246,8 +246,20 @@ public class CompilationUnity
             return null;
 
         StructType result = new(this, name, interval);
-        structs.Add(result);
-        structTable.Add(name, result);
+        fieldAggregations.Add(result);
+        fieldAggregationTable.Add(name, result);
+        return result;
+    }
+
+    internal ClassType DeclareClass(string name, SourceInterval interval)
+    {
+        NamedType nt = FindNamedType(name);
+        if (nt != null)
+            return null;
+
+        ClassType result = new(this, name, interval);
+        fieldAggregations.Add(result);
+        fieldAggregationTable.Add(name, result);
         return result;
     }
 
@@ -288,7 +300,7 @@ public class CompilationUnity
 
     public NamedType FindNamedType(string name)
     {
-        StructType st = FindStruct(name);
+        FieldAggregationType st = FindFieldAggregation(name);
         return st != null ? st : FindTypeSet(name);
     }
 
@@ -310,13 +322,13 @@ public class CompilationUnity
         return null;
     }
 
-    internal Function DeclareFunction(string name, SourceInterval interval, bool isExtern)
+    internal Function DeclareFunction(FieldAggregationType declaringType, string name, SourceInterval interval, bool isExtern)
     {
         Function result = FindFunction(name);
         if (result != null)
             return null;
 
-        result = new Function(this, name, interval, isExtern);
+        result = new Function(this, declaringType, name, interval, isExtern);
         functions.Add(result);
         functionTable.Add(name, result);
         return result;
@@ -347,6 +359,7 @@ public class CompilationUnity
     internal void Compile(Assembler assembler)
     {
         Compiler.unity = this;
+        Compiler.declaringType = null;
 
         GlobalStartOffset = Compiler.globalVariableOffset;
 
@@ -373,12 +386,12 @@ public class CompilationUnity
     {
         foreach (UnresolvedType type in undeclaredTypes)
         {
-            StructType st = FindStruct(type.Name);
+            FieldAggregationType st = FindFieldAggregation(type.Name);
 
             type.ReferencedType = st ?? throw new CompilerException(type.Interval, $"Tipo não declarado: '{type.Name}'.");
         }
 
-        foreach (StructType st in structs)
+        foreach (FieldAggregationType st in fieldAggregations)
             st.Resolve();
 
         foreach (TypeSetType ts in typeSets)

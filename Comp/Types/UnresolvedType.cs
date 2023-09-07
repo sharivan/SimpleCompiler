@@ -35,7 +35,7 @@ public class UnresolvedType : NamedType
     {
         if (referencedType == null)
         {
-            referencedType = Unity.FindStruct(Name);
+            referencedType = Unity.FindFieldAggregation(Name);
             if (referencedType == null)
                 throw new CompilerException(Interval, $"Tipo não declarado: '{Name}'.");
 
@@ -48,7 +48,7 @@ public class UnresolvedType : NamedType
         throw new CompilerException(Interval, $"Tipo não resolvido: '{Name}'.");
     }
 
-    internal override void EmitStringRelease(Context context, Compiler compiler, Assembler assembler, int offset, ReleaseType releaseType)
+    protected internal override void EmitStringRelease(Context context, Compiler compiler, Assembler assembler, int offset, ReleaseType releaseType)
     {
         throw new CompilerException(Interval, $"Tipo não resolvido: '{Name}'.");
     }

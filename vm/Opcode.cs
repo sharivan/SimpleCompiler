@@ -160,26 +160,26 @@ public enum Opcode
     DUPPTRN, // duplica o topo da pilha n vezes (ponteiro)
     CALL, // chama uma função
     ICALL, // chama uma função de forma indireta
-    ECALL, // chama uma função externa
+    ECALL, // chama uma função esterna
     RET, // retorne de uma função para o seu chamador
     RETN, // retorne de uma função para o seu chamador, subtraindo sp de n
-    SCANB, // escaneia um bool da entrada externa
-    SCAN8, // escaneia um byte da entrada externa
-    SCANC, // escaneia um char da entrada externa
-    SCAN16, // escaneia um short da entrada externa
-    SCAN32, // escaneia um inteiro da entrada externa
-    SCAN64, // escaneia um long da entrada externa		
-    FSCAN, // escaneia um float da entrada externa
-    FSCAN64, // escaneia um double da entrada externa
-    SCANSTR, // escaneia uma string estática na entrada externa
-    DSCANSTR, // escaneia uma string dinâmica na entrada externa
-    PRINTB, // imprime um bool na saída externa
-    PRINTC, // imprime um caractere na saída externa
-    PRINT32, // imprime um inteiro na saída externa
-    PRINT64, // imprime um long na saída externa
-    FPRINT, // imprime um float na saída externa
-    FPRINT64, // imprime um double na saída externa
-    PRINTSTR, // imprime uma string na saída externa
+    SCANB, // escaneia um bool da entrada esterna
+    SCAN8, // escaneia um byte da entrada esterna
+    SCANC, // escaneia um char da entrada esterna
+    SCAN16, // escaneia um short da entrada esterna
+    SCAN32, // escaneia um inteiro da entrada esterna
+    SCAN64, // escaneia um long da entrada esterna		
+    FSCAN, // escaneia um float da entrada esterna
+    FSCAN64, // escaneia um double da entrada esterna
+    SCANSTR, // escaneia uma string estática na entrada esterna
+    DSCANSTR, // escaneia uma string dinâmica na entrada esterna
+    PRINTB, // imprime um bool na saída esterna
+    PRINTC, // imprime um caractere na saída esterna
+    PRINT32, // imprime um inteiro na saída esterna
+    PRINT64, // imprime um long na saída esterna
+    FPRINT, // imprime um float na saída esterna
+    FPRINT64, // imprime um double na saída esterna
+    PRINTSTR, // imprime uma string na saída esterna
     HALT, // encerra o programa
     BREAK // pausa a execução do programa (breakpoint)
 }

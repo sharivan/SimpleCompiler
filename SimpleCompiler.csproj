@@ -66,6 +66,7 @@
     <Compile Include="Comp\CompilerParser.cs" />
     <Compile Include="Comp\CompilerStore.cs" />
     <Compile Include="Comp\Expr\CompilerUnaryExpression.cs" />
+    <Compile Include="Comp\Types\AccessibilityModifier.cs" />
     <Compile Include="Comp\Types\ArrayType.cs" />
     <Compile Include="Asm\Assembler.cs" />
     <Compile Include="Comp\Lex\ByteLiteral.cs" />
@@ -79,6 +80,9 @@
     <Compile Include="Asm\Label.cs" />
     <Compile Include="Comp\Lex\Literal.cs" />
     <Compile Include="Comp\LocalVariable.cs" />
+    <Compile Include="Comp\Types\ClassType.cs" />
+    <Compile Include="Comp\Types\FieldAggregationType.cs" />
+    <Compile Include="Comp\IMember.cs" />
     <Compile Include="Comp\Types\NamedType.cs" />
     <Compile Include="Comp\Types\StringType.cs" />
     <Compile Include="Comp\Types\TypeSetType.cs" />
@@ -98,7 +102,7 @@
     <Compile Include="VM\Breakpoint.cs" />
     <Compile Include="VM\IPRange.cs" />
     <Compile Include="VM\LineKey.cs" />
-    <Compile Include="VM\SourceIntervalNode.cs" />
+    <Compile Include="VM\LocalVariableNode.cs" />
     <Compile Include="VM\Opcode.cs" />
     <Compile Include="Comp\Compiler.cs" />
     <Compile Include="Comp\Lex\FloatLiteral.cs" />

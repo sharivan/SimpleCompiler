@@ -438,7 +438,7 @@ public partial class FrmSimpleCompiler : Form
 
     private void SetupStringView()
     {
-        dgvStrings.RowCount = Math.Max(vm.StringCount, 50);
+        dgvStrings.RowCount = Math.Max(vm.ObjectCount, 50);
     }
 
     private void FetchStackViewRow(int row)
@@ -505,11 +505,11 @@ public partial class FrmSimpleCompiler : Form
         {
             unsafe
             {
-                var rec = (VirtualMachine.StringRec*) (str - VirtualMachine.STRING_REC_SIZE).ToPointer();
+                var rec = (VirtualMachine.ObjectRec*) (str - VirtualMachine.OBJECT_REC_SIZE).ToPointer();
 
                 dgvStrings[0, row].Value = str.ToString("x8");
                 dgvStrings[1, row].Value = rec->refCount.ToString();
-                dgvStrings[2, row].Value = rec->len.ToString();
+                dgvStrings[2, row].Value = rec->size.ToString();
                 dgvStrings[3, row].Value = VirtualMachine.ReadPointerString(str);
             }
         }
@@ -622,12 +622,12 @@ public partial class FrmSimpleCompiler : Form
         if (lastvisibleRowIndex >= dgvStrings.RowCount)
             lastvisibleRowIndex = dgvStrings.RowCount - 1;
 
-        IntPtr str = vm.LastString;
+        IntPtr str = vm.LastObject;
         for (int rowIndex = 0; str != IntPtr.Zero && rowIndex < firstDisplayedRowIndex; rowIndex++)
         {
             unsafe
             {
-                var rec = (VirtualMachine.StringRec*) (str - VirtualMachine.STRING_REC_SIZE).ToPointer();
+                var rec = (VirtualMachine.ObjectRec*) (str - VirtualMachine.OBJECT_REC_SIZE).ToPointer();
                 str = rec->previous;
             }
         }
@@ -641,7 +641,7 @@ public partial class FrmSimpleCompiler : Form
             {
                 unsafe
                 {
-                    var rec = (VirtualMachine.StringRec*) (str - VirtualMachine.STRING_REC_SIZE).ToPointer();
+                    var rec = (VirtualMachine.ObjectRec*) (str - VirtualMachine.OBJECT_REC_SIZE).ToPointer();
                     str = rec->previous;
                 }
             }

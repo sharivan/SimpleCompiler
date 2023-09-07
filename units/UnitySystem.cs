@@ -22,14 +22,14 @@ public class UnitySystem
     private static readonly int LONG_TO_STRING_PARAM_SIZE = sizeof(long) + POINTER_SIZE;
     private static readonly int ALLOC_PARAM_SIZE = sizeof(int) + POINTER_SIZE;
     private static readonly int FREE_PARAM_SIZE = POINTER_SIZE;
-    private static readonly int NEW_STRING_PARAM_SIZE = STRING_SIZE + POINTER_SIZE;
+    private static readonly int NEW_STRING_PARAM_SIZE = OBJECT_SIZE + POINTER_SIZE;
     private static readonly int NEW_STRING2_PARAM_SIZE = 2 * POINTER_SIZE;
-    private static readonly int COPY_STRING2_PARAM_SIZE = STRING_SIZE + POINTER_SIZE;
-    private static readonly int STRING_LENGTH2_PARAM_SIZE = sizeof(int) + STRING_SIZE;
-    private static readonly int CONCATENATE_STRING2_PARAM_SIZE = 3 * STRING_SIZE;
-    private static readonly int CONCATENATE_STRING3_PARAM_SIZE = POINTER_SIZE + 2 * STRING_SIZE;
-    private static readonly int STRING_STORE_PARAM_SIZE = POINTER_SIZE + STRING_SIZE;
-    private static readonly int STRING_ADDREF_PARAM_SIZE = STRING_SIZE;
+    private static readonly int COPY_STRING2_PARAM_SIZE = OBJECT_SIZE + POINTER_SIZE;
+    private static readonly int STRING_LENGTH2_PARAM_SIZE = sizeof(int) + OBJECT_SIZE;
+    private static readonly int CONCATENATE_STRING2_PARAM_SIZE = 3 * OBJECT_SIZE;
+    private static readonly int CONCATENATE_STRING3_PARAM_SIZE = POINTER_SIZE + 2 * OBJECT_SIZE;
+    private static readonly int STRING_STORE_PARAM_SIZE = POINTER_SIZE + OBJECT_SIZE;
+    private static readonly int STRING_ADDREF_PARAM_SIZE = OBJECT_SIZE;
     private static readonly int STRING_RELEASE_PARAM_SIZE = POINTER_SIZE + sizeof(int);
     private static readonly int STRING_ARRAY_RELEASE_PARAM_SIZE = POINTER_SIZE + 2 * sizeof(int);
 
@@ -240,7 +240,7 @@ public class UnitySystem
         IntPtr dstAddr = vm.LoadParamPtr(NEW_STRING2_PARAM_SIZE, 0);
 
         IntPtr dst = ReadPointerPtr(dstAddr);
-        vm.StringRelease(dst);
+        vm.ObjectRelease(dst);
 
         WritePointer(dstAddr, result);
     }
@@ -289,7 +289,7 @@ public class UnitySystem
         IntPtr dstAddr = vm.LoadParamPtr(CONCATENATE_STRING3_PARAM_SIZE, 0);
 
         IntPtr dst = ReadPointerPtr(dstAddr);
-        vm.StringRelease(dst);
+        vm.ObjectRelease(dst);
 
         WritePointer(dstAddr, result);
     }
@@ -300,8 +300,8 @@ public class UnitySystem
         IntPtr dst = ReadPointerPtr(dstAddr);
         IntPtr src = vm.LoadParamPtr(STRING_STORE_PARAM_SIZE, POINTER_COUNT);
 
-        VirtualMachine.StringAddRef(src);
-        vm.StringRelease(dst);
+        VirtualMachine.ObjectAddRef(src);
+        vm.ObjectRelease(dst);
 
         WritePointer(dstAddr, src);
     }
@@ -309,7 +309,7 @@ public class UnitySystem
     public static void StringAddRef(VirtualMachine vm)
     {
         IntPtr str = vm.LoadParamPtr(STRING_ADDREF_PARAM_SIZE, 0);
-        VirtualMachine.StringAddRef(str);
+        VirtualMachine.ObjectAddRef(str);
     }
 
     public static void StringRelease(VirtualMachine vm)
@@ -317,7 +317,7 @@ public class UnitySystem
         IntPtr strAddr = vm.LoadParamPtr(STRING_RELEASE_PARAM_SIZE, 0);
         bool setNull = vm.LoadParam(STRING_RELEASE_PARAM_SIZE, POINTER_COUNT) != 0;
         IntPtr str = ReadPointerPtr(strAddr);
-        str = vm.StringRelease(str);
+        str = vm.ObjectRelease(str);
         WritePointer(strAddr, setNull ? IntPtr.Zero : str);
     }
 
@@ -326,7 +326,7 @@ public class UnitySystem
         IntPtr ptr = vm.LoadParamPtr(STRING_ARRAY_RELEASE_PARAM_SIZE, 0);
         int count = vm.LoadParam(STRING_ARRAY_RELEASE_PARAM_SIZE, POINTER_COUNT);
         bool setNull = vm.LoadParam(STRING_RELEASE_PARAM_SIZE, POINTER_COUNT + 1) != 0;
-        vm.StringArrayRelease(ptr, count, setNull);
+        vm.ObjectArrayRelease(ptr, count, setNull);
     }
 
     static UnitySystem()

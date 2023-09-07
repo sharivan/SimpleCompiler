@@ -57,7 +57,7 @@ public class TypeSetType : NamedType
         return type.ContainsString();
     }
 
-    internal override void EmitStringRelease(Context context, Compiler compiler, Assembler assembler, int offset, ReleaseType releaseType)
+    protected internal override void EmitStringRelease(Context context, Compiler compiler, Assembler assembler, int offset, ReleaseType releaseType)
     {
         type.EmitStringRelease(context, compiler, assembler, offset, releaseType);
     }

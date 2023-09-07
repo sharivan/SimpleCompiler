@@ -6,7 +6,7 @@ namespace Comp.Types;
 
 public abstract class AbstractType
 {
-    internal enum ReleaseType
+    public enum ReleaseType
     {
         GLOBAL,
         LOCAL,
@@ -58,5 +58,5 @@ public abstract class AbstractType
 
     public abstract bool ContainsString();
 
-    internal abstract void EmitStringRelease(Context context, Compiler compiler, Assembler assembler, int offset, ReleaseType releaseType);
+    protected internal abstract void EmitStringRelease(Context context, Compiler compiler, Assembler assembler, int offset, ReleaseType releaseType);
 }

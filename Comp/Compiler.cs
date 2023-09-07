@@ -28,6 +28,7 @@ public partial class Compiler
     private readonly Dictionary<string, int> externalFunctionMap;
 
     internal CompilationUnity unity;
+    internal FieldAggregationType declaringType;
     internal CompilationUnity unitySystem;
     internal Function function;
 
@@ -54,13 +55,14 @@ public partial class Compiler
         externalFunctionMap = new Dictionary<string, int>();
 
         unity = null;
+        declaringType = null;
         function = null;
     }
 
     public int AddExternalFunction(string name, int paramSize)
     {
         if (externalFunctionMap.ContainsKey(name))
-            throw new Exception($"Função externa '{name}' já adicionada.");
+            throw new Exception($"Função esterna '{name}' já adicionada.");
 
         int index = externalFunctions.Count;
         externalFunctions.Add((name, paramSize));
@@ -945,6 +947,7 @@ public partial class Compiler
     {
         globalVariableOffset = sizeof(int);
         function = null;
+        declaringType = null;
         unity = null;
         program = null;
         lexer = null;

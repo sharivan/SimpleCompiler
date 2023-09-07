@@ -27,33 +27,34 @@ public enum SteppingMode
 public class VirtualMachine
 {
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    public struct StringRec
+    public struct ObjectRec
     {
         public IntPtr previous;
         public IntPtr next;
         public int refCount;
-        public int len;
+        public int size;
     }
 
     public static readonly int POINTER_SIZE = IntPtr.Size;
-    public static readonly int STRING_SIZE = POINTER_SIZE;
-    public static readonly int STRING_REC_SIZE = Marshal.SizeOf(typeof(StringRec));
+    public static readonly int OBJECT_SIZE = POINTER_SIZE;
+    public static readonly int OBJECT_REC_SIZE = Marshal.SizeOf(typeof(ObjectRec));
 
     /*
-     * Estrutura de uma string contada por referência
-     * offset (32 bits)     offset (64 bits)    descrição
-     * -16                  -24                 ponteiro para a string anteriormente alocada
-     * -12                  -16                 ponteiro para a próxima string alocada
-     * -8                   -8                  número de referências
-     * -4                   -4                  tamanho da string (quantidade de caracteres, sem contar o caracter terminador nulo)
-     * 0                    0                   primeiro caracter
+     * Estrutura de um objeto contado por referência
      * 
-     * O ponteiro para uma string contada por referência sempre apontara para o offset 0 que leva ao endereço do primeiro caracter,
-     * isso torna esse tipo de string compatíveis com as strings de C. As strings contadas por referência também são terminadas com
-     * um caracter nulo, da mesma forma que as strings em C.
+     * offset (32 bits)     offset (64 bits)    descrição
+     * -16                  -24                 ponteiro para o objeto anteriormente alocado
+     * -12                  -16                 ponteiro para o próximo objeto alocado
+     * -8                   -8                  número de referências
+     * -4                   -4                  tamanho do objeto (para strings seria a quantidade de caracteres, incluindo o caracter terminador nulo; para arrays dinâmicos seria a quantidade de elementos do array)
+     * 0                    0                   início da seção de dados do objeto (para strings, seria a posição do primeiro caracter; para arrays dinâmicos a posição do primeiro elemento)
+     * 
+     * O ponteiro para um objeto contado por referência sempre apontara para o offset 0 que leva ao endereço do início dos dados do objeto.
+     * Strings e arrays dinâmicos também são objetos contados por referência.
+     * No caso das strings, para manter compatibilidade com as strings de C, o último caractere da string sempre será nulo.
      */
 
-    private class ExternalFunctionEntry(string functionName, int functionIndex, ExternalFunctionHandler handler, int paramSize)
+    private record ExternalFunctionEntry(string functionName, int functionIndex, ExternalFunctionHandler handler, int paramSize)
     {
         public string functionName = functionName;
         public int functionIndex = functionIndex;
@@ -98,7 +99,7 @@ public class VirtualMachine
     private readonly List<LocalVariable> localVariables;
     private readonly List<Function> functions;
     private readonly SortedList<int, (Function function, IPRange range)> ipToFunction;
-    private readonly List<SourceIntervalNode> nodes;
+    private readonly List<LocalVariableNode> nodes;
 
     private readonly List<Breakpoint> breakpoints;
     private readonly Dictionary<int, int> breakpointTableByIP;
@@ -146,19 +147,19 @@ public class VirtualMachine
         private set;
     }
 
-    public int StringCount
+    public int ObjectCount
     {
         get;
         internal set;
     }
 
-    public int AllocatedStringSize
+    public int AllocatedObjectSize
     {
         get;
         private set;
     }
 
-    public IntPtr LastString
+    public IntPtr LastObject
     {
         get;
         private set;
@@ -176,7 +177,7 @@ public class VirtualMachine
         localVariables = new List<LocalVariable>();
         functions = new List<Function>();
         ipToFunction = new SortedList<int, (Function function, IPRange range)>();
-        nodes = new List<SourceIntervalNode>();
+        nodes = new List<LocalVariableNode>();
 
         breakpoints = new List<Breakpoint>();
         breakpointTableByIP = new Dictionary<int, int>();
@@ -227,10 +228,11 @@ public class VirtualMachine
         foreach (var local in assembler.LocalVariables)
         {
             localVariables.Add(local);
+            var range = GetIPRangeFromSourceInterval(local.Scope);
 
             if (nodes.Count == 0)
             {
-                var node = new SourceIntervalNode(local.Scope, local);
+                var node = new LocalVariableNode(range, local);
                 nodes.Add(node);
             }
             else
@@ -238,7 +240,7 @@ public class VirtualMachine
                 bool wasAdded = false;
                 foreach (var node in nodes)
                 {
-                    var child = node.CheckAndInsert(local);
+                    var child = node.CheckAndInsert(range, local);
                     if (child != null)
                     {
                         wasAdded = true;
@@ -248,8 +250,8 @@ public class VirtualMachine
 
                 if (!wasAdded)
                 {
-                    var added = new SourceIntervalNode(local.Scope, local);
-                    var futureChilds = new List<SourceIntervalNode>();
+                    var added = new LocalVariableNode(range, local);
+                    var futureChilds = new List<LocalVariableNode>();
 
                     foreach (var node in nodes)
                     {
@@ -304,9 +306,9 @@ public class VirtualMachine
         }
 
         initialSP = SP;
-        LastString = IntPtr.Zero;
-        StringCount = 0;
-        AllocatedStringSize = 0;
+        LastObject = IntPtr.Zero;
+        ObjectCount = 0;
+        AllocatedObjectSize = 0;
 
         breakpoints.Clear();
         breakpointTableByIP.Clear();
@@ -341,7 +343,7 @@ public class VirtualMachine
             StackSize = 0;
         }
 
-        FreeAllocatedStrings();
+        FreeAllocatedObjects();
 
         breakpoints.Clear();
         breakpointTableByIP.Clear();
@@ -352,36 +354,37 @@ public class VirtualMachine
         externalFunctionMapByIndex.Clear();
     }
 
-    public IntPtr NewString(int len)
+    public IntPtr NewObject(int size, bool zeroMemory = true)
     {
         try
         {
-            int size = STRING_REC_SIZE + (len + 1) * sizeof(char);
-            IntPtr result = Marshal.AllocHGlobal(size);
-            result += STRING_REC_SIZE;
+            IntPtr result = Marshal.AllocHGlobal(size + OBJECT_REC_SIZE);
+            result += OBJECT_REC_SIZE;
 
             unsafe
             {
-                var rec = (StringRec*) (result - STRING_REC_SIZE).ToPointer();
+                var rec = (ObjectRec*) (result - OBJECT_REC_SIZE).ToPointer();
 
-                rec->previous = LastString;
+                rec->previous = LastObject;
                 rec->next = IntPtr.Zero;
 
-                if (LastString != IntPtr.Zero)
+                if (LastObject != IntPtr.Zero)
                 {
-                    var lastStringRec = (StringRec*) (LastString - STRING_REC_SIZE).ToPointer();
+                    var lastStringRec = (ObjectRec*) (LastObject - OBJECT_REC_SIZE).ToPointer();
                     lastStringRec->next = result;
                 }
 
                 rec->refCount = 1;
-                rec->len = len;
+                rec->size = size;
             }
 
-            WritePointer(result, '\0');
-            LastString = result;
+            if (zeroMemory)
+                KernelZeroMemory(result, size - OBJECT_REC_SIZE);
 
-            AllocatedStringSize += size;
-            StringCount++;
+            LastObject = result;
+
+            AllocatedObjectSize += size;
+            ObjectCount++;
             return result;
         }
         catch (OutOfMemoryException)
@@ -391,11 +394,33 @@ public class VirtualMachine
         return IntPtr.Zero;
     }
 
+    public IntPtr NewString(int len)
+    {
+        return NewDynamicArray(len + 1, sizeof(char));
+    }
+
     public IntPtr NewString(string s)
     {
-        IntPtr result = NewString(s.Length);
+        IntPtr result = NewDynamicArray(s.Length + 1, sizeof(char), false);
         WritePointer(result, s);
         return result;
+    }
+
+    public IntPtr NewDynamicArray(int count, int sizeOfElement, bool zeroMemory = true)
+    {
+        return NewObject(count * sizeOfElement, zeroMemory);
+    }
+
+    public static int ObjectSize(IntPtr obj)
+    {
+        if (obj == IntPtr.Zero)
+            return 0;
+
+        unsafe
+        {
+            var rec = (ObjectRec*) (obj - OBJECT_REC_SIZE).ToPointer();
+            return rec->size;
+        }
     }
 
     public static int StringLength(IntPtr str)
@@ -405,35 +430,43 @@ public class VirtualMachine
 
         unsafe
         {
-            var rec = (StringRec*) (str - STRING_REC_SIZE).ToPointer();
-            return rec->len;
+            var rec = (ObjectRec*) (str - OBJECT_REC_SIZE).ToPointer();
+            return rec->size - 1;
         }
     }
 
-    public IntPtr SetStringLength(IntPtr str, int len)
+    public static int DynamicArrayLength(IntPtr arr, int sizeOfElement)
     {
-        if (str == IntPtr.Zero)
-            return NewString(len);
+        int len = ObjectSize(arr);
+        len /= sizeOfElement;
+        return len;
+    }
+
+    public IntPtr SetDynamicArrayLength(IntPtr arr, int len, int sizeOfElement, bool zeroMemory = true)
+    {
+        if (arr == IntPtr.Zero)
+            return NewDynamicArray(len, sizeOfElement, zeroMemory);
 
         try
         {
-            int oldSize = STRING_REC_SIZE + (StringLength(str) + 1) * sizeof(char);
-            int newSize = STRING_REC_SIZE + (len + 1) * sizeof(char);
+            int oldSize = OBJECT_REC_SIZE + ObjectSize(arr);
+            int newSize = OBJECT_REC_SIZE + len * sizeOfElement;
 
-            str = Marshal.ReAllocHGlobal(str - STRING_REC_SIZE, (IntPtr) newSize);
-            str += STRING_REC_SIZE;
+            arr = Marshal.ReAllocHGlobal(arr - OBJECT_REC_SIZE, (IntPtr) newSize);
+            arr += OBJECT_REC_SIZE;
 
             unsafe
             {
-                var rec = (StringRec*) (str - STRING_REC_SIZE).ToPointer();
-                rec->len = len;
+                var rec = (ObjectRec*) (arr - OBJECT_REC_SIZE).ToPointer();
+                rec->size = len;
             }
 
-            WritePointer(str + len * sizeof(char), '\0');
+            if (zeroMemory && newSize > oldSize)
+                KernelZeroMemory(arr + oldSize, newSize - oldSize);
 
-            AllocatedStringSize -= oldSize;
-            AllocatedStringSize += newSize;
-            return str;
+            AllocatedObjectSize -= oldSize;
+            AllocatedObjectSize += newSize;
+            return arr;
         }
         catch (OutOfMemoryException)
         {
@@ -442,37 +475,50 @@ public class VirtualMachine
         return IntPtr.Zero;
     }
 
-    public static void StringAddRef(IntPtr str)
+    public IntPtr SetStringLength(IntPtr str, int len)
     {
-        if (str != IntPtr.Zero)
+        if (str == IntPtr.Zero)
+            return NewString(len);
+
+        str = SetDynamicArrayLength(str, len + 1, sizeof(char), false);
+        if (str == IntPtr.Zero)
+            return IntPtr.Zero;
+
+        WritePointer(str + len * sizeof(char), '\0');
+        return str;
+    }
+
+    public static void ObjectAddRef(IntPtr obj)
+    {
+        if (obj != IntPtr.Zero)
         {
             unsafe
             {
-                var rec = (StringRec*) (str - STRING_REC_SIZE).ToPointer();
+                var rec = (ObjectRec*) (obj - OBJECT_REC_SIZE).ToPointer();
                 rec->refCount++;
             }
         }
     }
 
-    public IntPtr StringRelease(IntPtr str)
+    public IntPtr ObjectRelease(IntPtr obj)
     {
-        if (str == IntPtr.Zero)
+        if (obj == IntPtr.Zero)
             return IntPtr.Zero;
 
         unsafe
         {
-            var rec = (StringRec*) (str - STRING_REC_SIZE).ToPointer();
+            var rec = (ObjectRec*) (obj - OBJECT_REC_SIZE).ToPointer();
             rec->refCount--;
 
             if (rec->refCount <= 0)
             {
-                int size = STRING_REC_SIZE + (StringLength(str) + 1) * sizeof(char);
+                int size = OBJECT_REC_SIZE + ObjectSize(obj);
 
                 IntPtr previous = rec->previous;
-                var previousRec = (StringRec*) (previous - STRING_REC_SIZE).ToPointer();
+                var previousRec = (ObjectRec*) (previous - OBJECT_REC_SIZE).ToPointer();
 
                 IntPtr next = rec->next;
-                var nextRec = (StringRec*) (next - STRING_REC_SIZE).ToPointer();
+                var nextRec = (ObjectRec*) (next - OBJECT_REC_SIZE).ToPointer();
 
                 if (previous != IntPtr.Zero)
                     previousRec->next = next;
@@ -480,47 +526,59 @@ public class VirtualMachine
                 if (next != IntPtr.Zero)
                     nextRec->previous = previous;
 
-                if (str == LastString)
-                    LastString = previous;
+                if (obj == LastObject)
+                    LastObject = previous;
 
-                Marshal.FreeHGlobal(str - STRING_REC_SIZE);
-                AllocatedStringSize -= size;
+                Marshal.FreeHGlobal(obj - OBJECT_REC_SIZE);
+                AllocatedObjectSize -= size;
                 return IntPtr.Zero;
             }
         }
 
-        return str;
+        return obj;
     }
 
-    public void StringArrayRelease(IntPtr ptr, int count, bool setNull = false)
+    public void ObjectArrayRelease(IntPtr ptr, int count, bool setNull = false)
     {
         unsafe
         {
             for (int i = 0; i < count; i++)
             {
-                IntPtr result = StringRelease(*(IntPtr*) (ptr + i * STRING_SIZE));
-                *(IntPtr*) (ptr + i * STRING_SIZE) = setNull ? IntPtr.Zero : result;
+                IntPtr result = ObjectRelease(*(IntPtr*) (ptr + i * OBJECT_SIZE));
+                *(IntPtr*) (ptr + i * OBJECT_SIZE) = setNull ? IntPtr.Zero : result;
             }
         }
     }
 
-    private void FreeAllocatedStrings()
+    private void FreeAllocatedObjects()
     {
-        while (LastString != IntPtr.Zero)
+        while (LastObject != IntPtr.Zero)
         {
-            IntPtr str = LastString - STRING_REC_SIZE;
-            LastString = ReadPointerPtr(str); // anterior
-            Marshal.FreeHGlobal(str);
+            IntPtr obj = LastObject - OBJECT_REC_SIZE;
+            LastObject = ReadPointerPtr(obj); // anterior
+            Marshal.FreeHGlobal(obj);
         }
 
-        LastString = IntPtr.Zero;
-        StringCount = 0;
-        AllocatedStringSize = 0;
+        LastObject = IntPtr.Zero;
+        ObjectCount = 0;
+        AllocatedObjectSize = 0;
     }
 
     public int GetIPFromLine(string fileName, int line)
     {
         return lineToIP.TryGetValue((fileName, line), out int ip) ? ip : -1;
+    }
+
+    public IPRange GetIPRangeFromSourceInterval(SourceInterval interval)
+    {
+        return GetIPRangeFromSourceInterval(interval.FileName, interval.FirstLine, interval.LastLine);
+    }
+
+    public IPRange GetIPRangeFromSourceInterval(string fileName, int firstLine, int lastLine)
+    {
+        int firstIP = GetIPFromLine(fileName, firstLine);
+        int lastIP = GetIPFromLine(fileName, lastLine);
+        return new IPRange(firstIP, lastIP);
     }
 
     public LineKey GetLineFromIP(int ip, bool exact = true)
@@ -539,14 +597,21 @@ public class VirtualMachine
 
     public void FetchDeclaredVariablesAtLine(string fileName, int lineNumber, List<Variable> result)
     {
+        int ip = GetIPFromLine(fileName, lineNumber);
+        if (ip != -1)
+            FetchDeclaredVariablesAtIP(ip, result);
+    }
+
+    public void FetchDeclaredVariablesAtIP(int ip, List<Variable> result)
+    {
         result.AddRange(globalVariables);
 
-        var function = GetFunctionAtLineNumber(fileName, lineNumber);
+        var function = GetFunctionAtIP(ip);
         if (function != null)
             result.AddRange(function.Parameters);
 
         foreach (var node in nodes)
-            node.FetchVariablesFromLine(fileName, lineNumber, result);
+            node.FetchVariables(ip, result);
     }
 
     public Function GetFunctionAtIP(int ip)
@@ -707,7 +772,7 @@ public class VirtualMachine
     public void AddExternalFunction(string functionName, int index, int paramSize)
     {
         if (externalFunctionMapByName.ContainsKey(functionName))
-            throw new Exception($"Função externa '{functionName}' já adicionada.");
+            throw new Exception($"Função esterna '{functionName}' já adicionada.");
 
         if (index >= externalFunctions.Count)
         {
@@ -1565,7 +1630,7 @@ public class VirtualMachine
         BP = SP;
         calls = 0;
 
-        FreeAllocatedStrings();
+        FreeAllocatedObjects();
         KernelZeroMemory(stack + initialSP, StackSize - initialSP);
 
         try
@@ -1671,7 +1736,7 @@ public class VirtualMachine
         }
         finally
         {
-            FreeAllocatedStrings();
+            FreeAllocatedObjects();
         }
     }
 
@@ -3212,7 +3277,7 @@ public class VirtualMachine
                 IntPtr str = NewString(value);
 
                 IntPtr dst = ReadPointerPtr(dstAddr);
-                StringRelease(dst);
+                ObjectRelease(dst);
 
                 WritePointer(dstAddr, str);
                 break;

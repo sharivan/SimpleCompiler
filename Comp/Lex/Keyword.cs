@@ -14,25 +14,42 @@ public class Keyword : Token
         "float",
         "real", // double
         "texto",
+
         // conversão de tipo
         "cast",
+
         // declarações
         "var",
+        "publico",
+        "protegido",
+        "privado",
         "função",
-        "externa",
+        "esterna",
         "estrutura",
+        "classe",
+        "interface",
+        "enum",
+        "união",
+        "estatico",
+        "dinamico",
+        "virtual",
+        "abstrato",
+        "sobreposto", // override
         "programa",
         "unidade",
         "usando",
+
         // leitura e escrita
         "leia",
         "escreva",
         "escrevaln",
-        // literais lógicos
+
+        // literais
         "verdade", // true
         "falso", // false
-        // literal nulo
+        "isto", // this
         "nulo", // null
+
         // estruturas de controle de fluxo
         "se", // if
         "senão", // else
@@ -40,7 +57,12 @@ public class Keyword : Token
         "para", // for
         "repita", // do
         "retorne", // return
-        "quebra" // break
+        "quebra", // break
+        "continue",
+        "lance", // throw
+        "tente", // try
+        "capture", // catch
+        "finalmente" // finally
     };
 
     public static bool IsKeyword(string s)

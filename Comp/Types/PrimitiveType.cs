@@ -285,7 +285,7 @@ public class PrimitiveType : AbstractType
         return false;
     }
 
-    internal override void EmitStringRelease(Context context, Compiler compiler, Assembler assembler, int offset, ReleaseType releaseType)
+    protected internal override void EmitStringRelease(Context context, Compiler compiler, Assembler assembler, int offset, ReleaseType releaseType)
     {
     }
 }

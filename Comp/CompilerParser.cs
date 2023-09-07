@@ -3,8 +3,6 @@
 using Comp.Lex;
 using Comp.Types;
 
-using SimpleCompiler.GUI;
-
 namespace Comp;
 
 public partial class Compiler
@@ -564,7 +562,7 @@ public partial class Compiler
         {
             Identifier id = lexer.NextIdentifier();
             string name = id.Name;
-            result = unity.FindStruct(name);
+            result = unity.FindFieldAggregation(name);
             if (result == null)
                 result = unity.AddUndeclaredType(name, id.Interval);
         }
@@ -637,7 +635,7 @@ public partial class Compiler
         }
     }
 
-    private void ParseFieldsDeclaration(StructType st)
+    private void ParseFieldsDeclaration(FieldAggregationType st)
     {
         while (true)
         {
@@ -697,10 +695,8 @@ public partial class Compiler
                 case "se":
                 {
                     lexer.NextSymbol("(");
-
                     Expression expression = ParseExpression();
-
-                    end = lexer.NextSymbol(")");
+                    lexer.NextSymbol(")");
 
                     Statement thenStatement = ParseStatement();
                     interval = interval.Merge(thenStatement.Interval);
@@ -898,11 +894,11 @@ public partial class Compiler
 
     private void ParseFunctionDeclaration()
     {
-        bool isExtern = lexer.NextKeyword("externa", false) != null;
+        bool isExtern = lexer.NextKeyword("esterna", false) != null;
 
         Identifier id = lexer.NextIdentifier();
         string name = id.Name;
-        Function f = unity.DeclareFunction(name, id.Interval, isExtern) ?? throw new CompilerException(id.Interval, $"Função '{name}' já declarada.");
+        Function f = unity.DeclareFunction(declaringType, name, id.Interval, isExtern) ?? throw new CompilerException(id.Interval, $"Função '{name}' já declarada.");
 
         lexer.NextSymbol("(");
         if (lexer.NextSymbol(")", false) == null)
@@ -937,7 +933,59 @@ public partial class Compiler
     {
         Identifier id = lexer.NextIdentifier();
         string name = id.Name;
-        StructType st = unity.DeclareStruct(name, id.Interval) ?? throw new CompilerException(id.Interval, $"Tipo nomeado '{name}' já declarado.");
+        StructType st = unity.DeclareStruct(name, id.Interval) ?? throw new CompilerException(id.Interval, $"Tipo '{name}' já declarado.");
+
+        lexer.NextSymbol("{");
+        if (lexer.NextSymbol("}", false) == null)
+            ParseFieldsDeclaration(st);
+    }
+
+    private void ParseClassDeclaration()
+    {
+        // TODO : Implementar
+
+        Identifier id = lexer.NextIdentifier();
+        string name = id.Name;
+        ClassType st = unity.DeclareClass(name, id.Interval) ?? throw new CompilerException(id.Interval, $"Tipo '{name}' já declarado.");
+
+        lexer.NextSymbol("{");
+        if (lexer.NextSymbol("}", false) == null)
+            ParseFieldsDeclaration(st);
+    }
+
+    private void ParseInterfaceDeclaration()
+    {
+        // TODO : Implementar
+
+        Identifier id = lexer.NextIdentifier();
+        string name = id.Name;
+        ClassType st = unity.DeclareClass(name, id.Interval) ?? throw new CompilerException(id.Interval, $"Tipo '{name}' já declarado.");
+
+        lexer.NextSymbol("{");
+        if (lexer.NextSymbol("}", false) == null)
+            ParseFieldsDeclaration(st);
+    }
+
+    private void ParseEnumDeclaration()
+    {
+        // TODO : Implementar
+
+        Identifier id = lexer.NextIdentifier();
+        string name = id.Name;
+        StructType st = unity.DeclareStruct(name, id.Interval) ?? throw new CompilerException(id.Interval, $"Tipo '{name}' já declarado.");
+
+        lexer.NextSymbol("{");
+        if (lexer.NextSymbol("}", false) == null)
+            ParseFieldsDeclaration(st);
+    }
+
+    private void ParseUnionDeclaration()
+    {
+        // TODO : Implementar
+
+        Identifier id = lexer.NextIdentifier();
+        string name = id.Name;
+        StructType st = unity.DeclareStruct(name, id.Interval) ?? throw new CompilerException(id.Interval, $"Tipo '{name}' já declarado.");
 
         lexer.NextSymbol("{");
         if (lexer.NextSymbol("}", false) == null)
@@ -1004,6 +1052,22 @@ public partial class Compiler
                 case "estrutura":
                     ParseStructDeclaration();
                     return true;
+
+                case "classe":
+                    ParseClassDeclaration();
+                    return true;
+
+                case "interface":
+                    ParseInterfaceDeclaration();
+                    return true;
+
+                case "enum":
+                    ParseEnumDeclaration();
+                    return true;
+
+                case "união":
+                    ParseUnionDeclaration();
+                    return true;
             }
 
             lexer.PreviusToken();
@@ -1012,7 +1076,7 @@ public partial class Compiler
         Symbol start = lexer.NextSymbol("{", false);
         if (start != null)
         {
-            Function f = unity.DeclareFunction("@main", start.Interval, false);
+            Function f = unity.DeclareFunction(null, "@main", start.Interval, false);
             unity.EntryPoint = f ?? throw new CompilerException(start.Interval, "Ponto de entrada já declarado.");
 
             f.CreateEntryLabel();
