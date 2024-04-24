@@ -19,7 +19,7 @@ public class ArrayType : AbstractType
     {
         this.type = type;
 
-        boundaries = new List<int>();
+        boundaries = [];
     }
 
     internal void AddBoundary(int boundary)
@@ -37,7 +37,7 @@ public class ArrayType : AbstractType
 
         if (obj is ArrayType a)
         {
-            AbstractType otherType = a.Type;
+            var otherType = a.Type;
             if (type != otherType)
                 return false;
 
@@ -147,7 +147,7 @@ public class ArrayType : AbstractType
     {
         if (type is StringType)
         {
-            Function f = compiler.unitySystem.FindFunction("DecrementaReferenciaArrayTexto");
+            var f = compiler.unitySystem.FindFunction("DecrementaReferenciaArrayTexto");
             int index = compiler.GetOrAddExternalFunction(f.Name, f.ParameterSize);
 
             switch (releaseType)
@@ -176,16 +176,16 @@ public class ArrayType : AbstractType
         }
         else if (type.ContainsString())
         {
-            Variable counter = context.DeclareTemporaryVariable(PrimitiveType.INT, context.Interval);
+            var counter = context.DeclareTemporaryVariable(PrimitiveType.INT, context.Interval);
             assembler.EmitLoadConst(0);
             compiler.CompileStore(assembler, null, counter, context.Interval);
 
-            Label lblLoop = compiler.CreateLabel();
+            var lblLoop = compiler.CreateLabel();
             assembler.BindLabel(lblLoop);
             compiler.CompileLoad(assembler, counter, context.Interval);
             assembler.EmitLoadConst(GetLength());
             assembler.EmitCompareLess();
-            Label lblEnd = compiler.CreateLabel();
+            var lblEnd = compiler.CreateLabel();
             assembler.EmitJumpIfFalse(lblEnd);
 
             switch (releaseType)

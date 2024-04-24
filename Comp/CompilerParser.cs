@@ -9,7 +9,7 @@ public partial class Compiler
 {
     private Expression ParsePrimaryExpression()
     {
-        Token token = lexer.NextToken() ?? throw new CompilerException(lexer.CurrentInterval(), "Fim do arquivo encontrado mas token esperado.");
+        var token = lexer.NextToken() ?? throw new CompilerException(lexer.CurrentInterval(), "Fim do arquivo encontrado mas token esperado.");
 
         switch (token)
         {
@@ -63,7 +63,7 @@ public partial class Compiler
 
                     do
                     {
-                        Expression parameter = ParseExpression();
+                        var parameter = ParseExpression();
                         result.AddParameter(parameter);
                     }
                     while (lexer.NextSymbol(",", false) != null);
@@ -81,7 +81,7 @@ public partial class Compiler
                 if (symbol.Value != "(")
                     throw new CompilerException(symbol.Interval, $"'(' esperado mas '{symbol.Value}' encontrado.");
 
-                Expression result = ParseExpression();
+                var result = ParseExpression();
 
                 lexer.NextSymbol(")");
 
@@ -94,11 +94,11 @@ public partial class Compiler
 
     private Expression ParsePostFixExpression()
     {
-        Expression operand = ParsePrimaryExpression();
+        var operand = ParsePrimaryExpression();
 
         while (true)
         {
-            Symbol symbol = lexer.NextSymbol(false);
+            var symbol = lexer.NextSymbol(false);
             if (symbol == null)
                 return operand;
 
@@ -114,7 +114,7 @@ public partial class Compiler
 
                 case ".":
                 {
-                    Identifier id = lexer.NextIdentifier();
+                    var id = lexer.NextIdentifier();
                     operand = new FieldAccessorExpression(operand.Interval.Merge(id.Interval), operand, id.Name);
                     break;
                 }
@@ -125,7 +125,7 @@ public partial class Compiler
                         throw new CompilerException(operand.Interval, "Índice de array esperado.");
 
                     ArrayAccessorExpression result = new(operand.Interval.Merge(symbol.Interval), operand);
-                    Expression indexer = ParseExpression();
+                    var indexer = ParseExpression();
                     result.AddIndexer(indexer);
 
                     while (lexer.NextSymbol(",", false) != null)
@@ -148,7 +148,7 @@ public partial class Compiler
 
     private Expression ParseUnaryExpression()
     {
-        Symbol symbol = lexer.NextSymbol(false);
+        var symbol = lexer.NextSymbol(false);
         if (symbol == null)
             return ParsePostFixExpression();
 
@@ -196,22 +196,22 @@ public partial class Compiler
         if (lexer.NextKeyword("cast", false) == null)
             return ParseUnaryExpression();
 
-        Symbol start = lexer.NextSymbol("<");
-        AbstractType type = ParseType();
+        var start = lexer.NextSymbol("<");
+        var type = ParseType();
         lexer.NextSymbol(">");
         lexer.NextSymbol("(");
-        Expression operand = ParseExpression();
-        Symbol end = lexer.NextSymbol(")");
+        var operand = ParseExpression();
+        var end = lexer.NextSymbol(")");
 
         return new CastExpression(start.Interval.Merge(end.Interval), type, operand);
     }
 
     private Expression ParseMultiplicativeExpression()
     {
-        Expression leftOperand = ParseCastExpression();
+        var leftOperand = ParseCastExpression();
         while (true)
         {
-            Symbol symbol = lexer.NextSymbol(false);
+            var symbol = lexer.NextSymbol(false);
             if (symbol == null)
                 return leftOperand;
 
@@ -242,10 +242,10 @@ public partial class Compiler
 
     private Expression ParseAdditiveExpression()
     {
-        Expression leftOperand = ParseMultiplicativeExpression();
+        var leftOperand = ParseMultiplicativeExpression();
         while (true)
         {
-            Symbol symbol = lexer.NextSymbol(false);
+            var symbol = lexer.NextSymbol(false);
             if (symbol == null)
                 return leftOperand;
 
@@ -271,9 +271,9 @@ public partial class Compiler
 
     private Expression ParseShiftExpression()
     {
-        Expression leftOperand = ParseAdditiveExpression();
+        var leftOperand = ParseAdditiveExpression();
 
-        Symbol symbol = lexer.NextSymbol(false);
+        var symbol = lexer.NextSymbol(false);
         if (symbol == null)
             return leftOperand;
 
@@ -299,9 +299,9 @@ public partial class Compiler
 
     private Expression ParseInequalityExpression()
     {
-        Expression leftOperand = ParseShiftExpression();
+        var leftOperand = ParseShiftExpression();
 
-        Symbol symbol = lexer.NextSymbol(false);
+        var symbol = lexer.NextSymbol(false);
         if (symbol == null)
             return leftOperand;
 
@@ -331,9 +331,9 @@ public partial class Compiler
 
     private Expression ParseEqualityExpression()
     {
-        Expression leftOperand = ParseInequalityExpression();
+        var leftOperand = ParseInequalityExpression();
 
-        Symbol symbol = lexer.NextSymbol(false);
+        var symbol = lexer.NextSymbol(false);
         if (symbol == null)
             return leftOperand;
 
@@ -355,87 +355,87 @@ public partial class Compiler
 
     private Expression ParseBitwiseAndExpression()
     {
-        Expression leftOperand = ParseEqualityExpression();
+        var leftOperand = ParseEqualityExpression();
         while (true)
         {
             if (lexer.NextSymbol("&", false) == null)
                 return leftOperand;
 
-            Expression rightOperand = ParseEqualityExpression();
+            var rightOperand = ParseEqualityExpression();
             leftOperand = new BinaryExpression(leftOperand.Interval.Merge(rightOperand.Interval), BinaryOperation.BITWISE_AND, leftOperand, rightOperand);
         }
     }
 
     private Expression ParseBitwiseXorExpression()
     {
-        Expression leftOperand = ParseBitwiseAndExpression();
+        var leftOperand = ParseBitwiseAndExpression();
         while (true)
         {
             if (lexer.NextSymbol("|", false) == null)
                 return leftOperand;
 
-            Expression rightOperand = ParseBitwiseAndExpression();
+            var rightOperand = ParseBitwiseAndExpression();
             leftOperand = new BinaryExpression(leftOperand.Interval.Merge(rightOperand.Interval), BinaryOperation.BITWISE_AND, leftOperand, rightOperand);
         }
     }
 
     private Expression ParseBitwiseOrExpression()
     {
-        Expression leftOperand = ParseBitwiseXorExpression();
+        var leftOperand = ParseBitwiseXorExpression();
         while (true)
         {
             if (lexer.NextSymbol("|", false) == null)
                 return leftOperand;
 
-            Expression rightOperand = ParseBitwiseXorExpression();
+            var rightOperand = ParseBitwiseXorExpression();
             leftOperand = new BinaryExpression(leftOperand.Interval.Merge(rightOperand.Interval), BinaryOperation.BITWISE_OR, leftOperand, rightOperand);
         }
     }
 
     private Expression ParseLogicalAndExpression()
     {
-        Expression leftOperand = ParseBitwiseOrExpression();
+        var leftOperand = ParseBitwiseOrExpression();
         while (true)
         {
             if (lexer.NextSymbol("&&", false) == null)
                 return leftOperand;
 
-            Expression rightOperand = ParseBitwiseOrExpression();
+            var rightOperand = ParseBitwiseOrExpression();
             leftOperand = new BinaryExpression(leftOperand.Interval.Merge(rightOperand.Interval), BinaryOperation.LOGICAL_AND, leftOperand, rightOperand);
         }
     }
 
     private Expression ParseLogicalXorExpression()
     {
-        Expression leftOperand = ParseLogicalAndExpression();
+        var leftOperand = ParseLogicalAndExpression();
         while (true)
         {
             if (lexer.NextSymbol("^^", false) == null)
                 return leftOperand;
 
-            Expression rightOperand = ParseLogicalAndExpression();
+            var rightOperand = ParseLogicalAndExpression();
             leftOperand = new BinaryExpression(leftOperand.Interval.Merge(rightOperand.Interval), BinaryOperation.LOGICAL_XOR, leftOperand, rightOperand);
         }
     }
 
     private Expression ParseLogicalOrExpression()
     {
-        Expression leftOperand = ParseLogicalXorExpression();
+        var leftOperand = ParseLogicalXorExpression();
         while (true)
         {
             if (lexer.NextSymbol("||", false) == null)
                 return leftOperand;
 
-            Expression rightOperand = ParseLogicalXorExpression();
+            var rightOperand = ParseLogicalXorExpression();
             leftOperand = new BinaryExpression(leftOperand.Interval.Merge(rightOperand.Interval), BinaryOperation.LOGICAL_OR, leftOperand, rightOperand);
         }
     }
 
     private Expression ParseExpression()
     {
-        Expression leftOperand = ParseLogicalOrExpression();
+        var leftOperand = ParseLogicalOrExpression();
 
-        Symbol symbol = lexer.NextSymbol(false);
+        var symbol = lexer.NextSymbol(false);
         if (symbol == null)
             return leftOperand;
 
@@ -500,11 +500,11 @@ public partial class Compiler
 
         if (lexer.NextSymbol("*", false) != null)
         {
-            AbstractType type = ParseType(true);
+            var type = ParseType(true);
             return new PointerType(type);
         }
 
-        Keyword kw = lexer.NextKeyword(false);
+        var kw = lexer.NextKeyword(false);
         if (kw != null)
         {
             switch (kw.Value)
@@ -560,7 +560,7 @@ public partial class Compiler
 
         if (result == null)
         {
-            Identifier id = lexer.NextIdentifier();
+            var id = lexer.NextIdentifier();
             string name = id.Name;
             result = unity.FindFieldAggregation(name);
             if (result == null)
@@ -582,7 +582,7 @@ public partial class Compiler
                 {
                     ArrayType a = new(result);
 
-                    NumericLiteral number = lexer.NextNumber();
+                    var number = lexer.NextNumber();
                     if (number is not IntLiteral n)
                         throw new CompilerException(number.Interval, "Literal inteiro esperado.");
 
@@ -623,10 +623,10 @@ public partial class Compiler
         {
             bool byRef = lexer.NextSymbol("&", false) != null;
 
-            Identifier id = lexer.NextIdentifier();
+            var id = lexer.NextIdentifier();
             string name = id.Name;
             lexer.NextSymbol(":");
-            AbstractType type = ParseType();
+            var type = ParseType();
 
             _ = function.DeclareParameter(name, type, id.Interval, byRef) ?? throw new CompilerException(id.Interval, $"Parâmetro '{name}' já declarado.");
 
@@ -639,10 +639,10 @@ public partial class Compiler
     {
         while (true)
         {
-            Identifier id = lexer.NextIdentifier();
+            var id = lexer.NextIdentifier();
             string name = id.Name;
             lexer.NextSymbol(":");
-            AbstractType type = ParseType();
+            var type = ParseType();
 
             _ = st.DeclareField(name, type, id.Interval) ?? throw new CompilerException(id.Interval, $"Campo '{name}' já declarado.");
 
@@ -657,11 +657,11 @@ public partial class Compiler
     {
         if (lexer.NextKeyword("var", false) != null)
         {
-            DeclarationStatement result = ParseVariableDeclaration();
+            var result = ParseVariableDeclaration();
             return result;
         }
 
-        Expression expr = ParseExpression();
+        var expr = ParseExpression();
         return new ExpressionStatement(expr.Interval, expr);
     }
 
@@ -672,14 +672,14 @@ public partial class Compiler
 
         if (lexer.NextSymbol("{", false) != null)
         {
-            BlockStatement result = ParseBlock();
+            var result = ParseBlock();
             return result;
         }
 
         Symbol end;
         SourceInterval interval;
 
-        Keyword kw = lexer.NextKeyword(false);
+        var kw = lexer.NextKeyword(false);
         if (kw != null)
         {
             interval = kw.Interval;
@@ -687,7 +687,7 @@ public partial class Compiler
             {
                 case "var":
                 {
-                    DeclarationStatement result = ParseVariableDeclaration();
+                    var result = ParseVariableDeclaration();
                     lexer.NextSymbol(";");
                     return result;
                 }
@@ -695,10 +695,10 @@ public partial class Compiler
                 case "se":
                 {
                     lexer.NextSymbol("(");
-                    Expression expression = ParseExpression();
+                    var expression = ParseExpression();
                     lexer.NextSymbol(")");
 
-                    Statement thenStatement = ParseStatement();
+                    var thenStatement = ParseStatement();
                     interval = interval.Merge(thenStatement.Interval);
 
                     Statement elseStatement = null;
@@ -723,7 +723,7 @@ public partial class Compiler
                     {
                         do
                         {
-                            InitializerStatement initializer = ParseInitializerStatement();
+                            var initializer = ParseInitializerStatement();
                             result.AddInitializer(initializer);
                         }
                         while (lexer.NextSymbol(",", false) != null);
@@ -734,7 +734,7 @@ public partial class Compiler
                     // expressão de controle
                     if (lexer.NextSymbol(";", false) == null)
                     {
-                        Expression expression = ParseExpression();
+                        var expression = ParseExpression();
                         result.Expression = expression;
 
                         lexer.NextSymbol(";");
@@ -745,7 +745,7 @@ public partial class Compiler
                     {
                         do
                         {
-                            Expression updater = ParseExpression();
+                            var updater = ParseExpression();
                             result.AddUpdater(updater);
                         }
                         while (lexer.NextSymbol(",", false) != null);
@@ -753,7 +753,7 @@ public partial class Compiler
                         lexer.NextSymbol(")");
                     }
 
-                    Statement statement = ParseStatement();
+                    var statement = ParseStatement();
                     result.Statement = statement;
 
                     result.Interval = result.Interval.Merge(statement.Interval);
@@ -763,19 +763,19 @@ public partial class Compiler
                 case "enquanto":
                 {
                     lexer.NextSymbol("(");
-                    Expression expression = ParseExpression();
+                    var expression = ParseExpression();
                     end = lexer.NextSymbol(")");
-                    Statement statement = ParseStatement();
+                    var statement = ParseStatement();
 
                     return new WhileStatement(interval.Merge(end.Interval), expression, statement);
                 }
 
                 case "repita":
                 {
-                    Statement statement = ParseStatement();
+                    var statement = ParseStatement();
                     lexer.NextKeyword("enquanto");
                     lexer.NextSymbol("(");
-                    Expression expression = ParseExpression();
+                    var expression = ParseExpression();
                     end = lexer.NextSymbol(")");
 
                     interval = interval.Merge(statement.Interval).Merge(end.Interval);
@@ -789,7 +789,7 @@ public partial class Compiler
                     if (lexer.NextSymbol(";", false) != null)
                         throw new CompilerException(lexer.CurrentInterval(), "Expressão esperada.");
 
-                    Expression expression = ParseExpression();
+                    var expression = ParseExpression();
                     result.AddExpression(expression);
 
                     while (lexer.NextSymbol(",", false) != null)
@@ -814,7 +814,7 @@ public partial class Compiler
                         return result.LineBreak ? (Statement) result : throw new CompilerException(lexer.CurrentInterval(), "Expressão esperada.");
                     }
 
-                    Expression expression = ParseExpression();
+                    var expression = ParseExpression();
                     result.AddExpression(expression);
 
                     while (lexer.NextSymbol(",", false) != null)
@@ -855,7 +855,7 @@ public partial class Compiler
             lexer.PreviusToken();
         }
 
-        Expression expr = ParseExpression();
+        var expr = ParseExpression();
         end = lexer.NextSymbol(";");
 
         interval = expr.Interval.Merge(end.Interval);
@@ -868,7 +868,7 @@ public partial class Compiler
 
         while (lexer.NextSymbol("}", false) == null)
         {
-            Statement statement = ParseStatement();
+            var statement = ParseStatement();
             result.AddStatement(statement);
         }
 
@@ -878,10 +878,10 @@ public partial class Compiler
 
     private DeclarationStatement ParseVariableDeclaration(bool allowInitializer = true)
     {
-        Identifier id = lexer.NextIdentifier();
+        var id = lexer.NextIdentifier();
         string name = id.Name;
         lexer.NextSymbol(":");
-        AbstractType type = ParseType();
+        var type = ParseType();
 
         Expression initializer = null;
         if (allowInitializer && lexer.NextSymbol("=", false) != null)
@@ -896,9 +896,9 @@ public partial class Compiler
     {
         bool isExtern = lexer.NextKeyword("esterna", false) != null;
 
-        Identifier id = lexer.NextIdentifier();
+        var id = lexer.NextIdentifier();
         string name = id.Name;
-        Function f = unity.DeclareFunction(declaringType, name, id.Interval, isExtern) ?? throw new CompilerException(id.Interval, $"Função '{name}' já declarada.");
+        var f = unity.DeclareFunction(declaringType, name, id.Interval, isExtern) ?? throw new CompilerException(id.Interval, $"Função '{name}' já declarada.");
 
         lexer.NextSymbol("(");
         if (lexer.NextSymbol(")", false) == null)
@@ -909,7 +909,7 @@ public partial class Compiler
 
         if (lexer.NextSymbol(":", false) != null)
         {
-            AbstractType type = ParseType();
+            var type = ParseType();
             f.ReturnType = type;
         }
 
@@ -931,9 +931,9 @@ public partial class Compiler
 
     private void ParseStructDeclaration()
     {
-        Identifier id = lexer.NextIdentifier();
+        var id = lexer.NextIdentifier();
         string name = id.Name;
-        StructType st = unity.DeclareStruct(name, id.Interval) ?? throw new CompilerException(id.Interval, $"Tipo '{name}' já declarado.");
+        var st = unity.DeclareStruct(name, id.Interval) ?? throw new CompilerException(id.Interval, $"Tipo '{name}' já declarado.");
 
         lexer.NextSymbol("{");
         if (lexer.NextSymbol("}", false) == null)
@@ -944,9 +944,9 @@ public partial class Compiler
     {
         // TODO : Implementar
 
-        Identifier id = lexer.NextIdentifier();
+        var id = lexer.NextIdentifier();
         string name = id.Name;
-        ClassType st = unity.DeclareClass(name, id.Interval) ?? throw new CompilerException(id.Interval, $"Tipo '{name}' já declarado.");
+        var st = unity.DeclareClass(name, id.Interval) ?? throw new CompilerException(id.Interval, $"Tipo '{name}' já declarado.");
 
         lexer.NextSymbol("{");
         if (lexer.NextSymbol("}", false) == null)
@@ -957,9 +957,9 @@ public partial class Compiler
     {
         // TODO : Implementar
 
-        Identifier id = lexer.NextIdentifier();
+        var id = lexer.NextIdentifier();
         string name = id.Name;
-        ClassType st = unity.DeclareClass(name, id.Interval) ?? throw new CompilerException(id.Interval, $"Tipo '{name}' já declarado.");
+        var st = unity.DeclareClass(name, id.Interval) ?? throw new CompilerException(id.Interval, $"Tipo '{name}' já declarado.");
 
         lexer.NextSymbol("{");
         if (lexer.NextSymbol("}", false) == null)
@@ -970,9 +970,9 @@ public partial class Compiler
     {
         // TODO : Implementar
 
-        Identifier id = lexer.NextIdentifier();
+        var id = lexer.NextIdentifier();
         string name = id.Name;
-        StructType st = unity.DeclareStruct(name, id.Interval) ?? throw new CompilerException(id.Interval, $"Tipo '{name}' já declarado.");
+        var st = unity.DeclareStruct(name, id.Interval) ?? throw new CompilerException(id.Interval, $"Tipo '{name}' já declarado.");
 
         lexer.NextSymbol("{");
         if (lexer.NextSymbol("}", false) == null)
@@ -983,9 +983,9 @@ public partial class Compiler
     {
         // TODO : Implementar
 
-        Identifier id = lexer.NextIdentifier();
+        var id = lexer.NextIdentifier();
         string name = id.Name;
-        StructType st = unity.DeclareStruct(name, id.Interval) ?? throw new CompilerException(id.Interval, $"Tipo '{name}' já declarado.");
+        var st = unity.DeclareStruct(name, id.Interval) ?? throw new CompilerException(id.Interval, $"Tipo '{name}' já declarado.");
 
         lexer.NextSymbol("{");
         if (lexer.NextSymbol("}", false) == null)
@@ -994,7 +994,7 @@ public partial class Compiler
 
     private void AddImport(SourceInterval interval, string unityName)
     {
-        CompilationUnity.ImportResult r = unity.AddImport(unityName, out _);
+        var r = unity.AddImport(unityName, out _);
         switch (r)
         {
             case CompilationUnity.ImportResult.SELF_REFERENCE_UNITY:
@@ -1013,14 +1013,14 @@ public partial class Compiler
 
     private bool ParseDeclaration(bool endsWithBraces = true)
     {
-        Keyword kw = lexer.NextKeyword(false);
+        var kw = lexer.NextKeyword(false);
         if (kw != null)
         {
             switch (kw.Value)
             {
                 case "usando":
                 {
-                    Identifier id = lexer.NextIdentifier();
+                    var id = lexer.NextIdentifier();
                     AddImport(id.Interval, id.Name);
 
                     while (lexer.NextSymbol(",", false) != null)
@@ -1036,7 +1036,7 @@ public partial class Compiler
 
                 case "var":
                 {
-                    DeclarationStatement declaration = ParseVariableDeclaration(false);
+                    var declaration = ParseVariableDeclaration(false);
                     var (name, _) = declaration[0];
 
                     _ = unity.DeclareGlobalVariable(name, declaration.Type, declaration.Interval) ?? throw new CompilerException(declaration.Interval, $"Variável global '{name}' já declarada.");
@@ -1073,10 +1073,10 @@ public partial class Compiler
             lexer.PreviusToken();
         }
 
-        Symbol start = lexer.NextSymbol("{", false);
+        var start = lexer.NextSymbol("{", false);
         if (start != null)
         {
-            Function f = unity.DeclareFunction(null, "@main", start.Interval, false);
+            var f = unity.DeclareFunction(null, "@main", start.Interval, false);
             unity.EntryPoint = f ?? throw new CompilerException(start.Interval, "Ponto de entrada já declarado.");
 
             f.CreateEntryLabel();
@@ -1107,8 +1107,8 @@ public partial class Compiler
 
     private CompilationUnity ParseCompilationUnity(string fileName, TextReader input, bool programOnly = false)
     {
-        CompilationUnity oldUnity = unity;
-        Lexer oldLexer = lexer;
+        var oldUnity = unity;
+        var oldLexer = lexer;
 
         using (lexer = Lexer.CreateFromReader(fileName, input))
         {
@@ -1128,7 +1128,7 @@ public partial class Compiler
                 throw new CompilerException(lexer.CurrentInterval(), "Não pode haver mais que um programa.");
             }
 
-            Identifier id = lexer.NextIdentifier();
+            var id = lexer.NextIdentifier();
             string name = id.Name;
 
             unity = new CompilationUnity(this, name, fileName, isUnity)
@@ -1157,14 +1157,14 @@ public partial class Compiler
             {
             }
 
-            Token token = lexer.NextToken();
+            var token = lexer.NextToken();
             if (token != null)
                 throw new CompilerException(token.Interval, $"Fim do arquivo esperado mas {token} encontrado.");
 
             globalVariableOffset += unity.GlobalVariableSize;
         }
 
-        CompilationUnity result = unity;
+        var result = unity;
         lexer = oldLexer;
         unity = oldUnity;
         return result;
@@ -1174,9 +1174,9 @@ public partial class Compiler
     private void ParseCompilationUnity(CompilationUnity unity)
 #pragma warning restore IDE0051 // Remover membros privados não utilizados
     {
-        CompilationUnity oldUnity = this.unity;
+        var oldUnity = this.unity;
         this.unity = unity;
-        Lexer oldLexer = lexer;
+        var oldLexer = lexer;
         unity.parsed = true;
 
         using (lexer = Lexer.CreateFromFile(unity.FileName))
@@ -1184,7 +1184,7 @@ public partial class Compiler
             if (lexer.NextKeyword("unidade", false) == null)
                 throw new CompilerException(lexer.CurrentInterval(), "'unidade' esperado.");
 
-            Identifier id = lexer.NextIdentifier();
+            var id = lexer.NextIdentifier();
             string name = id.Name;
 
             if (unity.Name != name)
@@ -1205,7 +1205,7 @@ public partial class Compiler
             {
             }
 
-            Token token = lexer.NextToken();
+            var token = lexer.NextToken();
             if (token != null)
                 throw new CompilerException(token.Interval, $"Fim do arquivo esperado mas {token} encontrado.");
 

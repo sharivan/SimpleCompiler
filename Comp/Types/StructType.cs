@@ -15,7 +15,7 @@ public class StructType : FieldAggregationType
         foreach (var field in fields)
         {
             field.Resolve();
-            AbstractType type = field.Type;
+            var type = field.Type;
 
             switch (type)
             {
@@ -54,7 +54,7 @@ public class StructType : FieldAggregationType
     {
         string result = "estrutura " + Name + "\n{\n";
 
-        foreach (Field field in fields)
+        foreach (var field in fields)
             result += "  " + field + "\n";
 
         return result + "}";

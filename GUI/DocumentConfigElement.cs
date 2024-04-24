@@ -49,4 +49,14 @@ public sealed class DocumentConfigElement : ConfigurationElement
         get => (bool) this["focused"];
         set => this["focused"] = value;
     }
+
+    [ConfigurationProperty("zoom",
+        IsRequired = false,
+        DefaultValue = 1.0
+        )]
+    public double Zoom
+    {
+        get => (double) this["zoom"];
+        set => this["zoom"] = value;
+    }
 }

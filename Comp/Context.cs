@@ -68,9 +68,9 @@ public class Context
 
     private void Initalize()
     {
-        variables = new List<Variable>();
-        temporaryVariables = new List<LocalVariable>();
-        variableTable = new Dictionary<string, Variable>();
+        variables = [];
+        temporaryVariables = [];
+        variableTable = [];
         breakLabels = new Stack<Label>();
 
         offset = 0;
@@ -86,7 +86,7 @@ public class Context
 
     internal Variable DeclareVariable(string name, AbstractType type, SourceInterval interval, bool recursive = true)
     {
-        if (variableTable.TryGetValue(name, out Variable result))
+        if (variableTable.TryGetValue(name, out var result))
             return result;
 
         if (recursive && Parent != null && Parent.FindVariable(name, true) != null)
@@ -128,7 +128,7 @@ public class Context
             }
         }
 
-        Variable tempVar2 = DeclareTemporaryVariable(type, interval);
+        var tempVar2 = DeclareTemporaryVariable(type, interval);
         tempVar2.Acquired = true;
         return tempVar2;
     }
@@ -144,7 +144,7 @@ public class Context
 
     public Variable FindVariable(string name, bool recursive = true)
     {
-        return variableTable.TryGetValue(name, out Variable result)
+        return variableTable.TryGetValue(name, out var result)
             ? result
             : recursive && Parent != null ? Parent.FindVariable(name, true) : null;
     }
@@ -168,7 +168,7 @@ public class Context
     {
         assembler.AddLine(Interval.FileName, Interval.LastLine);
 
-        Compiler comp = Unity.Compiler;
+        var comp = Unity.Compiler;
         for (int i = 0; i < variables.Count; i++)
         {
             var v = variables[i];
@@ -183,7 +183,7 @@ public class Context
                 releaseType = AbstractType.ReleaseType.GLOBAL;
             }
 
-            AbstractType type = v.Type;
+            var type = v.Type;
             type.EmitStringRelease(this, comp, assembler, v.Offset, releaseType);
         }
     }

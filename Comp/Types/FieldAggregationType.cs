@@ -21,7 +21,7 @@ public abstract class FieldAggregationType : NamedType
     {
         FieldAlignSize = fieldAlignSize;
 
-        fields = new List<Field>();
+        fields = [];
 
         size = 0;
     }
@@ -30,7 +30,7 @@ public abstract class FieldAggregationType : NamedType
     {
         for (int i = 0; i < fields.Count; i++)
         {
-            Field field = fields[i];
+            var field = fields[i];
             if (field.Name == name)
                 return field;
         }
@@ -40,7 +40,7 @@ public abstract class FieldAggregationType : NamedType
 
     internal Field DeclareField(string name, AbstractType type, SourceInterval interval)
     {
-        Field result = FindField(name);
+        var result = FindField(name);
         if (result != null)
             return null;
 

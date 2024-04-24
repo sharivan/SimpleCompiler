@@ -95,19 +95,19 @@ public class CompilationUnity
         FileName = fileName;
         IsUnity = isUnity;
 
-        imports = new();
-        importTable = new();
-        globals = new();
-        globalTable = new();
-        fieldAggregations = new();
-        fieldAggregationTable = new();
-        typeSets = new();
-        typeSetTable = new();
-        functions = new();
-        functionTable = new();
-        stringTable = new();
-        undeclaredTypes = new();
-        undeclaredTypeTable = new();
+        imports = [];
+        importTable = [];
+        globals = [];
+        globalTable = [];
+        fieldAggregations = [];
+        fieldAggregationTable = [];
+        typeSets = [];
+        typeSetTable = [];
+        functions = [];
+        functionTable = [];
+        stringTable = [];
+        undeclaredTypes = [];
+        undeclaredTypeTable = [];
 
         GlobalVariableSize = 0;
         EntryPoint = null;
@@ -117,7 +117,7 @@ public class CompilationUnity
 
     internal ImportResult AddImport(string unityName, out CompilationUnity result)
     {
-        CompilationUnity unity = Compiler.OpenUnity(unityName);
+        var unity = Compiler.OpenUnity(unityName);
         if (unity == null)
         {
             result = null;
@@ -153,7 +153,7 @@ public class CompilationUnity
 
     public CompilationUnity GetImport(string name)
     {
-        return importTable.TryGetValue(name, out CompilationUnity result) ? result : null;
+        return importTable.TryGetValue(name, out var result) ? result : null;
     }
 
     public int GetStringOffset(string value)
@@ -170,12 +170,12 @@ public class CompilationUnity
 
     public GlobalVariable FindGlobalVariable(string name, bool searchInImports = true)
     {
-        if (globalTable.TryGetValue(name, out GlobalVariable result))
+        if (globalTable.TryGetValue(name, out var result))
             return result;
 
         if (searchInImports)
         {
-            foreach (CompilationUnity unity in imports)
+            foreach (var unity in imports)
             {
                 result = unity.FindGlobalVariable(name, false);
                 if (result != null)
@@ -193,7 +193,7 @@ public class CompilationUnity
 
     internal GlobalVariable DeclareGlobalVariable(string name, AbstractType type, SourceInterval interval)
     {
-        GlobalVariable result = FindGlobalVariable(name);
+        var result = FindGlobalVariable(name);
         if (result != null)
             return null;
 
@@ -205,7 +205,7 @@ public class CompilationUnity
 
     internal GlobalVariable DeclareGlobalVariable(string name, AbstractType type, SourceInterval interval, object initialValue)
     {
-        GlobalVariable result = FindGlobalVariable(name);
+        var result = FindGlobalVariable(name);
         if (result != null)
             return null;
 
@@ -218,12 +218,12 @@ public class CompilationUnity
 
     public FieldAggregationType FindFieldAggregation(string name, bool searchInImports = true)
     {
-        if (fieldAggregationTable.TryGetValue(name, out FieldAggregationType result))
+        if (fieldAggregationTable.TryGetValue(name, out var result))
             return result;
 
         if (searchInImports)
         {
-            foreach (CompilationUnity unity in imports)
+            foreach (var unity in imports)
             {
                 result = unity.FindFieldAggregation(name, false);
                 if (result != null)
@@ -241,7 +241,7 @@ public class CompilationUnity
 
     internal StructType DeclareStruct(string name, SourceInterval interval)
     {
-        NamedType nt = FindNamedType(name);
+        var nt = FindNamedType(name);
         if (nt != null)
             return null;
 
@@ -253,7 +253,7 @@ public class CompilationUnity
 
     internal ClassType DeclareClass(string name, SourceInterval interval)
     {
-        NamedType nt = FindNamedType(name);
+        var nt = FindNamedType(name);
         if (nt != null)
             return null;
 
@@ -265,12 +265,12 @@ public class CompilationUnity
 
     public TypeSetType FindTypeSet(string name, bool searchInImports = true)
     {
-        if (typeSetTable.TryGetValue(name, out TypeSetType result))
+        if (typeSetTable.TryGetValue(name, out var result))
             return result;
 
         if (searchInImports)
         {
-            foreach (CompilationUnity unity in imports)
+            foreach (var unity in imports)
             {
                 result = unity.FindTypeSet(name, false);
                 if (result != null)
@@ -288,7 +288,7 @@ public class CompilationUnity
 
     internal TypeSetType DeclareTypeSet(string name, AbstractType type, SourceInterval interval)
     {
-        NamedType nt = FindNamedType(name);
+        var nt = FindNamedType(name);
         if (nt != null)
             return null;
 
@@ -300,18 +300,18 @@ public class CompilationUnity
 
     public NamedType FindNamedType(string name)
     {
-        FieldAggregationType st = FindFieldAggregation(name);
+        var st = FindFieldAggregation(name);
         return st != null ? st : FindTypeSet(name);
     }
 
     public Function FindFunction(string name, bool searchInImports = true)
     {
-        if (functionTable.TryGetValue(name, out Function result))
+        if (functionTable.TryGetValue(name, out var result))
             return result;
 
         if (searchInImports)
         {
-            foreach (CompilationUnity unity in imports)
+            foreach (var unity in imports)
             {
                 result = unity.FindFunction(name, false);
                 if (result != null)
@@ -324,7 +324,7 @@ public class CompilationUnity
 
     internal Function DeclareFunction(FieldAggregationType declaringType, string name, SourceInterval interval, bool isExtern)
     {
-        Function result = FindFunction(name);
+        var result = FindFunction(name);
         if (result != null)
             return null;
 
@@ -336,12 +336,12 @@ public class CompilationUnity
 
     internal UnresolvedType FindUndeclaredType(string name)
     {
-        return undeclaredTypeTable.TryGetValue(name, out UnresolvedType result) ? result : null;
+        return undeclaredTypeTable.TryGetValue(name, out var result) ? result : null;
     }
 
     internal UnresolvedType AddUndeclaredType(string name, SourceInterval interval)
     {
-        UnresolvedType result = FindUndeclaredType(name);
+        var result = FindUndeclaredType(name);
         if (result != null)
             return result;
 
@@ -384,28 +384,28 @@ public class CompilationUnity
 
     internal void Resolve()
     {
-        foreach (UnresolvedType type in undeclaredTypes)
+        foreach (var type in undeclaredTypes)
         {
-            FieldAggregationType st = FindFieldAggregation(type.Name);
+            var st = FindFieldAggregation(type.Name);
 
             type.ReferencedType = st ?? throw new CompilerException(type.Interval, $"Tipo não declarado: '{type.Name}'.");
         }
 
-        foreach (FieldAggregationType st in fieldAggregations)
+        foreach (var st in fieldAggregations)
             st.Resolve();
 
-        foreach (TypeSetType ts in typeSets)
+        foreach (var ts in typeSets)
             ts.Resolve();
 
         GlobalVariableSize = 0;
-        foreach (GlobalVariable global in globals)
+        foreach (var global in globals)
         {
             global.Resolve();
             global.Offset = GlobalVariableSize;
             GlobalVariableSize += Compiler.GetAlignedSize(global.Type.Size);
         }
 
-        foreach (Function function in functions)
+        foreach (var function in functions)
             function.Resolve();
 
         undeclaredTypes.Clear();
@@ -417,8 +417,8 @@ public class CompilationUnity
         Context context = new(this, Interval);
         for (int i = 0; i < globals.Count; i++)
         {
-            GlobalVariable g = globals[i];
-            AbstractType type = g.Type;
+            var g = globals[i];
+            var type = g.Type;
             type.EmitStringRelease(context, Compiler, assembler, GlobalStartOffset + g.Offset, AbstractType.ReleaseType.GLOBAL);
         }
     }

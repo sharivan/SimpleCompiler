@@ -21,13 +21,13 @@ public class Label
         bindedAssembler = null;
         bindedIP = -1;
 
-        references = new List<(Assembler, int)>();
+        references = [];
     }
 
     private void UpdateReference(Assembler assembler, int index)
     {
-        (Assembler, int) reference = references[index];
-        Assembler referenceAssembler = reference.Item1;
+        var reference = references[index];
+        var referenceAssembler = reference.Item1;
         if (assembler != referenceAssembler)
             return;
 

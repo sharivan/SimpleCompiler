@@ -52,7 +52,7 @@ public class StringType : AbstractType
 
     protected internal override void EmitStringRelease(Context context, Compiler compiler, Assembler assembler, int offset, ReleaseType releaseType)
     {
-        Function f = compiler.unitySystem.FindFunction("DecrementaReferenciaTexto");
+        var f = compiler.unitySystem.FindFunction("DecrementaReferenciaTexto");
         int index = compiler.GetOrAddExternalFunction(f.Name, f.ParameterSize);
 
         switch (releaseType)

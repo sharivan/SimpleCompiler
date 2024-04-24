@@ -48,11 +48,11 @@ public partial class Compiler
 
         UnityPath = unityPath;
 
-        labels = new List<Label>();
-        units = new List<CompilationUnity>();
-        unityTable = new Dictionary<string, CompilationUnity>();
-        externalFunctions = new List<(string, int)>();
-        externalFunctionMap = new Dictionary<string, int>();
+        labels = [];
+        units = [];
+        unityTable = [];
+        externalFunctions = [];
+        externalFunctionMap = [];
 
         unity = null;
         declaringType = null;
@@ -326,7 +326,7 @@ public partial class Compiler
                         if (fptr.Type == null)
                             return;
 
-                        AbstractType otherType = tptr.Type;
+                        var otherType = tptr.Type;
                         if (!isExplicit && !PrimitiveType.IsPrimitiveVoid(otherType) && fptr.Type != otherType)
                             throw new CompilerException(interval, $"O tipo '{fromType}' não pode ser convertido implicitamente para o tipo '{toType}'.");
 
@@ -335,7 +335,7 @@ public partial class Compiler
 
                     case StringType:
                     {
-                        AbstractType type = fptr.Type ?? throw new CompilerException(interval, "Não é permitido atribuir um ponteiro nulo para uma string.");
+                        var type = fptr.Type ?? throw new CompilerException(interval, "Não é permitido atribuir um ponteiro nulo para uma string.");
 
                         if (!PrimitiveType.IsPrimitiveChar(type))
                             throw new CompilerException(interval, $"Não é permitido atribuir um pointeiro do tipo '{type}' para uma string.");
@@ -343,7 +343,7 @@ public partial class Compiler
                         tempVar = context.AcquireTemporaryVariable(StringType.STRING, interval);
                         beforeCastAssembler.EmitLoadLocalHostAddress(tempVar.Offset);
 
-                        Function f = unitySystem.FindFunction("NovoTexto2");
+                        var f = unitySystem.FindFunction("NovoTexto2");
                         int index = GetOrAddExternalFunction(f.Name, f.ParameterSize);
                         assembler.EmitExternCall(index);
 
@@ -362,7 +362,7 @@ public partial class Compiler
                 {
                     case PointerType tptr:
                     {
-                        AbstractType otherType = tptr.Type;
+                        var otherType = tptr.Type;
                         if (PrimitiveType.IsPrimitiveChar(otherType))
                             return;
 
@@ -398,7 +398,7 @@ public partial class Compiler
             {
                 assembler.EmitLoadStackPtr();
 
-                Function f = unitySystem.FindFunction("DecrementaReferenciaString");
+                var f = unitySystem.FindFunction("DecrementaReferenciaString");
                 int index = GetOrAddExternalFunction(f.Name, f.ParameterSize);
                 assembler.EmitExternCall(index);
             }
@@ -409,7 +409,7 @@ public partial class Compiler
 
     private void CompileArrayIndexer(Context context, Assembler assembler, Expression indexer)
     {
-        AbstractType indexerType = CompileExpression(context, assembler, indexer, out _);
+        var indexerType = CompileExpression(context, assembler, indexer, out _);
 
         if (indexerType is PrimitiveType pt)
         {
@@ -433,8 +433,8 @@ public partial class Compiler
         {
             case ExpressionStatement e:
             {
-                Expression expression = e.Expression;
-                AbstractType type = CompileExpression(context, assembler, expression, out Variable tempVar);
+                var expression = e.Expression;
+                var type = CompileExpression(context, assembler, expression, out var tempVar);
                 CompilePop(assembler, type);
 
                 tempVar?.Release();
@@ -447,7 +447,7 @@ public partial class Compiler
 
             case ReturnStatement r:
             {
-                Expression expr = r.Expression;
+                var expr = r.Expression;
 
                 if (expr != null && PrimitiveType.IsPrimitiveVoid(function.ReturnType))
                     throw new CompilerException(expr.Interval, "A função não possui tipo de retorno.");
@@ -464,7 +464,7 @@ public partial class Compiler
                     Variable castTempVar;
                     if (function.ReturnType is PrimitiveType or PointerType or StringType)
                     {
-                        AbstractType returnType = CompileExpression(context, castAssembler, expr, out Variable tempVar);
+                        var returnType = CompileExpression(context, castAssembler, expr, out var tempVar);
                         CompileCast(context, castAssembler, beforeCastAssembler, returnType, function.ReturnType, false, expr.Interval, out castTempVar);
                         CompileStoreLocal(storeAssembler, beforeStoreAssembler, function.ReturnType, function.ReturnOffset, expr.Interval);
 
@@ -473,7 +473,7 @@ public partial class Compiler
                     else
                     {
                         storeAssembler.EmitLoadLocalResidentAddress(function.ReturnOffset);
-                        AbstractType returnType = CompileExpression(context, castAssembler, expr, out Variable tempVar);
+                        var returnType = CompileExpression(context, castAssembler, expr, out var tempVar);
                         CompileCast(context, castAssembler, beforeCastAssembler, returnType, function.ReturnType, false, expr.Interval, out castTempVar);
                         CompileStoreStack(storeAssembler, beforeStoreAssembler, function.ReturnType, expr.Interval);
 
@@ -494,7 +494,7 @@ public partial class Compiler
 
             case BreakStatement b:
             {
-                Label breakLabel = context.FindNearestBreakLabel() ?? throw new CompilerException(b.Interval, "Instrução 'quebra' deve estar dentro de um loop.");
+                var breakLabel = context.FindNearestBreakLabel() ?? throw new CompilerException(b.Interval, "Instrução 'quebra' deve estar dentro de um loop.");
 
                 assembler.EmitJump(breakLabel);
                 break;
@@ -502,9 +502,9 @@ public partial class Compiler
 
             case ReadStatement rd:
             {
-                foreach (Expression expr in rd)
+                foreach (var expr in rd)
                 {
-                    AbstractType exprType = CompileAssignableExpression(context, assembler, expr, out _, out _, true);
+                    var exprType = CompileAssignableExpression(context, assembler, expr, out _, out _, true);
                     switch (exprType)
                     {
                         case PrimitiveType p:
@@ -570,9 +570,9 @@ public partial class Compiler
 
             case PrintStatement p:
             {
-                foreach (Expression expr in p)
+                foreach (var expr in p)
                 {
-                    AbstractType exprType = CompileExpression(context, assembler, expr, out Variable tempVar, true);
+                    var exprType = CompileExpression(context, assembler, expr, out var tempVar, true);
                     switch (exprType)
                     {
                         case PrimitiveType pt:
@@ -644,23 +644,23 @@ public partial class Compiler
 
             case IfStatement i:
             {
-                Expression expression = i.Expression;
-                Statement thenStatement = i.ThenStatement;
-                Statement elseStatement = i.ElseStatement;
+                var expression = i.Expression;
+                var thenStatement = i.ThenStatement;
+                var elseStatement = i.ElseStatement;
 
-                AbstractType exprType = CompileExpression(context, assembler, expression, out Variable tempVar);
+                var exprType = CompileExpression(context, assembler, expression, out var tempVar);
 
                 if (!PrimitiveType.IsPrimitiveBool(exprType))
                     throw new CompilerException(expression.Interval, "Expressão do tipo bool experada.");
 
-                Label lblElse = CreateLabel();
+                var lblElse = CreateLabel();
                 assembler.EmitJumpIfFalse(lblElse);
 
                 tempVar?.Release();
 
                 CompileStatement(context, assembler, thenStatement);
 
-                Label lblEnd = CreateLabel();
+                var lblEnd = CreateLabel();
                 assembler.EmitJump(lblEnd);
 
                 assembler.BindLabel(lblElse);
@@ -673,15 +673,15 @@ public partial class Compiler
 
             case WhileStatement w:
             {
-                Expression expression = w.Expression;
-                Statement stm = w.Statement;
+                var expression = w.Expression;
+                var stm = w.Statement;
 
-                Label lblLoop = CreateLabel();
+                var lblLoop = CreateLabel();
                 assembler.BindLabel(lblLoop);
 
-                AbstractType exprType = CompileExpression(context, assembler, expression, out Variable tempVar);
+                var exprType = CompileExpression(context, assembler, expression, out var tempVar);
 
-                Label lblEnd = CreateLabel();
+                var lblEnd = CreateLabel();
                 context.PushBreakLabel(lblEnd);
 
                 assembler.EmitJumpIfFalse(lblEnd);
@@ -702,18 +702,18 @@ public partial class Compiler
 
             case DoStatement d:
             {
-                Statement stm = d.Statement;
-                Expression expr = d.Expression;
+                var stm = d.Statement;
+                var expr = d.Expression;
 
-                Label lblLoop = CreateLabel();
+                var lblLoop = CreateLabel();
                 assembler.BindLabel(lblLoop);
 
-                Label lblEnd = CreateLabel();
+                var lblEnd = CreateLabel();
                 context.PushBreakLabel(lblEnd);
 
                 CompileStatement(context, assembler, stm);
 
-                AbstractType exprType = CompileExpression(context, assembler, expr, out Variable tempVar);
+                var exprType = CompileExpression(context, assembler, expr, out var tempVar);
                 if (!PrimitiveType.IsPrimitiveBool(exprType))
                     throw new CompilerException(expr.Interval, "Expressão do tipo bool experada.");
 
@@ -731,17 +731,17 @@ public partial class Compiler
                 Context forContext = new(function, f.Interval, context);
 
                 // inicializadores
-                foreach (InitializerStatement initializer in f.Initializers)
+                foreach (var initializer in f.Initializers)
                     CompileStatement(forContext, assembler, initializer);
 
-                Label lblLoop = CreateLabel();
+                var lblLoop = CreateLabel();
                 assembler.BindLabel(lblLoop);
 
                 // expressão de controle
-                Expression expression = f.Expression;
+                var expression = f.Expression;
                 if (expression != null)
                 {
-                    AbstractType expressionType = CompileExpression(forContext, assembler, expression, out _);
+                    var expressionType = CompileExpression(forContext, assembler, expression, out _);
                     if (!PrimitiveType.IsPrimitiveBool(expressionType))
                         throw new CompilerException(expression.Interval, "Expressão do tipo bool esperada.");
                 }
@@ -750,18 +750,18 @@ public partial class Compiler
                     assembler.EmitLoadConst(true);
                 }
 
-                Label lblEnd = CreateLabel();
+                var lblEnd = CreateLabel();
                 forContext.PushBreakLabel(lblEnd);
 
                 assembler.EmitJumpIfFalse(lblEnd);
 
-                Statement stm = f.Statement;
+                var stm = f.Statement;
                 CompileStatement(forContext, assembler, stm);
 
                 // atualizadores
-                foreach (Expression updater in f.Updaters)
+                foreach (var updater in f.Updaters)
                 {
-                    AbstractType updaterType = CompileExpression(forContext, assembler, updater, out Variable tempVar);
+                    var updaterType = CompileExpression(forContext, assembler, updater, out var tempVar);
                     CompilePop(assembler, updaterType);
 
                     tempVar?.Release();
@@ -778,7 +778,7 @@ public partial class Compiler
             case BlockStatement bl:
             {
                 Context blockContext = new(function, bl.Interval, context);
-                foreach (Statement stm in bl)
+                foreach (var stm in bl)
                     CompileStatement(blockContext, assembler, stm);
 
                 blockContext.Release(assembler);
@@ -793,11 +793,11 @@ public partial class Compiler
     private void CompileLocalVariableDeclaration(Context context, Assembler assembler, DeclarationStatement statement)
     {
         statement.Resolve();
-        AbstractType type = statement.Type;
+        var type = statement.Type;
 
         foreach (var (name, initializer) in statement)
         {
-            Variable var = context.DeclareVariable(name, type, statement.Interval) ?? throw new CompilerException(statement.Interval, $"Variável local '{name}' já declarada.");
+            var var = context.DeclareVariable(name, type, statement.Interval) ?? throw new CompilerException(statement.Interval, $"Variável local '{name}' já declarada.");
 
             if (assembler != null && var is LocalVariable local)
                 assembler.AddLocalVariable(local);
@@ -820,8 +820,8 @@ public partial class Compiler
 
                 Assembler beforeCastAssembler = new();
                 Assembler castAssembler = new();
-                AbstractType initializerType = CompileExpression(context, castAssembler, initializer, out Variable tempVar);
-                CompileCast(context, castAssembler, beforeCastAssembler, initializerType, type, false, initializer.Interval, out Variable castTempVar);
+                var initializerType = CompileExpression(context, castAssembler, initializer, out var tempVar);
+                CompileCast(context, castAssembler, beforeCastAssembler, initializerType, type, false, initializer.Interval, out var castTempVar);
 
                 tempVar?.Release();
 
@@ -864,14 +864,14 @@ public partial class Compiler
 
     internal CompilationUnity OpenUnity(string name)
     {
-        if (unityTable.TryGetValue(name, out CompilationUnity result))
+        if (unityTable.TryGetValue(name, out var result))
             return result;
 
         string path = UnityPath + '\\' + name + ".sl";
         if (!File.Exists(path))
             return null;
 
-        CompilationUnity unity = ParseCompilationUnityFromFile(path, false);
+        var unity = ParseCompilationUnityFromFile(path, false);
         units.Add(unity);
         unityTable.Add(name, unity);
         return unity;
@@ -980,18 +980,18 @@ public partial class Compiler
 
         globalVariableOffset = sizeof(int);
 
-        foreach (CompilationUnity u in units)
+        foreach (var u in units)
             u.Resolve();
 
         program.Resolve();
 
         Assembler tempAssembler = new();
-        foreach (CompilationUnity u in units)
+        foreach (var u in units)
             u.Compile(tempAssembler);
 
         program.Compile(tempAssembler);
 
-        foreach (CompilationUnity u in units)
+        foreach (var u in units)
         {
             if (u.EntryPoint != null)
                 assembler.EmitCall(u.EntryPoint.EntryLabel);
@@ -1000,7 +1000,7 @@ public partial class Compiler
         if (program.EntryPoint != null)
             assembler.EmitCall(program.EntryPoint.EntryLabel);
 
-        foreach (CompilationUnity u in units)
+        foreach (var u in units)
             u.EmitStringRelease(assembler);
 
         program.EmitStringRelease(assembler);
@@ -1010,18 +1010,18 @@ public partial class Compiler
 
         assembler.ReserveConstantBuffer(globalVariableOffset);
 
-        foreach (CompilationUnity u in units)
+        foreach (var u in units)
             u.WriteConstants(assembler);
 
         program.WriteConstants(assembler);
 
-        foreach (Label label in labels)
+        foreach (var label in labels)
         {
             if (label.BindedIP != -1)
                 label.UpdateReferences(assembler);
         }
 
-        assembler.AddExternalFunctionNames(externalFunctions.ToArray());
+        assembler.AddExternalFunctionNames([.. externalFunctions]);
     }
 
     private bool Compile(string fileName, TextReader input, Assembler assembler)

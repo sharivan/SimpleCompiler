@@ -2,7 +2,7 @@
 
 public class Symbol : Token
 {
-    public static readonly string[] SYMBOLS = { 
+    public static readonly string[] SYMBOLS = [ 
         // operadores aritiméticos
         "+",
         "-",
@@ -57,7 +57,7 @@ public class Symbol : Token
         ".",
         ":",
         ";"
-    };
+    ];
 
     public static bool IsSymbol(string s)
     {

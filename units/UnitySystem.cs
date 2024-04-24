@@ -38,8 +38,8 @@ public class UnitySystem
 
     public static void CopyMemory(VirtualMachine vm)
     {
-        IntPtr src = vm.LoadParamPtr(COPY_MEMORY_PARAM_SIZE, 0);
-        IntPtr dst = vm.LoadParamPtr(COPY_MEMORY_PARAM_SIZE, POINTER_COUNT);
+        var src = vm.LoadParamPtr(COPY_MEMORY_PARAM_SIZE, 0);
+        var dst = vm.LoadParamPtr(COPY_MEMORY_PARAM_SIZE, POINTER_COUNT);
         int len = vm.LoadParam(COPY_MEMORY_PARAM_SIZE, 2 * POINTER_COUNT);
 
         MovePointerBlock(src, dst, len);
@@ -47,7 +47,7 @@ public class UnitySystem
 
     public static void StringLength(VirtualMachine vm)
     {
-        IntPtr str = vm.LoadParamPtr(STRING_LENGTH_PARAM_SIZE, 1);
+        var str = vm.LoadParamPtr(STRING_LENGTH_PARAM_SIZE, 1);
 
         string s = ReadPointerString(str);
 
@@ -56,8 +56,8 @@ public class UnitySystem
 
     public static void CopyString(VirtualMachine vm)
     {
-        IntPtr src = vm.LoadParamPtr(COPY_STRING_PARAM_SIZE, 0);
-        IntPtr dst = vm.LoadParamPtr(COPY_STRING_PARAM_SIZE, POINTER_COUNT);
+        var src = vm.LoadParamPtr(COPY_STRING_PARAM_SIZE, 0);
+        var dst = vm.LoadParamPtr(COPY_STRING_PARAM_SIZE, POINTER_COUNT);
 
         string s = ReadPointerString(src);
 
@@ -66,9 +66,9 @@ public class UnitySystem
 
     public static void ConcatenateStrings(VirtualMachine vm)
     {
-        IntPtr dst = vm.LoadParamPtr(CONCATENATE_STRING_PARAM_SIZE, 0);
-        IntPtr src1 = vm.LoadParamPtr(CONCATENATE_STRING_PARAM_SIZE, POINTER_COUNT);
-        IntPtr src2 = vm.LoadParamPtr(CONCATENATE_STRING_PARAM_SIZE, 2 * POINTER_COUNT);
+        var dst = vm.LoadParamPtr(CONCATENATE_STRING_PARAM_SIZE, 0);
+        var src1 = vm.LoadParamPtr(CONCATENATE_STRING_PARAM_SIZE, POINTER_COUNT);
+        var src2 = vm.LoadParamPtr(CONCATENATE_STRING_PARAM_SIZE, 2 * POINTER_COUNT);
 
         string s1 = ReadPointerString(src1);
         string s2 = ReadPointerString(src2);
@@ -78,8 +78,8 @@ public class UnitySystem
 
     public static void CompareStyrings(VirtualMachine vm)
     {
-        IntPtr str1 = vm.LoadParamPtr(COPY_MEMORY_PARAM_SIZE, 1);
-        IntPtr str2 = vm.LoadParamPtr(COPY_MEMORY_PARAM_SIZE, 1 + POINTER_COUNT);
+        var str1 = vm.LoadParamPtr(COPY_MEMORY_PARAM_SIZE, 1);
+        var str2 = vm.LoadParamPtr(COPY_MEMORY_PARAM_SIZE, 1 + POINTER_COUNT);
 
         string s1 = ReadPointerString(str1);
         string s2 = ReadPointerString(str2);
@@ -89,8 +89,8 @@ public class UnitySystem
 
     public static void StringToInt(VirtualMachine vm)
     {
-        IntPtr src = vm.LoadParamPtr(STRING_TO_INT_PARAM_SIZE, 1);
-        IntPtr dst = vm.LoadParamPtr(STRING_TO_INT_PARAM_SIZE, 1 + POINTER_COUNT);
+        var src = vm.LoadParamPtr(STRING_TO_INT_PARAM_SIZE, 1);
+        var dst = vm.LoadParamPtr(STRING_TO_INT_PARAM_SIZE, 1 + POINTER_COUNT);
 
         string s = ReadPointerString(src);
 
@@ -108,8 +108,8 @@ public class UnitySystem
 
     public static void StringToLong(VirtualMachine vm)
     {
-        IntPtr src = vm.LoadParamPtr(STRING_TO_INT_PARAM_SIZE, 1);
-        IntPtr dst = vm.LoadParamPtr(STRING_TO_INT_PARAM_SIZE, 1 + POINTER_COUNT);
+        var src = vm.LoadParamPtr(STRING_TO_INT_PARAM_SIZE, 1);
+        var dst = vm.LoadParamPtr(STRING_TO_INT_PARAM_SIZE, 1 + POINTER_COUNT);
 
         string s = ReadPointerString(src);
 
@@ -127,8 +127,8 @@ public class UnitySystem
 
     public static void StringToFloat(VirtualMachine vm)
     {
-        IntPtr src = vm.LoadParamPtr(STRING_TO_INT_PARAM_SIZE, 1);
-        IntPtr dst = vm.LoadParamPtr(STRING_TO_INT_PARAM_SIZE, 1 + POINTER_COUNT);
+        var src = vm.LoadParamPtr(STRING_TO_INT_PARAM_SIZE, 1);
+        var dst = vm.LoadParamPtr(STRING_TO_INT_PARAM_SIZE, 1 + POINTER_COUNT);
 
         string s = ReadPointerString(src);
 
@@ -146,8 +146,8 @@ public class UnitySystem
 
     public static void StringToDouble(VirtualMachine vm)
     {
-        IntPtr src = vm.LoadParamPtr(STRING_TO_INT_PARAM_SIZE, 1);
-        IntPtr dst = vm.LoadParamPtr(STRING_TO_INT_PARAM_SIZE, 1 + POINTER_COUNT);
+        var src = vm.LoadParamPtr(STRING_TO_INT_PARAM_SIZE, 1);
+        var dst = vm.LoadParamPtr(STRING_TO_INT_PARAM_SIZE, 1 + POINTER_COUNT);
 
         string s = ReadPointerString(src);
 
@@ -166,7 +166,7 @@ public class UnitySystem
     public static void IntToString(VirtualMachine vm)
     {
         int src = vm.LoadParam(INT_TO_STRING_PARAM_SIZE, 0);
-        IntPtr dst = vm.LoadParamPtr(INT_TO_STRING_PARAM_SIZE, 1);
+        var dst = vm.LoadParamPtr(INT_TO_STRING_PARAM_SIZE, 1);
 
         string s = src.ToString(CultureInfo.InvariantCulture);
         WritePointer(dst, s);
@@ -175,7 +175,7 @@ public class UnitySystem
     public static void LongToString(VirtualMachine vm)
     {
         long src = vm.LoadParamLong(LONG_TO_STRING_PARAM_SIZE, 0);
-        IntPtr dst = vm.LoadParamPtr(LONG_TO_STRING_PARAM_SIZE, 2);
+        var dst = vm.LoadParamPtr(LONG_TO_STRING_PARAM_SIZE, 2);
 
         string s = src.ToString(CultureInfo.InvariantCulture);
         WritePointer(dst, s);
@@ -184,7 +184,7 @@ public class UnitySystem
     public static void FloatToString(VirtualMachine vm)
     {
         float src = vm.LoadParamFloat(INT_TO_STRING_PARAM_SIZE, 0);
-        IntPtr dst = vm.LoadParamPtr(INT_TO_STRING_PARAM_SIZE, 1);
+        var dst = vm.LoadParamPtr(INT_TO_STRING_PARAM_SIZE, 1);
 
         string s = src.ToString(CultureInfo.InvariantCulture);
         WritePointer(dst, s);
@@ -193,7 +193,7 @@ public class UnitySystem
     public static void DoubleToString(VirtualMachine vm)
     {
         double src = vm.LoadParamDouble(LONG_TO_STRING_PARAM_SIZE, 0);
-        IntPtr dst = vm.LoadParamPtr(LONG_TO_STRING_PARAM_SIZE, 2);
+        var dst = vm.LoadParamPtr(LONG_TO_STRING_PARAM_SIZE, 2);
 
         string s = src.ToString(CultureInfo.InvariantCulture);
         WritePointer(dst, s);
@@ -205,7 +205,7 @@ public class UnitySystem
 
         try
         {
-            IntPtr result = Marshal.AllocHGlobal(len);
+            var result = Marshal.AllocHGlobal(len);
             vm.SetParam(ALLOC_PARAM_SIZE, 0, result);
         }
         catch (OutOfMemoryException)
@@ -216,30 +216,30 @@ public class UnitySystem
 
     public static void Free(VirtualMachine vm)
     {
-        IntPtr ptr = vm.LoadParamPtr(FREE_PARAM_SIZE, 0);
+        var ptr = vm.LoadParamPtr(FREE_PARAM_SIZE, 0);
         Marshal.FreeHGlobal(ptr);
     }
 
     public static void NewString(VirtualMachine vm)
     {
-        IntPtr str = vm.LoadParamPtr(NEW_STRING_PARAM_SIZE, POINTER_COUNT);
+        var str = vm.LoadParamPtr(NEW_STRING_PARAM_SIZE, POINTER_COUNT);
         string s = ReadPointerString(str);
 
-        IntPtr result = vm.NewString(s);
+        var result = vm.NewString(s);
 
         vm.SetParam(NEW_STRING_PARAM_SIZE, 0, result);
     }
 
     public static void NewString2(VirtualMachine vm)
     {
-        IntPtr str = vm.LoadParamPtr(NEW_STRING2_PARAM_SIZE, POINTER_COUNT);
+        var str = vm.LoadParamPtr(NEW_STRING2_PARAM_SIZE, POINTER_COUNT);
         string s = ReadPointerString(str);
 
-        IntPtr result = vm.NewString(s);
+        var result = vm.NewString(s);
 
-        IntPtr dstAddr = vm.LoadParamPtr(NEW_STRING2_PARAM_SIZE, 0);
+        var dstAddr = vm.LoadParamPtr(NEW_STRING2_PARAM_SIZE, 0);
 
-        IntPtr dst = ReadPointerPtr(dstAddr);
+        var dst = ReadPointerPtr(dstAddr);
         vm.ObjectRelease(dst);
 
         WritePointer(dstAddr, result);
@@ -247,48 +247,48 @@ public class UnitySystem
 
     public static void CopyString2(VirtualMachine vm)
     {
-        IntPtr src = vm.LoadParamPtr(COPY_STRING2_PARAM_SIZE, 0);
+        var src = vm.LoadParamPtr(COPY_STRING2_PARAM_SIZE, 0);
         string s = src != IntPtr.Zero ? ReadPointerString(src) : "";
 
-        IntPtr dst = vm.SetStringLength(src, s.Length);
+        var dst = vm.SetStringLength(src, s.Length);
         vm.SetParam(COPY_STRING2_PARAM_SIZE, STRING_COUNT, dst);
     }
 
     public static void StringLength2(VirtualMachine vm)
     {
-        IntPtr src = vm.LoadParamPtr(STRING_LENGTH2_PARAM_SIZE, 1);
+        var src = vm.LoadParamPtr(STRING_LENGTH2_PARAM_SIZE, 1);
         int len = VirtualMachine.StringLength(src);
         vm.SetParam(STRING_LENGTH2_PARAM_SIZE, 0, len);
     }
 
     public static void ConcatenateStrings2(VirtualMachine vm)
     {
-        IntPtr str1 = vm.LoadParamPtr(CONCATENATE_STRING2_PARAM_SIZE, STRING_COUNT);
-        IntPtr str2 = vm.LoadParamPtr(CONCATENATE_STRING2_PARAM_SIZE, 2 * STRING_COUNT);
+        var str1 = vm.LoadParamPtr(CONCATENATE_STRING2_PARAM_SIZE, STRING_COUNT);
+        var str2 = vm.LoadParamPtr(CONCATENATE_STRING2_PARAM_SIZE, 2 * STRING_COUNT);
 
         string s1 = str1 != IntPtr.Zero ? ReadPointerString(str1) : "";
         string s2 = str2 != IntPtr.Zero ? ReadPointerString(str2) : "";
         string s = s1 + s2;
 
-        IntPtr result = vm.NewString(s);
+        var result = vm.NewString(s);
 
         vm.SetParam(CONCATENATE_STRING2_PARAM_SIZE, 0, result);
     }
 
     public static void ConcatenateStrings3(VirtualMachine vm)
     {
-        IntPtr str1 = vm.LoadParamPtr(CONCATENATE_STRING3_PARAM_SIZE, POINTER_COUNT);
-        IntPtr str2 = vm.LoadParamPtr(CONCATENATE_STRING3_PARAM_SIZE, POINTER_COUNT + STRING_COUNT);
+        var str1 = vm.LoadParamPtr(CONCATENATE_STRING3_PARAM_SIZE, POINTER_COUNT);
+        var str2 = vm.LoadParamPtr(CONCATENATE_STRING3_PARAM_SIZE, POINTER_COUNT + STRING_COUNT);
 
         string s1 = str1 != IntPtr.Zero ? ReadPointerString(str1) : "";
         string s2 = str2 != IntPtr.Zero ? ReadPointerString(str2) : "";
         string s = s1 + s2;
 
-        IntPtr result = vm.NewString(s);
+        var result = vm.NewString(s);
 
-        IntPtr dstAddr = vm.LoadParamPtr(CONCATENATE_STRING3_PARAM_SIZE, 0);
+        var dstAddr = vm.LoadParamPtr(CONCATENATE_STRING3_PARAM_SIZE, 0);
 
-        IntPtr dst = ReadPointerPtr(dstAddr);
+        var dst = ReadPointerPtr(dstAddr);
         vm.ObjectRelease(dst);
 
         WritePointer(dstAddr, result);
@@ -296,9 +296,9 @@ public class UnitySystem
 
     public static void StringStore(VirtualMachine vm)
     {
-        IntPtr dstAddr = vm.LoadParamPtr(STRING_STORE_PARAM_SIZE, 0);
-        IntPtr dst = ReadPointerPtr(dstAddr);
-        IntPtr src = vm.LoadParamPtr(STRING_STORE_PARAM_SIZE, POINTER_COUNT);
+        var dstAddr = vm.LoadParamPtr(STRING_STORE_PARAM_SIZE, 0);
+        var dst = ReadPointerPtr(dstAddr);
+        var src = vm.LoadParamPtr(STRING_STORE_PARAM_SIZE, POINTER_COUNT);
 
         VirtualMachine.ObjectAddRef(src);
         vm.ObjectRelease(dst);
@@ -308,22 +308,22 @@ public class UnitySystem
 
     public static void StringAddRef(VirtualMachine vm)
     {
-        IntPtr str = vm.LoadParamPtr(STRING_ADDREF_PARAM_SIZE, 0);
+        var str = vm.LoadParamPtr(STRING_ADDREF_PARAM_SIZE, 0);
         VirtualMachine.ObjectAddRef(str);
     }
 
     public static void StringRelease(VirtualMachine vm)
     {
-        IntPtr strAddr = vm.LoadParamPtr(STRING_RELEASE_PARAM_SIZE, 0);
+        var strAddr = vm.LoadParamPtr(STRING_RELEASE_PARAM_SIZE, 0);
         bool setNull = vm.LoadParam(STRING_RELEASE_PARAM_SIZE, POINTER_COUNT) != 0;
-        IntPtr str = ReadPointerPtr(strAddr);
+        var str = ReadPointerPtr(strAddr);
         str = vm.ObjectRelease(str);
         WritePointer(strAddr, setNull ? IntPtr.Zero : str);
     }
 
     public static void StringArrayRelease(VirtualMachine vm)
     {
-        IntPtr ptr = vm.LoadParamPtr(STRING_ARRAY_RELEASE_PARAM_SIZE, 0);
+        var ptr = vm.LoadParamPtr(STRING_ARRAY_RELEASE_PARAM_SIZE, 0);
         int count = vm.LoadParam(STRING_ARRAY_RELEASE_PARAM_SIZE, POINTER_COUNT);
         bool setNull = vm.LoadParam(STRING_RELEASE_PARAM_SIZE, POINTER_COUNT + 1) != 0;
         vm.ObjectArrayRelease(ptr, count, setNull);

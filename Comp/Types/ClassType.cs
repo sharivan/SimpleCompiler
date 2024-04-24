@@ -23,14 +23,14 @@ public class ClassType : FieldAggregationType
     internal ClassType(CompilationUnity unity, string name, SourceInterval interval, int fieldAlignSize = sizeof(byte))
         : base(unity, name, interval, fieldAlignSize)
     {
-        methods = new List<Function>();
+        methods = [];
     }
 
     public override string ToString()
     {
         string result = (IsInterface ? "interface " : "classe ") + Name + "\n{\n";
 
-        foreach (Field field in fields)
+        foreach (var field in fields)
             result += "  " + field + "\n";
 
         return result + "}";
@@ -53,7 +53,7 @@ public class ClassType : FieldAggregationType
         {
             field.Resolve();
 
-            AbstractType type = field.Type;
+            var type = field.Type;
             field.Offset = this.size;
             int size = type.Size;
             this.size += Compiler.GetAlignedSize(size, FieldAlignSize);

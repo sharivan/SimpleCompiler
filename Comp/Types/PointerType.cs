@@ -82,7 +82,7 @@ public class PointerType : AbstractType
                 if (type == null)
                     return true;
 
-                AbstractType otherType = ptr.Type;
+                var otherType = ptr.Type;
                 return isExplicit || PrimitiveType.IsPrimitiveVoid(otherType) || type == otherType;
             }
 

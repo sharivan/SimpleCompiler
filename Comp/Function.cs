@@ -101,7 +101,7 @@ public class Function : IMember
         Interval = interval;
         IsExtern = isExtern;
 
-        parameters = new List<Parameter>();
+        parameters = [];
         returnType = PrimitiveType.VOID;
         ParameterOffset = -2 * sizeof(int);
         ParameterSize = 0;
@@ -139,12 +139,12 @@ public class Function : IMember
     {
         assembler.AddLine(Interval.FileName, Interval.LastLine);
 
-        foreach (Parameter p in parameters)
+        foreach (var p in parameters)
         {
-            AbstractType type = p.Type;
+            var type = p.Type;
             if (type is StringType)
             {
-                Function f = Unity.Compiler.unitySystem.FindFunction("DecrementaReferenciaString");
+                var f = Unity.Compiler.unitySystem.FindFunction("DecrementaReferenciaString");
                 int index = Unity.Compiler.GetOrAddExternalFunction(f.Name, f.ParameterSize);
                 assembler.EmitLoadLocalHostAddress(p.Offset);
                 assembler.EmitExternCall(index);
@@ -163,7 +163,7 @@ public class Function : IMember
 
     public Parameter FindParameter(string name)
     {
-        foreach (Parameter p in parameters)
+        foreach (var p in parameters)
         {
             if (p.Name == name)
                 return p;
@@ -174,7 +174,7 @@ public class Function : IMember
 
     internal Parameter DeclareParameter(string name, AbstractType type, SourceInterval interval, bool byRef)
     {
-        Parameter result = FindParameter(name);
+        var result = FindParameter(name);
         if (result != null)
             return null;
 
@@ -190,9 +190,9 @@ public class Function : IMember
         ParameterSize = 0;
         for (int i = parameters.Count - 1; i >= 0; i--)
         {
-            Parameter parameter = parameters[i];
+            var parameter = parameters[i];
             parameter.Resolve();
-            AbstractType paramType = parameter.Type;
+            var paramType = parameter.Type;
             int size = parameter.ByRef ? IntPtr.Size : Compiler.GetAlignedSize(paramType.Size);
             ParameterOffset -= size;
             parameter.Offset = ParameterOffset;

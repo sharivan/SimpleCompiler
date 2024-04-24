@@ -171,21 +171,21 @@ public class VirtualMachine
         stack = IntPtr.Zero;
         StackSize = 0;
 
-        lineToIP = new SortedList<LineKey, int>();
-        ipToLine = new SortedList<int, LineKey>();
-        globalVariables = new List<GlobalVariable>();
-        localVariables = new List<LocalVariable>();
-        functions = new List<Function>();
-        ipToFunction = new SortedList<int, (Function function, IPRange range)>();
-        nodes = new List<LocalVariableNode>();
+        lineToIP = [];
+        ipToLine = [];
+        globalVariables = [];
+        localVariables = [];
+        functions = [];
+        ipToFunction = [];
+        nodes = [];
 
-        breakpoints = new List<Breakpoint>();
-        breakpointTableByIP = new Dictionary<int, int>();
-        breakpointTableByFileAndLine = new Dictionary<LineKey, int>();
+        breakpoints = [];
+        breakpointTableByIP = [];
+        breakpointTableByFileAndLine = [];
 
-        externalFunctions = new List<ExternalFunctionEntry>();
-        externalFunctionMapByName = new Dictionary<string, (int, int)>();
-        externalFunctionMapByIndex = new Dictionary<int, string>();
+        externalFunctions = [];
+        externalFunctionMapByName = [];
+        externalFunctionMapByIndex = [];
 
         steppingMode = SteppingMode.RUN;
     }
@@ -358,7 +358,7 @@ public class VirtualMachine
     {
         try
         {
-            IntPtr result = Marshal.AllocHGlobal(size + OBJECT_REC_SIZE);
+            var result = Marshal.AllocHGlobal(size + OBJECT_REC_SIZE);
             result += OBJECT_REC_SIZE;
 
             unsafe
@@ -401,7 +401,7 @@ public class VirtualMachine
 
     public IntPtr NewString(string s)
     {
-        IntPtr result = NewDynamicArray(s.Length + 1, sizeof(char), false);
+        var result = NewDynamicArray(s.Length + 1, sizeof(char), false);
         WritePointer(result, s);
         return result;
     }
@@ -514,10 +514,10 @@ public class VirtualMachine
             {
                 int size = OBJECT_REC_SIZE + ObjectSize(obj);
 
-                IntPtr previous = rec->previous;
+                var previous = rec->previous;
                 var previousRec = (ObjectRec*) (previous - OBJECT_REC_SIZE).ToPointer();
 
-                IntPtr next = rec->next;
+                var next = rec->next;
                 var nextRec = (ObjectRec*) (next - OBJECT_REC_SIZE).ToPointer();
 
                 if (previous != IntPtr.Zero)
@@ -544,7 +544,7 @@ public class VirtualMachine
         {
             for (int i = 0; i < count; i++)
             {
-                IntPtr result = ObjectRelease(*(IntPtr*) (ptr + i * OBJECT_SIZE));
+                var result = ObjectRelease(*(IntPtr*) (ptr + i * OBJECT_SIZE));
                 *(IntPtr*) (ptr + i * OBJECT_SIZE) = setNull ? IntPtr.Zero : result;
             }
         }
@@ -554,7 +554,7 @@ public class VirtualMachine
     {
         while (LastObject != IntPtr.Zero)
         {
-            IntPtr obj = LastObject - OBJECT_REC_SIZE;
+            var obj = LastObject - OBJECT_REC_SIZE;
             LastObject = ReadPointerPtr(obj); // anterior
             Marshal.FreeHGlobal(obj);
         }
@@ -584,7 +584,7 @@ public class VirtualMachine
     public LineKey GetLineFromIP(int ip, bool exact = true)
     {
         if (exact)
-            return ipToLine.TryGetValue(ip, out LineKey entry) ? entry : LineKey.INVALID_KEY;
+            return ipToLine.TryGetValue(ip, out var entry) ? entry : LineKey.INVALID_KEY;
 
         var keys = ipToLine.Keys;
         var selection = keys.Where(key => key <= ip);
@@ -616,7 +616,7 @@ public class VirtualMachine
 
     public Function GetFunctionAtIP(int ip)
     {
-        if (ipToFunction.TryGetValue(ip, out (Function function, IPRange range) result))
+        if (ipToFunction.TryGetValue(ip, out var result))
             return result.range.Contains(ip) ? result.function : null;
 
         var keys = ipToFunction.Keys;
@@ -648,7 +648,7 @@ public class VirtualMachine
     {
         lock (breakpoints)
         {
-            Breakpoint result = GetBreakpoint(ip);
+            var result = GetBreakpoint(ip);
             if (result != null)
             {
                 result.enabled = enabled;
@@ -694,7 +694,7 @@ public class VirtualMachine
     {
         lock (breakpoints)
         {
-            Breakpoint bp = GetBreakpoint(ip);
+            var bp = GetBreakpoint(ip);
             if (bp == null)
                 return AddBreakpoint(ip);
 
@@ -707,7 +707,7 @@ public class VirtualMachine
     {
         lock (breakpoints)
         {
-            Breakpoint bp = GetBreakpoint(fileName, line);
+            var bp = GetBreakpoint(fileName, line);
             if (bp == null)
                 return AddBreakpoint(fileName, line);
 
@@ -722,7 +722,7 @@ public class VirtualMachine
         {
             if (breakpoints.Remove(bp))
             {
-                Opcode opcode = bp.opcode;
+                var opcode = bp.opcode;
                 int ip = bp.IP;
 
                 breakpointTableByIP.Remove(ip);
@@ -737,7 +737,7 @@ public class VirtualMachine
     {
         lock (breakpoints)
         {
-            Breakpoint bp = GetBreakpoint(ip);
+            var bp = GetBreakpoint(ip);
             if (bp != null)
                 RemoveBreakpoint(bp);
         }
@@ -747,7 +747,7 @@ public class VirtualMachine
     {
         lock (breakpoints)
         {
-            Breakpoint bp = GetBreakpoint(fileName, line);
+            var bp = GetBreakpoint(fileName, line);
             if (bp != null)
                 RemoveBreakpoint(bp);
         }
@@ -757,9 +757,9 @@ public class VirtualMachine
     {
         lock (breakpoints)
         {
-            foreach (Breakpoint bp in breakpoints)
+            foreach (var bp in breakpoints)
             {
-                Opcode opcode = bp.opcode;
+                var opcode = bp.opcode;
                 int ip = bp.IP;
                 WriteCode(ref ip, (byte) opcode);
             }
@@ -1364,7 +1364,7 @@ public class VirtualMachine
     public IntPtr PopPtr()
     {
         SP -= IntPtr.Size;
-        IntPtr result = ReadStackPtr(SP);
+        var result = ReadStackPtr(SP);
         return result;
     }
 
@@ -1587,7 +1587,7 @@ public class VirtualMachine
         {
             lock (breakpoints)
             {
-                Breakpoint bp = GetBreakpoint(lastIP) ?? throw new Exception($"Breakpoint perdido no ip {lastIP}. Abortando a execução do programa.");
+                var bp = GetBreakpoint(lastIP) ?? throw new Exception($"Breakpoint perdido no ip {lastIP}. Abortando a execução do programa.");
 
                 opcode = bp.opcode;
 
@@ -1637,7 +1637,7 @@ public class VirtualMachine
         {
             while (ip < code.Length)
             {
-                SteppingMode oldSteppingMode = this.steppingMode;
+                var oldSteppingMode = this.steppingMode;
                 switch (this.steppingMode)
                 {
                     case SteppingMode.RUN:
@@ -1777,7 +1777,7 @@ public class VirtualMachine
 
             case Opcode.LCPTR:
             {
-                IntPtr value = ReadCodePtr(ref ip);
+                var value = ReadCodePtr(ref ip);
                 Push(value);
                 break;
             }
@@ -1869,7 +1869,7 @@ public class VirtualMachine
 
             case Opcode.HRA:
             {
-                IntPtr addr = PopPtr();
+                var addr = PopPtr();
                 Push(HostToResidentAddr(addr));
                 break;
             }
@@ -1909,7 +1909,7 @@ public class VirtualMachine
             case Opcode.LSPTR:
             {
                 int addr = Pop();
-                IntPtr value = ReadStackPtr(addr);
+                var value = ReadStackPtr(addr);
                 Push(value);
                 break;
             }
@@ -1948,7 +1948,7 @@ public class VirtualMachine
 
             case Opcode.SSPTR:
             {
-                IntPtr value = PopPtr();
+                var value = PopPtr();
                 int addr = Pop();
                 WriteStack(addr, value);
                 break;
@@ -1989,7 +1989,7 @@ public class VirtualMachine
             case Opcode.LGPTR:
             {
                 int offset = ReadCodeInt(ref ip);
-                IntPtr value = ReadStackPtr(offset);
+                var value = ReadStackPtr(offset);
                 Push(value);
                 break;
             }
@@ -2029,7 +2029,7 @@ public class VirtualMachine
             case Opcode.LLPTR:
             {
                 int offset = ReadCodeInt(ref ip);
-                IntPtr value = ReadStackPtr(BP + offset);
+                var value = ReadStackPtr(BP + offset);
                 Push(value);
                 break;
             }
@@ -2069,7 +2069,7 @@ public class VirtualMachine
             case Opcode.SGPTR:
             {
                 int offset = ReadCodeInt(ref ip);
-                IntPtr value = PopPtr();
+                var value = PopPtr();
                 WriteStack(offset, value);
                 break;
             }
@@ -2109,14 +2109,14 @@ public class VirtualMachine
             case Opcode.SLPTR:
             {
                 int offset = ReadCodeInt(ref ip);
-                IntPtr value = PopPtr();
+                var value = PopPtr();
                 WriteStack(BP + offset, value);
                 break;
             }
 
             case Opcode.LPTR8:
             {
-                IntPtr addr = PopPtr();
+                var addr = PopPtr();
                 byte result = ReadPointerByte(addr);
                 Push(result);
                 break;
@@ -2124,7 +2124,7 @@ public class VirtualMachine
 
             case Opcode.LPTR16:
             {
-                IntPtr addr = PopPtr();
+                var addr = PopPtr();
                 short result = ReadPointerShort(addr);
                 Push(result);
                 break;
@@ -2132,7 +2132,7 @@ public class VirtualMachine
 
             case Opcode.LPTR32:
             {
-                IntPtr addr = PopPtr();
+                var addr = PopPtr();
                 int result = ReadPointerInt(addr);
                 Push(result);
                 break;
@@ -2140,7 +2140,7 @@ public class VirtualMachine
 
             case Opcode.LPTR64:
             {
-                IntPtr addr = PopPtr();
+                var addr = PopPtr();
                 long result = ReadPointerLong(addr);
                 Push(result);
                 break;
@@ -2148,8 +2148,8 @@ public class VirtualMachine
 
             case Opcode.LPTRPTR:
             {
-                IntPtr addr = PopPtr();
-                IntPtr result = ReadPointerPtr(addr);
+                var addr = PopPtr();
+                var result = ReadPointerPtr(addr);
                 Push(result);
                 break;
             }
@@ -2157,7 +2157,7 @@ public class VirtualMachine
             case Opcode.SPTR8:
             {
                 int value = Pop();
-                IntPtr addr = PopPtr();
+                var addr = PopPtr();
                 WritePointer(addr, (byte) value);
                 break;
             }
@@ -2165,7 +2165,7 @@ public class VirtualMachine
             case Opcode.SPTR16:
             {
                 int value = Pop();
-                IntPtr addr = PopPtr();
+                var addr = PopPtr();
                 WritePointer(addr, (short) value);
                 break;
             }
@@ -2173,7 +2173,7 @@ public class VirtualMachine
             case Opcode.SPTR32:
             {
                 int value = Pop();
-                IntPtr addr = PopPtr();
+                var addr = PopPtr();
                 WritePointer(addr, value);
                 break;
             }
@@ -2181,15 +2181,15 @@ public class VirtualMachine
             case Opcode.SPTR64:
             {
                 long value = PopLong();
-                IntPtr addr = PopPtr();
+                var addr = PopPtr();
                 WritePointer(addr, value);
                 break;
             }
 
             case Opcode.SPTRPTR:
             {
-                IntPtr value = PopPtr();
-                IntPtr addr = PopPtr();
+                var value = PopPtr();
+                var addr = PopPtr();
                 WritePointer(addr, value);
                 break;
             }
@@ -2515,8 +2515,8 @@ public class VirtualMachine
             case Opcode.PTRADD:
             {
                 int operand2 = Pop();
-                IntPtr operand1 = PopPtr();
-                IntPtr result = operand1 + operand2;
+                var operand1 = PopPtr();
+                var result = operand1 + operand2;
                 Push(result);
                 break;
             }
@@ -2524,8 +2524,8 @@ public class VirtualMachine
             case Opcode.PTRSUB:
             {
                 int operand2 = Pop();
-                IntPtr operand1 = PopPtr();
-                IntPtr result = operand1 - operand2;
+                var operand1 = PopPtr();
+                var result = operand1 - operand2;
                 Push(result);
                 break;
             }
@@ -2628,7 +2628,7 @@ public class VirtualMachine
 
             case Opcode.PTRI32:
             {
-                IntPtr operand = PopPtr();
+                var operand = PopPtr();
                 int result = (int) operand;
                 Push(result);
                 break;
@@ -2636,7 +2636,7 @@ public class VirtualMachine
 
             case Opcode.PTRI64:
             {
-                IntPtr operand = PopPtr();
+                var operand = PopPtr();
                 long result = (long) operand;
                 Push(result);
                 break;
@@ -2860,8 +2860,8 @@ public class VirtualMachine
 
             case Opcode.CMPEPTR:
             {
-                IntPtr operand2 = PopPtr();
-                IntPtr operand1 = PopPtr();
+                var operand2 = PopPtr();
+                var operand1 = PopPtr();
                 bool result = operand1 == operand2;
                 Push(result ? 1 : 0);
                 break;
@@ -2869,8 +2869,8 @@ public class VirtualMachine
 
             case Opcode.CMPNEPTR:
             {
-                IntPtr operand2 = PopPtr();
-                IntPtr operand1 = PopPtr();
+                var operand2 = PopPtr();
+                var operand1 = PopPtr();
                 bool result = operand1 != operand2;
                 Push(result ? 1 : 0);
                 break;
@@ -2878,8 +2878,8 @@ public class VirtualMachine
 
             case Opcode.CMPGPTR:
             {
-                IntPtr operand2 = PopPtr();
-                IntPtr operand1 = PopPtr();
+                var operand2 = PopPtr();
+                var operand1 = PopPtr();
 
                 bool result = IntPtr.Size == sizeof(int) ? (int) operand1 > (int) operand2 : (long) operand1 > (long) operand2;
 
@@ -2889,8 +2889,8 @@ public class VirtualMachine
 
             case Opcode.CMPGEPTR:
             {
-                IntPtr operand2 = PopPtr();
-                IntPtr operand1 = PopPtr();
+                var operand2 = PopPtr();
+                var operand1 = PopPtr();
 
                 bool result = IntPtr.Size == sizeof(int) ? (int) operand1 >= (int) operand2 : (long) operand1 >= (long) operand2;
 
@@ -2900,8 +2900,8 @@ public class VirtualMachine
 
             case Opcode.CMPLPTR:
             {
-                IntPtr operand2 = PopPtr();
-                IntPtr operand1 = PopPtr();
+                var operand2 = PopPtr();
+                var operand1 = PopPtr();
 
                 bool result = IntPtr.Size == sizeof(int) ? (int) operand1 < (int) operand2 : (long) operand1 < (long) operand2;
 
@@ -2911,8 +2911,8 @@ public class VirtualMachine
 
             case Opcode.CMPLEPTR:
             {
-                IntPtr operand2 = PopPtr();
-                IntPtr operand1 = PopPtr();
+                var operand2 = PopPtr();
+                var operand1 = PopPtr();
 
                 bool result = IntPtr.Size == sizeof(int) ? (int) operand1 <= (int) operand2 : (long) operand1 <= (long) operand2;
 
@@ -2987,7 +2987,7 @@ public class VirtualMachine
 
             case Opcode.DUPPTR:
             {
-                IntPtr value = ReadStackTopPtr();
+                var value = ReadStackTopPtr();
                 Push(value);
                 break;
             }
@@ -3017,7 +3017,7 @@ public class VirtualMachine
             case Opcode.DUPPTRN:
             {
                 byte n = ReadCodeByte(ref ip);
-                IntPtr value = ReadStackTopPtr();
+                var value = ReadStackTopPtr();
 
                 for (int i = 0; i < n; i++)
                     Push(value);
@@ -3068,7 +3068,7 @@ public class VirtualMachine
             case Opcode.ECALL:
             {
                 int index = ReadCodeInt(ref ip);
-                ExternalFunctionEntry entry = externalFunctions[index];
+                var entry = externalFunctions[index];
 
                 Push(ip);
                 Push(BP);
@@ -3122,7 +3122,7 @@ public class VirtualMachine
 
             case Opcode.SCANB:
             {
-                IntPtr addr = PopPtr();
+                var addr = PopPtr();
                 string str = ReadFromConsole();
                 try
                 {
@@ -3150,7 +3150,7 @@ public class VirtualMachine
 
             case Opcode.SCAN8:
             {
-                IntPtr addr = PopPtr();
+                var addr = PopPtr();
                 string str = ReadFromConsole();
                 try
                 {
@@ -3167,7 +3167,7 @@ public class VirtualMachine
 
             case Opcode.SCANC:
             {
-                IntPtr addr = PopPtr();
+                var addr = PopPtr();
                 string str = ReadFromConsole();
                 if (str.Length == 0)
                     WritePointer(addr, (short) 0);
@@ -3179,7 +3179,7 @@ public class VirtualMachine
 
             case Opcode.SCAN16:
             {
-                IntPtr addr = PopPtr();
+                var addr = PopPtr();
                 string str = ReadFromConsole();
                 try
                 {
@@ -3196,7 +3196,7 @@ public class VirtualMachine
 
             case Opcode.SCAN32:
             {
-                IntPtr addr = PopPtr();
+                var addr = PopPtr();
                 string str = ReadFromConsole();
                 try
                 {
@@ -3213,7 +3213,7 @@ public class VirtualMachine
 
             case Opcode.SCAN64:
             {
-                IntPtr addr = PopPtr();
+                var addr = PopPtr();
                 string str = ReadFromConsole();
                 try
                 {
@@ -3230,7 +3230,7 @@ public class VirtualMachine
 
             case Opcode.FSCAN:
             {
-                IntPtr addr = PopPtr();
+                var addr = PopPtr();
                 string str = ReadFromConsole();
                 try
                 {
@@ -3247,7 +3247,7 @@ public class VirtualMachine
 
             case Opcode.FSCAN64:
             {
-                IntPtr addr = PopPtr();
+                var addr = PopPtr();
                 string str = ReadFromConsole();
                 try
                 {
@@ -3264,7 +3264,7 @@ public class VirtualMachine
 
             case Opcode.SCANSTR:
             {
-                IntPtr addr = PopPtr();
+                var addr = PopPtr();
                 string value = ReadFromConsole();
                 WritePointer(addr, value);
                 break;
@@ -3272,11 +3272,11 @@ public class VirtualMachine
 
             case Opcode.DSCANSTR:
             {
-                IntPtr dstAddr = PopPtr();
+                var dstAddr = PopPtr();
                 string value = ReadFromConsole();
-                IntPtr str = NewString(value);
+                var str = NewString(value);
 
-                IntPtr dst = ReadPointerPtr(dstAddr);
+                var dst = ReadPointerPtr(dstAddr);
                 ObjectRelease(dst);
 
                 WritePointer(dstAddr, str);
@@ -3327,7 +3327,7 @@ public class VirtualMachine
 
             case Opcode.PRINTSTR:
             {
-                IntPtr addr = PopPtr();
+                var addr = PopPtr();
                 string value = addr != IntPtr.Zero ? ReadPointerString(addr) : "nulo";
                 Print(value);
                 break;
@@ -3348,7 +3348,7 @@ public class VirtualMachine
         return OnConsoleRead != null ? OnConsoleRead() : Console.ReadLine();
     }
 
-    private static readonly char[] HEX_DIGITS = { 'a', 'b', 'c', 'd', 'e', 'f' };
+    private static readonly char[] HEX_DIGITS = ['a', 'b', 'c', 'd', 'e', 'f'];
 
     private string Format(int n, int digits)
     {

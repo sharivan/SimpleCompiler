@@ -8,8 +8,8 @@ public partial class Compiler
 {
     private AbstractType CompileAssignableUnaryExpression(Context context, Assembler assembler, UnaryExpression expression, out bool isPointerDeference)
     {
-        Expression operand = expression.Operand;
-        AbstractType operandType = CompileExpression(context, assembler, operand, out Variable tempVar);
+        var operand = expression.Operand;
+        var operandType = CompileExpression(context, assembler, operand, out var tempVar);
 
         if (expression.Operation != UnaryOperation.POINTER_INDIRECTION)
             throw new CompilerException(operand.Interval, "A expressão do lado esquerdo não é atribuível.");
@@ -25,7 +25,7 @@ public partial class Compiler
 
     private AbstractType CompileUnaryExpression(Context context, Assembler assembler, UnaryExpression expression)
     {
-        Expression operand = expression.Operand;
+        var operand = expression.Operand;
         AbstractType result;
 
         switch (expression.Operation)
@@ -94,7 +94,7 @@ public partial class Compiler
 
             case UnaryOperation.LOGICAL_NOT:
             {
-                AbstractType operandType = CompileExpression(context, assembler, operand, out _);
+                var operandType = CompileExpression(context, assembler, operand, out _);
                 if (operandType is not PrimitiveType pt)
                     throw new CompilerException(operand.Interval, $"Operação não definida para o tipo '{operandType}'.");
 
@@ -114,11 +114,11 @@ public partial class Compiler
 
             case UnaryOperation.POINTER_INDIRECTION:
             {
-                AbstractType operandType = CompileExpression(context, assembler, operand, out _);
+                var operandType = CompileExpression(context, assembler, operand, out _);
                 if (operandType is not PointerType ptr)
                     throw new CompilerException(operand.Interval, $"Operação não definida para o tipo '{operandType}'.");
 
-                AbstractType ptrType = ptr.Type ?? throw new CompilerException(operand.Interval, "Indireção de ponteiros não é valida para literais nulos.");
+                var ptrType = ptr.Type ?? throw new CompilerException(operand.Interval, "Indireção de ponteiros não é valida para literais nulos.");
 
                 if (ptrType is PrimitiveType pt)
                 {
@@ -170,7 +170,7 @@ public partial class Compiler
             case UnaryOperation.PRE_INCREMENT: // ++x <=> x = x + 1
             {
                 Assembler tempAssembler = new();
-                AbstractType operandType = CompileAssignableExpression(context, tempAssembler, operand, out Variable storeVar, out bool isPointerDeference);
+                var operandType = CompileAssignableExpression(context, tempAssembler, operand, out var storeVar, out bool isPointerDeference);
 
                 if (storeVar == null)
                 {
@@ -379,7 +379,7 @@ public partial class Compiler
             case UnaryOperation.PRE_DECREMENT:
             {
                 Assembler tempAssembler = new();
-                AbstractType operandType = CompileAssignableExpression(context, tempAssembler, operand, out Variable storeVar, out bool isPointerDeference);
+                var operandType = CompileAssignableExpression(context, tempAssembler, operand, out var storeVar, out bool isPointerDeference);
 
                 if (storeVar == null)
                 {
@@ -588,7 +588,7 @@ public partial class Compiler
             case UnaryOperation.POST_INCREMENT:
             {
                 Assembler tempAssembler = new();
-                AbstractType operandType = CompileAssignableExpression(context, tempAssembler, operand, out Variable storeVar, out bool isPointerDeference);
+                var operandType = CompileAssignableExpression(context, tempAssembler, operand, out var storeVar, out bool isPointerDeference);
 
                 if (storeVar == null)
                 {
@@ -785,7 +785,7 @@ public partial class Compiler
             case UnaryOperation.POST_DECREMENT:
             {
                 Assembler tempAssembler = new();
-                AbstractType operandType = CompileAssignableExpression(context, tempAssembler, operand, out Variable storeVar, out bool isPointerDeference);
+                var operandType = CompileAssignableExpression(context, tempAssembler, operand, out var storeVar, out bool isPointerDeference);
 
                 if (storeVar == null)
                 {
@@ -988,7 +988,7 @@ public partial class Compiler
 
             case UnaryOperation.POINTER_TO:
             {
-                AbstractType operandType = CompileAssignableExpression(context, assembler, operand, out _, out _, true);
+                var operandType = CompileAssignableExpression(context, assembler, operand, out _, out _, true);
                 result = operandType is ArrayType at ? new PointerType(at.Type, true) : (AbstractType) new PointerType(operandType);
                 break;
             }

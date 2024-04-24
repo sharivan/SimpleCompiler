@@ -15,7 +15,7 @@ internal class BreakPointMargin(FrmSimpleCompiler form) : AbstractMargin
     private const int margin = 20;
 
     private readonly FrmSimpleCompiler form = form;
-    private readonly Dictionary<int, Breakpoint> breakpoints = new();
+    private readonly Dictionary<int, Breakpoint> breakpoints = [];
 
     public KnownLayer Layer => KnownLayer.Background;
 
@@ -65,13 +65,13 @@ internal class BreakPointMargin(FrmSimpleCompiler form) : AbstractMargin
 
     protected override void OnRender(DrawingContext drawingContext)
     {
-        TextView textView = TextView;
-        Size renderSize = RenderSize;
+        var textView = TextView;
+        var renderSize = RenderSize;
         drawingContext.DrawRectangle(SystemColors.ControlBrush, null, new Rect(0, 0, renderSize.Width, renderSize.Height));
 
         if (textView != null && textView.VisualLinesValid)
         {
-            foreach (VisualLine line in textView.VisualLines)
+            foreach (var line in textView.VisualLines)
             {
                 if (breakpoints.ContainsKey(line.FirstDocumentLine.LineNumber))
                     drawingContext.DrawImage(form.enabledImage, new Rect(0, line.VisualTop - textView.VerticalOffset, form.enabledImage.Width, form.enabledImage.Height));

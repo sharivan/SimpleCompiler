@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Windows.Forms;
 using System.Windows.Forms.Integration;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
@@ -14,14 +15,25 @@ namespace SimpleCompiler.GUI;
 
 public class SourceTab
 {
-    internal FrmSimpleCompiler form;
-    internal TabPage page;
-    internal int id;
-    internal string fileName;
-    internal bool saved;
+    public const double DEFAULT_FONT_SIZE = 14;
+    public const double MIN_FONT_SIZE = 6;
+    public const double MAX_FONT_SIZE = 200;
 
+    private static double ComputeZoom(double fontSize)
+    {
+        return fontSize / DEFAULT_FONT_SIZE;
+    }
+
+    private static double ComputeFontSize(double zoom)
+    {
+        double fontSize = zoom * DEFAULT_FONT_SIZE;
+        return fontSize < MIN_FONT_SIZE ? MIN_FONT_SIZE : fontSize > MAX_FONT_SIZE ? MAX_FONT_SIZE : fontSize;
+    }
+
+    private FrmSimpleCompiler form;
+    internal TabPage page;
     internal string m_SourceCode;
-    internal List<Line> m_Lines;
+    private List<Line> m_Lines;
 
     internal ElementHost wpfHost;
     internal TextEditor txtSource;
@@ -30,31 +42,37 @@ public class SourceTab
     internal SteppingRenderer lineBackgroundRenderer;
     internal BreakPointMargin breakpointMargin;
 
-    public int ID => id;
+    public int ID { get; private set; }
 
-    public string FileName => fileName;
+    public string FileName { get; private set; }
 
-    public bool Saved => saved;
+    public bool Saved { get; private set; }
 
-    public SourceTab(FrmSimpleCompiler form)
+    public double Zoom
     {
-        Initialize(form);
+        get => ComputeZoom(txtSource.FontSize);
+        set => txtSource.FontSize = ComputeFontSize(value);
     }
 
-    public SourceTab(FrmSimpleCompiler form, string fileName)
+    public SourceTab(FrmSimpleCompiler form, double zoom = 1)
     {
-        Initialize(form);
+        Initialize(form, zoom);
+    }
+
+    public SourceTab(FrmSimpleCompiler form, string fileName, double zoom = 1)
+    {
+        Initialize(form, zoom);
         Load(fileName);
     }
 
-    private void Initialize(FrmSimpleCompiler form)
+    private void Initialize(FrmSimpleCompiler form, double zoom = 1)
     {
         this.form = form;
 
-        saved = false;
-        id = form.sourceTabNextID++;
+        Saved = false;
+        ID = form.sourceTabNextID++;
 
-        m_Lines = new List<Line>();
+        m_Lines = [];
 
         wpfHost = new ElementHost
         {
@@ -75,9 +93,10 @@ public class SourceTab
         txtSource.ShowLineNumbers = true;
         txtSource.TextArea.IndentationStrategy = new ICSharpCode.AvalonEdit.Indentation.CSharp.CSharpIndentationStrategy(txtSource.Options);
         txtSource.SyntaxHighlighting = HighlightingManager.Instance.GetDefinitionByExtension(".sl");
-        txtSource.FontSize = 14;
+        txtSource.FontSize = ComputeFontSize(zoom);
         txtSource.Foreground = new SolidColorBrush((Color) ColorConverter.ConvertFromString("#DCDCDC"));
         txtSource.Background = new SolidColorBrush((Color) ColorConverter.ConvertFromString("#1E1E1E"));
+        txtSource.PreviewMouseWheel += TxtSource_PreviewMouseWheel;
         txtSource.Document.Changed += TxtSource_Document_OnChanged;
 
         errorBackgroundRenderer = new ErrorRenderer(txtSource.TextArea.TextView);
@@ -90,10 +109,20 @@ public class SourceTab
         txtSource.TextArea.LeftMargins.Insert(0, breakpointMargin);
     }
 
+    private void TxtSource_PreviewMouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
+    {
+        if (Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            double fontSize = txtSource.FontSize + e.Delta / 25.0;
+            Zoom = ComputeZoom(fontSize);
+            e.Handled = true;
+        }
+    }
+
     private void TxtSource_Document_OnChanged(object sender, DocumentChangeEventArgs e)
     {
         int delta = e.InsertionLength - e.RemovalLength;
-        Interval intersection = new Interval(e.Offset, e.Offset + delta) & new Interval(errorBackgroundRenderer.Start, errorBackgroundRenderer.End);
+        var intersection = new Interval(e.Offset, e.Offset + delta) & new Interval(errorBackgroundRenderer.Start, errorBackgroundRenderer.End);
 
         if (intersection.Start < intersection.End)
         {
@@ -105,7 +134,7 @@ public class SourceTab
             errorBackgroundRenderer.End += delta;
         }
 
-        saved = false;
+        Saved = false;
     }
 
     internal void SetSource(string sSource)
@@ -141,12 +170,12 @@ public class SourceTab
 
     public void Load(string fileName)
     {
-        this.fileName = fileName;
+        this.FileName = fileName;
         if (File.Exists(fileName))
         {
             page.Text = Path.GetFileName(fileName) + "    ";
             txtSource.Load(fileName);
-            saved = true;
+            Saved = true;
         }
         else
         {
@@ -156,17 +185,17 @@ public class SourceTab
 
     public void Reload()
     {
-        if (fileName != null)
-            Load(fileName);
+        if (FileName != null)
+            Load(FileName);
     }
 
     public void Save()
     {
-        if (fileName != null)
+        if (FileName != null)
         {
-            page.Text = $"{Path.GetFileName(fileName)}    ";
-            txtSource.Save(fileName);
-            saved = true;
+            page.Text = $"{Path.GetFileName(FileName)}    ";
+            txtSource.Save(FileName);
+            Saved = true;
         }
         else
         {
@@ -176,7 +205,7 @@ public class SourceTab
 
     public void OpenSaveDialog()
     {
-        DialogResult result = form.saveFileDialog.ShowDialog();
+        var result = form.saveFileDialog.ShowDialog();
 
         if (result == DialogResult.OK)
         {
@@ -185,17 +214,17 @@ public class SourceTab
             if (sSourceFileName != FileName && File.Exists(sSourceFileName))
                 form.CloseSourceTab(sSourceFileName);
 
-            fileName = sSourceFileName;
+            FileName = sSourceFileName;
             Save();
         }
     }
 
     public void Clear()
     {
-        fileName = null;
+        FileName = null;
         page.Text = "Sem nome    ";
         txtSource.Clear();
-        saved = false;
+        Saved = false;
     }
 
     public void Focus()
@@ -209,10 +238,10 @@ public class SourceTab
         form.tcSources.TabPages.Remove(page);
 
         form.sourceTabs.Remove(this);
-        form.sourceTabsMapByID.Remove(id);
+        form.sourceTabsMapByID.Remove(ID);
 
-        if (fileName != null)
-            form.sourceTabsMapByFileName.Remove(fileName);
+        if (FileName != null)
+            form.sourceTabsMapByFileName.Remove(FileName);
     }
 
     public void Cut()

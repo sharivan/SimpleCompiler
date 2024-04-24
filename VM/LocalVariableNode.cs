@@ -6,7 +6,7 @@ namespace SimpleCompiler.VM;
 
 public class LocalVariableNode(IPRange scope, params LocalVariable[] variables)
 {
-    private List<LocalVariableNode> children = new();
+    private List<LocalVariableNode> children = [];
     private List<LocalVariable> variables = new(variables);
 
     public IPRange Scope

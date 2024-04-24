@@ -51,14 +51,14 @@ public class Assembler
         writer = new BinaryWriter(output);
         constantOut = new MemoryStream();
         constantWritter = new BinaryWriter(constantOut);
-        issuedLabels = new List<Label>();
-        bindedLabels = new List<Label>();
-        externalFunctions = new List<(string, int)>();
-        sourceCodeLines = new List<(string, int, int)>();
-        sourceCodeLineMap = new Dictionary<(string, int), int>();
-        globalVariables = new List<GlobalVariable>();
-        localVariables = new List<LocalVariable>();
-        functions = new List<Function>();
+        issuedLabels = [];
+        bindedLabels = [];
+        externalFunctions = [];
+        sourceCodeLines = [];
+        sourceCodeLineMap = [];
+        globalVariables = [];
+        localVariables = [];
+        functions = [];
     }
 
     public void AddExternalFunctionNames((string, int)[] entries)
@@ -348,7 +348,7 @@ public class Assembler
 
         for (int i = 0; i < other.issuedLabels.Count; i++)
         {
-            Label label = other.issuedLabels[i];
+            var label = other.issuedLabels[i];
 
             for (int j = 0; j < label.references.Count; j++)
             {
@@ -360,7 +360,7 @@ public class Assembler
             issuedLabels.Add(label);
         }
 
-        foreach (Label label in other.bindedLabels)
+        foreach (var label in other.bindedLabels)
         {
             label.bindedAssembler = this;
             label.bindedIP += (int) startPosition;

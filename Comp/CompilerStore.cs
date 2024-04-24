@@ -51,7 +51,7 @@ public partial class Compiler
             case StringType:
             {
                 leftAssembler.EmitResidentToHostAddress();
-                Function f = unitySystem.FindFunction("AtribuiTexto");
+                var f = unitySystem.FindFunction("AtribuiTexto");
                 int index = GetOrAddExternalFunction(f.Name, f.ParameterSize);
                 assembler.EmitExternCall(index);
                 return;
@@ -107,7 +107,7 @@ public partial class Compiler
             {
                 // TODO Isto está certo?
                 leftAssembler.EmitResidentToHostAddress();
-                Function f = unitySystem.FindFunction("AtribuiTexto");
+                var f = unitySystem.FindFunction("AtribuiTexto");
                 int index = GetOrAddExternalFunction(f.Name, f.ParameterSize);
                 assembler.EmitExternCall(index);
                 return;
@@ -154,7 +154,7 @@ public partial class Compiler
             case StringType:
             {
                 leftAssembler.EmitLoadGlobalHostAddress(offset);
-                Function f = unitySystem.FindFunction("AtribuiTexto");
+                var f = unitySystem.FindFunction("AtribuiTexto");
                 int index = GetOrAddExternalFunction(f.Name, f.ParameterSize);
                 assembler.EmitExternCall(index);
                 return;
@@ -201,7 +201,7 @@ public partial class Compiler
             case StringType:
             {
                 leftAssembler.EmitLoadLocalHostAddress(offset);
-                Function f = unitySystem.FindFunction("AtribuiTexto");
+                var f = unitySystem.FindFunction("AtribuiTexto");
                 int index = GetOrAddExternalFunction(f.Name, f.ParameterSize);
                 assembler.EmitExternCall(index);
                 return;
@@ -268,7 +268,7 @@ public partial class Compiler
             {
                 leftAssembler.EmitResidentToHostAddress();
 
-                Function func = unitySystem.FindFunction("ConcatenaTextos2");
+                var func = unitySystem.FindFunction("ConcatenaTextos2");
                 int index = GetOrAddExternalFunction(func.Name, func.ParameterSize);
                 assembler.EmitExternCall(index);
                 return;
@@ -333,7 +333,7 @@ public partial class Compiler
 
     internal void CompileStoreAdd(Assembler assembler, Assembler leftAssembler, Variable storeVar, SourceInterval interval)
     {
-        AbstractType type = storeVar.Type;
+        var type = storeVar.Type;
         switch (type)
         {
             case PrimitiveType p:
@@ -419,7 +419,7 @@ public partial class Compiler
                 else
                     leftAssembler.EmitLoadLocalHostAddress(storeVar.Offset);
 
-                Function func = unitySystem.FindFunction("ConcatenaTextos2");
+                var func = unitySystem.FindFunction("ConcatenaTextos2");
                 int index = GetOrAddExternalFunction(func.Name, func.ParameterSize);
                 assembler.EmitExternCall(index);
                 return;
@@ -529,7 +529,7 @@ public partial class Compiler
 
     internal void CompileStoreSub(Assembler assembler, Variable storeVar, SourceInterval interval)
     {
-        AbstractType type = storeVar.Type;
+        var type = storeVar.Type;
         switch (type)
         {
             case PrimitiveType p:
@@ -692,7 +692,7 @@ public partial class Compiler
 
     internal void CompileStoreMul(Assembler assembler, Variable storeVar, SourceInterval interval)
     {
-        AbstractType type = storeVar.Type;
+        var type = storeVar.Type;
         if (type is not PrimitiveType p)
             throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
 
@@ -840,7 +840,7 @@ public partial class Compiler
 
     internal void CompileStoreDiv(Assembler assembler, Variable storeVar, SourceInterval interval)
     {
-        AbstractType type = storeVar.Type;
+        var type = storeVar.Type;
         if (type is not PrimitiveType p)
             throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
 
@@ -968,7 +968,7 @@ public partial class Compiler
 
     internal void CompileStoreMod(Assembler assembler, Variable storeVar, SourceInterval interval)
     {
-        AbstractType type = storeVar.Type;
+        var type = storeVar.Type;
         if (type is not PrimitiveType p)
             throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
 
@@ -1078,7 +1078,7 @@ public partial class Compiler
 
     internal void CompileStoreAnd(Assembler assembler, Variable storeVar, SourceInterval interval)
     {
-        AbstractType type = storeVar.Type;
+        var type = storeVar.Type;
         if (type is not PrimitiveType p)
             throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
 
@@ -1189,7 +1189,7 @@ public partial class Compiler
 
     internal void CompileStoreOr(Assembler assembler, Variable storeVar, SourceInterval interval)
     {
-        AbstractType type = storeVar.Type;
+        var type = storeVar.Type;
         if (type is not PrimitiveType p)
             throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
 
@@ -1300,7 +1300,7 @@ public partial class Compiler
 
     internal void CompileStoreXor(Assembler assembler, Variable storeVar, SourceInterval interval)
     {
-        AbstractType type = storeVar.Type;
+        var type = storeVar.Type;
         if (type is not PrimitiveType p)
             throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
 
@@ -1409,7 +1409,7 @@ public partial class Compiler
 
     internal void CompileStoreShiftLeft(Assembler assembler, Variable storeVar, SourceInterval interval)
     {
-        AbstractType type = storeVar.Type;
+        var type = storeVar.Type;
         if (type is not PrimitiveType p)
             throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
 
@@ -1517,7 +1517,7 @@ public partial class Compiler
 
     internal void CompileStoreShiftRight(Assembler assembler, Variable storeVar, SourceInterval interval)
     {
-        AbstractType type = storeVar.Type;
+        var type = storeVar.Type;
         if (type is not PrimitiveType p)
             throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
 
@@ -1625,7 +1625,7 @@ public partial class Compiler
 
     internal void CompileStoreUnsignedShiftRight(Assembler assembler, Variable storeVar, SourceInterval interval)
     {
-        AbstractType type = storeVar.Type;
+        var type = storeVar.Type;
         if (type is not PrimitiveType p)
             throw new CompilerException(interval, $"Operação inválida para o tipo '{type}'.");
 

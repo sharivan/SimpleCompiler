@@ -56,7 +56,7 @@ public class DeclarationStatement : InitializerStatement, IEnumerable<(string, E
     {
         this.type = type;
 
-        vars = new List<(string, Expression)>();
+        vars = [];
     }
 
     internal void AddVariable(string name, Expression initializer = null)
@@ -128,7 +128,7 @@ public class ReadStatement : Statement, IEnumerable<Expression>
 
     internal ReadStatement(SourceInterval interval) : base(interval)
     {
-        expressions = new List<Expression>();
+        expressions = [];
     }
 
     internal void AddExpression(Expression expression)
@@ -168,7 +168,7 @@ public class PrintStatement : Statement, IEnumerable<Expression>
     {
         LineBreak = lineBreak;
 
-        expressions = new List<Expression>();
+        expressions = [];
     }
 
     internal void AddExpression(Expression expression)
@@ -277,8 +277,8 @@ public class ForStatement : Statement
     {
         Expression = expression;
 
-        initializers = new List<InitializerStatement>();
-        updaters = new List<Expression>();
+        initializers = [];
+        updaters = [];
     }
 
     internal void AddInitializer(InitializerStatement initializer)
@@ -327,7 +327,7 @@ public class BlockStatement : Statement, IEnumerable<Statement>
 
     internal BlockStatement(SourceInterval interval) : base(interval)
     {
-        statements = new List<Statement>();
+        statements = [];
     }
 
     internal void AddStatement(Statement statement)

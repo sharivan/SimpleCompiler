@@ -100,7 +100,7 @@ public partial class Compiler
 
     internal void CompileLoad(Assembler assembler, Variable loadVar, SourceInterval interval)
     {
-        AbstractType type = loadVar.Type;
+        var type = loadVar.Type;
         switch (type)
         {
             case PrimitiveType p:

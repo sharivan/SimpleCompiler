@@ -93,16 +93,16 @@ public partial class FrmSimpleCompiler : Form
         vm.OnBreakpoint += OnBreakpoint;
 
         sourceTabNextID = 0;
-        sourceTabs = new List<SourceTab>();
-        sourceTabsMapByID = new Dictionary<int, SourceTab>();
-        sourceTabsMapByFileName = new Dictionary<string, SourceTab>();
+        sourceTabs = [];
+        sourceTabsMapByID = [];
+        sourceTabsMapByFileName = [];
 
-        sourceCache = new Dictionary<string, string[]>();
+        sourceCache = [];
 
         IHighlightingDefinition customHighlighting;
 
         string resourceName = "SimpleCompiler.Resources.slHighlighting.xshd";
-        Stream s = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName) ?? throw new InvalidOperationException("Could not find embedded resource");
+        var s = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName) ?? throw new InvalidOperationException("Could not find embedded resource");
 
         using (s)
         {
@@ -111,7 +111,7 @@ public partial class FrmSimpleCompiler : Form
         }
 
         // and register it in the HighlightingManager
-        HighlightingManager.Instance.RegisterHighlighting("Custom Highlighting", new string[] { ".sl" }, customHighlighting);
+        HighlightingManager.Instance.RegisterHighlighting("Custom Highlighting", [".sl"], customHighlighting);
 
         txtAssembly = new TextEditor();
         wpfAssemblyHost.Child = txtAssembly;
@@ -130,8 +130,8 @@ public partial class FrmSimpleCompiler : Form
         breakpointMargin = new BreakPointMargin(this);
         txtAssembly.TextArea.LeftMargins.Insert(0, breakpointMargin);
 
-        lineNumberToIP = new Dictionary<int, int>();
-        ipToLineNumber = new Dictionary<int, int>();
+        lineNumberToIP = [];
+        ipToLineNumber = [];
 
         addImage = Image.FromStream(Assembly.GetEntryAssembly().GetManifestResourceStream("SimpleCompiler.Resources.Img.5700.add.png"));
         closeImage = Image.FromStream(Assembly.GetEntryAssembly().GetManifestResourceStream("SimpleCompiler.Resources.Img.5657.close.png"));
@@ -149,7 +149,7 @@ public partial class FrmSimpleCompiler : Form
 
                 if (interval.FileName != null && interval.Start >= 0)
                 {
-                    SourceTab tab = SelectSourceTab(interval.FileName, true);
+                    var tab = SelectSourceTab(interval.FileName, true);
                     if (tab != null)
                     {
                         tab.txtSource.SelectionStart = interval.Start;
@@ -297,7 +297,7 @@ public partial class FrmSimpleCompiler : Form
         if (lineNumber == -1)
             return;
 
-        SourceTab tab = SelectSourceTab(filename, true, false);
+        var tab = SelectSourceTab(filename, true, false);
         if (tab != null)
         {
             var visualLine = tab.txtSource.TextArea.TextView.VisualLines.FirstOrDefault(line => line.FirstDocumentLine.LineNumber == lineNumber);
@@ -622,7 +622,7 @@ public partial class FrmSimpleCompiler : Form
         if (lastvisibleRowIndex >= dgvStrings.RowCount)
             lastvisibleRowIndex = dgvStrings.RowCount - 1;
 
-        IntPtr str = vm.LastObject;
+        var str = vm.LastObject;
         for (int rowIndex = 0; str != IntPtr.Zero && rowIndex < firstDisplayedRowIndex; rowIndex++)
         {
             unsafe
@@ -744,7 +744,7 @@ public partial class FrmSimpleCompiler : Form
         if (currentPageIndex == -1)
             return;
 
-        SourceTab currentTab = sourceTabs[currentPageIndex];
+        var currentTab = sourceTabs[currentPageIndex];
         currentTab.breakpointMargin.ClearBreakpoints();
         currentTab.SetSource(currentTab.txtSource.Text);
         currentTab.m_SourceCode = currentTab.txtSource.Text;
@@ -758,7 +758,7 @@ public partial class FrmSimpleCompiler : Form
 
         sourceFile = currentTab.FileName;
 
-        foreach (SourceTab tab in sourceTabs)
+        foreach (var tab in sourceTabs)
         {
             tab.breakpointMargin.ClearBreakpoints();
             tab.SetSource(tab.txtSource.Text);
@@ -829,16 +829,16 @@ public partial class FrmSimpleCompiler : Form
         return result;
     }
 
-    public SourceTab NewSourceTab(string fileName, bool selected = false, bool focused = false)
+    public SourceTab NewSourceTab(string fileName, bool selected = false, bool focused = false, double zoom = 1)
     {
-        if (sourceTabsMapByFileName.TryGetValue(fileName, out SourceTab tab))
+        if (sourceTabsMapByFileName.TryGetValue(fileName, out var tab))
             return tab;
 
         if (!File.Exists(fileName))
             return null;
 
         SetCompileEnabled(true);
-        tab = new SourceTab(this, fileName);
+        tab = new SourceTab(this, fileName, zoom);
         sourceTabs.Add(tab);
         sourceTabsMapByID[tab.ID] = tab;
         sourceTabsMapByFileName[fileName] = tab;
@@ -855,14 +855,14 @@ public partial class FrmSimpleCompiler : Form
 
     public SourceTab SelectSourceTab(int index)
     {
-        SourceTab tab = sourceTabs[index];
+        var tab = sourceTabs[index];
         tab.Focus();
         return tab;
     }
 
     public SourceTab SelectSourceTab(string fileName, bool openIfNotExist = false, bool focused = true)
     {
-        if (sourceTabsMapByFileName.TryGetValue(fileName, out SourceTab tab))
+        if (sourceTabsMapByFileName.TryGetValue(fileName, out var tab))
         {
             tcSources.SelectedTab = tab.page;
 
@@ -877,7 +877,7 @@ public partial class FrmSimpleCompiler : Form
 
     public void CloseSourceTab(int index)
     {
-        SourceTab tab = sourceTabs[index];
+        var tab = sourceTabs[index];
         tab.Close();
 
         SetCompileEnabled(sourceTabs.Count > 0);
@@ -885,7 +885,7 @@ public partial class FrmSimpleCompiler : Form
 
     public void CloseSourceTab(string fileName)
     {
-        if (sourceTabsMapByFileName.TryGetValue(fileName, out SourceTab tab))
+        if (sourceTabsMapByFileName.TryGetValue(fileName, out var tab))
             tab.Close();
 
         SetCompileEnabled(sourceTabs.Count > 0);
@@ -893,13 +893,13 @@ public partial class FrmSimpleCompiler : Form
 
     private void BtnNew_Click(object sender, EventArgs e)
     {
-        SourceTab tab = NewSourceTab();
+        var tab = NewSourceTab();
         tab.Focus();
     }
 
     public void OpenFileDialog()
     {
-        DialogResult result = openFileDialog.ShowDialog();
+        var result = openFileDialog.ShowDialog();
 
         if (result == DialogResult.OK)
         {
@@ -909,7 +909,7 @@ public partial class FrmSimpleCompiler : Form
             {
                 if (sourceTabsMapByFileName.ContainsKey(sSourceFileName))
                 {
-                    SourceTab sourceTab = sourceTabsMapByFileName[sSourceFileName];
+                    var sourceTab = sourceTabsMapByFileName[sSourceFileName];
                     sourceTab.Load(sSourceFileName);
                     sourceTab.Focus();
                 }
@@ -935,7 +935,7 @@ public partial class FrmSimpleCompiler : Form
         int currentPageIndex = tcSources.SelectedIndex;
         if (currentPageIndex != -1)
         {
-            SourceTab sourceTab = sourceTabs[currentPageIndex];
+            var sourceTab = sourceTabs[currentPageIndex];
             sourceTab.Reload();
         }
     }
@@ -950,7 +950,7 @@ public partial class FrmSimpleCompiler : Form
         int currentPageIndex = tcSources.SelectedIndex;
         if (currentPageIndex != -1)
         {
-            SourceTab sourceTab = sourceTabs[currentPageIndex];
+            var sourceTab = sourceTabs[currentPageIndex];
             sourceTab.Save();
         }
     }
@@ -961,7 +961,7 @@ public partial class FrmSimpleCompiler : Form
         if (currentPageIndex == -1)
             return;
 
-        SourceTab sourceTab = sourceTabs[currentPageIndex];
+        var sourceTab = sourceTabs[currentPageIndex];
         sourceTab.OpenSaveDialog();
     }
 
@@ -971,7 +971,7 @@ public partial class FrmSimpleCompiler : Form
         if (currentPageIndex == -1)
             return;
 
-        SourceTab sourceTab = sourceTabs[currentPageIndex];
+        var sourceTab = sourceTabs[currentPageIndex];
         sourceTab.Close();
     }
 
@@ -995,7 +995,7 @@ public partial class FrmSimpleCompiler : Form
     {
         for (int i = 0; i < sourceTabs.Count; i++)
         {
-            SourceTab sourceTab = sourceTabs[i];
+            var sourceTab = sourceTabs[i];
             sourceTab.lineBackgroundRenderer.Enabled = false;
         }
 
@@ -1030,7 +1030,7 @@ public partial class FrmSimpleCompiler : Form
             int index = tcSources.SelectedIndex;
             if (index != -1)
             {
-                SourceTab sourceTab = sourceTabs[index];
+                var sourceTab = sourceTabs[index];
                 if (sourceTab.wpfHost.Focused)
                     assemblyFocused = false;
             }
@@ -1043,7 +1043,7 @@ public partial class FrmSimpleCompiler : Form
     {
         paused = false;
 
-        foreach (SourceTab sourceTab in sourceTabs)
+        foreach (var sourceTab in sourceTabs)
             sourceTab.lineBackgroundRenderer.Enabled = false;
 
         lineBackgroundRenderer.Enabled = false;
@@ -1084,7 +1084,7 @@ public partial class FrmSimpleCompiler : Form
     {
         paused = false;
 
-        foreach (SourceTab sourceTab in sourceTabs)
+        foreach (var sourceTab in sourceTabs)
             sourceTab.lineBackgroundRenderer.Enabled = false;
 
         lineBackgroundRenderer.Enabled = false;
@@ -1111,7 +1111,7 @@ public partial class FrmSimpleCompiler : Form
     {
         paused = false;
 
-        foreach (SourceTab sourceTab in sourceTabs)
+        foreach (var sourceTab in sourceTabs)
             sourceTab.lineBackgroundRenderer.Enabled = false;
 
         lineBackgroundRenderer.Enabled = false;
@@ -1137,7 +1137,7 @@ public partial class FrmSimpleCompiler : Form
     {
         paused = false;
 
-        foreach (SourceTab sourceTab in sourceTabs)
+        foreach (var sourceTab in sourceTabs)
             sourceTab.lineBackgroundRenderer.Enabled = false;
 
         lineBackgroundRenderer.Enabled = false;
@@ -1176,7 +1176,7 @@ public partial class FrmSimpleCompiler : Form
             if (currentTabIndex == -1)
                 return;
 
-            SourceTab currentSourceTab = sourceTabs[currentTabIndex];
+            var currentSourceTab = sourceTabs[currentTabIndex];
 
             var line = currentSourceTab.txtSource.Document.GetLineByOffset(currentSourceTab.txtSource.SelectionStart);
             int ip = vm.GetIPFromLine(currentSourceTab.FileName, line.LineNumber);
@@ -1210,7 +1210,7 @@ public partial class FrmSimpleCompiler : Form
             var line = txtAssembly.Document.GetLineByOffset(txtAssembly.SelectionStart);
             if (lineNumberToIP.TryGetValue(line.LineNumber, out int ip))
             {
-                Breakpoint bp = vm.ToggleBreakPoint(ip);
+                var bp = vm.ToggleBreakPoint(ip);
                 if (bp != null)
                     breakpointMargin.ToggleBreakpoint(line.LineNumber, bp);
                 else
@@ -1223,10 +1223,10 @@ public partial class FrmSimpleCompiler : Form
             if (selectedPageIndex == -1)
                 return;
 
-            SourceTab sourceTab = sourceTabs[selectedPageIndex];
+            var sourceTab = sourceTabs[selectedPageIndex];
 
             var line = sourceTab.txtSource.Document.GetLineByOffset(sourceTab.txtSource.SelectionStart);
-            Breakpoint breakpoint = sourceTab.FileName != null
+            var breakpoint = sourceTab.FileName != null
                 ? vm.ToggleBreakPoint(sourceTab.FileName, line.LineNumber)
                 : vm.ToggleBreakPoint($"#{sourceTab.ID}", line.LineNumber);
 
@@ -1287,7 +1287,7 @@ public partial class FrmSimpleCompiler : Form
 
     private void FrmSimpleCompiler_Load(object sender, EventArgs e)
     {
-        Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
+        var config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
         if (config.Sections["ProgramConfiguratinSection"] is not ProgramConfiguratinSection section)
         {
             section = new ProgramConfiguratinSection();
@@ -1318,9 +1318,9 @@ public partial class FrmSimpleCompiler : Form
         SetVariablesEnabled(section.ViewVariablesChecked);
         SetMemoryEnabled(section.ViewMemoryChecked);
 
-        DocumentCollection collection = section.Documents;
+        var collection = section.Documents;
         foreach (DocumentConfigElement element in collection)
-            NewSourceTab(element.FileName, element.Selected, element.Focused);
+            NewSourceTab(element.FileName, element.Selected, element.Focused, element.Zoom);
     }
 
     private void FrmSimpleCompiler_FormClosing(object sender, FormClosingEventArgs e)
@@ -1328,7 +1328,7 @@ public partial class FrmSimpleCompiler : Form
         if (vmRunning)
             vmThread.Abort();
 
-        Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
+        var config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
         if (config.Sections["ProgramConfiguratinSection"] is not ProgramConfiguratinSection section)
         {
             section = new ProgramConfiguratinSection();
@@ -1360,17 +1360,18 @@ public partial class FrmSimpleCompiler : Form
         section.ViewVariablesChecked = mnuViewVariables.Checked;
         section.ViewMemoryChecked = mnuViewMemory.Checked;
 
-        DocumentCollection collection = section.Documents;
+        var collection = section.Documents;
         collection.Clear();
         for (int i = 0; i < sourceTabs.Count; i++)
         {
-            SourceTab tab = sourceTabs[i];
+            var tab = sourceTabs[i];
             if (tab.FileName != null)
             {
-                DocumentConfigElement element = collection[tab.FileName];
+                var element = collection[tab.FileName];
                 element.TabIndex = i;
                 element.Selected = tcSources.SelectedTab == tab.page;
                 element.Focused = tab.txtSource.IsFocused;
+                element.Zoom = tab.Zoom;
             }
         }
 
@@ -1409,7 +1410,7 @@ public partial class FrmSimpleCompiler : Form
     {
         try
         {
-            TabPage tabPage = tcSources.TabPages[e.Index];
+            var tabPage = tcSources.TabPages[e.Index];
             var tabRect = tcSources.GetTabRect(e.Index);
 
             tabRect.Inflate(-2, -2);
@@ -1711,7 +1712,7 @@ public partial class FrmSimpleCompiler : Form
 
     private void MnuNew_Click(object sender, EventArgs e)
     {
-        SourceTab tab = NewSourceTab();
+        var tab = NewSourceTab();
         tab.Focus();
     }
 
@@ -1751,7 +1752,7 @@ public partial class FrmSimpleCompiler : Form
         if (currentPageIndex == -1)
             return;
 
-        SourceTab sourceTab = sourceTabs[currentPageIndex];
+        var sourceTab = sourceTabs[currentPageIndex];
         sourceTab.Cut();
     }
 
@@ -1761,7 +1762,7 @@ public partial class FrmSimpleCompiler : Form
         if (currentPageIndex == -1)
             return;
 
-        SourceTab sourceTab = sourceTabs[currentPageIndex];
+        var sourceTab = sourceTabs[currentPageIndex];
         sourceTab.Copy();
     }
 
@@ -1771,7 +1772,7 @@ public partial class FrmSimpleCompiler : Form
         if (currentPageIndex == -1)
             return;
 
-        SourceTab sourceTab = sourceTabs[currentPageIndex];
+        var sourceTab = sourceTabs[currentPageIndex];
         sourceTab.Paste();
     }
 
@@ -1781,7 +1782,7 @@ public partial class FrmSimpleCompiler : Form
         if (currentPageIndex == -1)
             return;
 
-        SourceTab sourceTab = sourceTabs[currentPageIndex];
+        var sourceTab = sourceTabs[currentPageIndex];
         sourceTab.EditDelete();
     }
 
@@ -1791,7 +1792,7 @@ public partial class FrmSimpleCompiler : Form
         if (currentPageIndex == -1)
             return;
 
-        SourceTab sourceTab = sourceTabs[currentPageIndex];
+        var sourceTab = sourceTabs[currentPageIndex];
         sourceTab.SelectAll();
     }
 

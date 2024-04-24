@@ -10,8 +10,8 @@ public partial class Compiler
     {
         tempVar = null;
 
-        Expression leftOperand = expression.LeftOperand;
-        Expression rightOperand = expression.RightOperand;
+        var leftOperand = expression.LeftOperand;
+        var rightOperand = expression.RightOperand;
         AbstractType result;
 
         if (expression.Operation <= BinaryOperation.STORE_MOD)
@@ -23,11 +23,11 @@ public partial class Compiler
         {
             Assembler leftAssembler = new();
 
-            AbstractType leftType = CompileExpression(context, leftAssembler, leftOperand, out _);
+            var leftType = CompileExpression(context, leftAssembler, leftOperand, out _);
 
             Assembler rightAssembler = new();
 
-            AbstractType rightType = CompileExpression(context, rightAssembler, rightOperand, out _);
+            var rightType = CompileExpression(context, rightAssembler, rightOperand, out _);
 
             switch (expression.Operation)
             {
@@ -783,8 +783,8 @@ public partial class Compiler
                                         Assembler beforeLeftAssembler = new();
                                         Assembler beforeRightAssembler = new();
 
-                                        CompileCast(context, leftAssembler, beforeLeftAssembler, leftType, StringType.STRING, false, leftOperand.Interval, out Variable leftCastTempVar);
-                                        CompileCast(context, rightAssembler, beforeRightAssembler, rightType, StringType.STRING, false, rightOperand.Interval, out Variable rightCastTempVar);
+                                        CompileCast(context, leftAssembler, beforeLeftAssembler, leftType, StringType.STRING, false, leftOperand.Interval, out var leftCastTempVar);
+                                        CompileCast(context, rightAssembler, beforeRightAssembler, rightType, StringType.STRING, false, rightOperand.Interval, out var rightCastTempVar);
 
                                         tempVar = context.AcquireTemporaryVariable(StringType.STRING, expression.Interval);
                                         assembler.EmitLoadLocalHostAddress(tempVar.Offset);
@@ -794,7 +794,7 @@ public partial class Compiler
                                         assembler.Emit(beforeRightAssembler);
                                         assembler.Emit(rightAssembler);
 
-                                        Function func = unitySystem.FindFunction("ConcatenaTextos2");
+                                        var func = unitySystem.FindFunction("ConcatenaTextos2");
                                         int index = GetOrAddExternalFunction(func.Name, func.ParameterSize);
                                         assembler.EmitExternCall(index);
 
@@ -811,7 +811,7 @@ public partial class Compiler
                                     {
                                         Assembler beforeLeftAssembler = new();
 
-                                        CompileCast(context, leftAssembler, beforeLeftAssembler, leftType, rightType, false, leftOperand.Interval, out Variable leftCastTempVar);
+                                        CompileCast(context, leftAssembler, beforeLeftAssembler, leftType, rightType, false, leftOperand.Interval, out var leftCastTempVar);
 
                                         tempVar = context.AcquireTemporaryVariable(StringType.STRING, expression.Interval);
                                         assembler.EmitLoadLocalHostAddress(tempVar.Offset);
@@ -820,7 +820,7 @@ public partial class Compiler
                                         assembler.Emit(leftAssembler);
                                         assembler.Emit(rightAssembler);
 
-                                        Function func = unitySystem.FindFunction("ConcatenaTextos2");
+                                        var func = unitySystem.FindFunction("ConcatenaTextos2");
                                         int index = GetOrAddExternalFunction(func.Name, func.ParameterSize);
                                         assembler.EmitExternCall(index);
 
@@ -864,7 +864,7 @@ public partial class Compiler
 
                                 rightCastTempVar?.Release();
 
-                                Function func = unitySystem.FindFunction("ConcatenaTextos2");
+                                var func = unitySystem.FindFunction("ConcatenaTextos2");
                                 int index = GetOrAddExternalFunction(func.Name, func.ParameterSize);
                                 assembler.EmitExternCall(index);
 
@@ -902,7 +902,7 @@ public partial class Compiler
 
                                 leftCastTempVar?.Release();
 
-                                Function func = unitySystem.FindFunction("ConcatenaTextos2");
+                                var func = unitySystem.FindFunction("ConcatenaTextos2");
                                 int index = GetOrAddExternalFunction(func.Name, func.ParameterSize);
                                 assembler.EmitExternCall(index);
 

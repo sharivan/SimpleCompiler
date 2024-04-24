@@ -754,7 +754,7 @@ public class Lexer : IDisposable
 
     public NumericLiteral NextNumber(bool throwException = true, string errorMessage = null)
     {
-        Token token = NextToken();
+        var token = NextToken();
         if (token == null)
         {
             PreviusToken();
@@ -783,7 +783,7 @@ public class Lexer : IDisposable
 
     public Symbol NextSymbol(bool throwException = true, string errorMessage = null)
     {
-        Token token = NextToken();
+        var token = NextToken();
         if (token == null)
         {
             PreviusToken();
@@ -812,7 +812,7 @@ public class Lexer : IDisposable
 
     public Symbol NextSymbol(string expectedValue, bool throwException = true, string errorMessage = null)
     {
-        Token token = NextToken();
+        var token = NextToken();
         if (token == null)
         {
             PreviusToken();
@@ -851,7 +851,7 @@ public class Lexer : IDisposable
 
     public Keyword NextKeyword(bool throwException = true, string errorMessage = null)
     {
-        Token token = NextToken();
+        var token = NextToken();
         if (token == null)
         {
             PreviusToken();
@@ -880,7 +880,7 @@ public class Lexer : IDisposable
 
     public Keyword NextKeyword(string expectedValue, bool throwException = true, string errorMessage = null)
     {
-        Token token = NextToken();
+        var token = NextToken();
         if (token == null)
         {
             PreviusToken();
@@ -919,7 +919,7 @@ public class Lexer : IDisposable
 
     public Identifier NextIdentifier(bool throwException = true, string errorMessage = null)
     {
-        Token token = NextToken();
+        var token = NextToken();
         if (token == null)
         {
             PreviusToken();
@@ -948,7 +948,7 @@ public class Lexer : IDisposable
 
     public Identifier NextIdentifier(string expectedValue, bool throwException = true, string errorMessage = null)
     {
-        Token token = NextToken();
+        var token = NextToken();
         if (token == null)
         {
             PreviusToken();

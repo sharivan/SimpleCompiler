@@ -11,17 +11,17 @@ public partial class Compiler
         AbstractType result;
         isPointerDeference = false;
 
-        Expression operand = expression.Operand;
+        var operand = expression.Operand;
         string fieldName = expression.Field;
 
         Assembler operandAssembler = new();
-        AbstractType operandType = CompileAssignableExpression(context, operandAssembler, operand, out _, out _);
+        var operandType = CompileAssignableExpression(context, operandAssembler, operand, out _, out _);
 
         switch (operandType)
         {
             case StructType s:
             {
-                Field field = s.FindField(fieldName) ?? throw new CompilerException(expression.Interval, $"Campo '{fieldName}' não encontrado na estrutura: '{s.Name}'.");
+                var field = s.FindField(fieldName) ?? throw new CompilerException(expression.Interval, $"Campo '{fieldName}' não encontrado na estrutura: '{s.Name}'.");
 
                 assembler.Emit(operandAssembler);
 
@@ -40,7 +40,7 @@ public partial class Compiler
                 if (ptr.Type == null || ptr.Type is not StructType s2)
                     throw new CompilerException(operand.Interval, "Pointeiro de estrutura esperado.");
 
-                Field field = s2.FindField(fieldName) ?? throw new CompilerException(expression.Interval, $"Campo '{fieldName}' não encontrado na estrutura: '{s2.Name}'.");
+                var field = s2.FindField(fieldName) ?? throw new CompilerException(expression.Interval, $"Campo '{fieldName}' não encontrado na estrutura: '{s2.Name}'.");
 
                 assembler.Emit(operandAssembler);
 
@@ -64,7 +64,7 @@ public partial class Compiler
 
                 assembler.EmitLoadStackPtr();
 
-                Function func = unitySystem.FindFunction("ComprimentoTexto");
+                var func = unitySystem.FindFunction("ComprimentoTexto");
                 int index = GetOrAddExternalFunction(func.Name, func.ParameterSize);
                 assembler.EmitExternCall(index);
 
@@ -82,8 +82,8 @@ public partial class Compiler
     public AbstractType CompileAssignableArrayAccessorExpression(Context context, Assembler assembler, ArrayAccessorExpression a, out bool isPointerDeference, bool loadHostAddress = false)
     {
         Expression indexer;
-        Expression operand = a.Operand;
-        AbstractType operandType = CompileAssignableExpression(context, assembler, operand, out _, out _);
+        var operand = a.Operand;
+        var operandType = CompileAssignableExpression(context, assembler, operand, out _, out _);
 
         if (operandType is ArrayType at)
         {
@@ -163,7 +163,7 @@ public partial class Compiler
         string name = id.Name;
 
         isPointerDeference = false;
-        Variable var = context.FindVariable(name);
+        var var = context.FindVariable(name);
         if (var == null)
         {
             var = unity.FindGlobalVariable(name);
@@ -221,17 +221,17 @@ public partial class Compiler
     {
         tempVar = null;
 
-        Expression operand = expression.Operand;
+        var operand = expression.Operand;
         string fieldName = expression.Field;
 
         Assembler operandAssembler = new();
-        AbstractType operandType = CompileAssignableExpression(context, operandAssembler, operand, out _, out _);
+        var operandType = CompileAssignableExpression(context, operandAssembler, operand, out _, out _);
 
         switch (operandType)
         {
             case StructType s:
             {
-                Field field = s.FindField(fieldName) ?? throw new CompilerException(expression.Interval, $"Campo '{fieldName}' não encontrado na estrutura: '{s.Name}'.");
+                var field = s.FindField(fieldName) ?? throw new CompilerException(expression.Interval, $"Campo '{fieldName}' não encontrado na estrutura: '{s.Name}'.");
 
                 assembler.Emit(operandAssembler);
 
@@ -256,7 +256,7 @@ public partial class Compiler
                 if (ptr.Type is not StructType s2)
                     throw new CompilerException(operand.Interval, "Pointeiro de estrutura esperado.");
 
-                Field field = s2.FindField(fieldName) ?? throw new CompilerException(expression.Interval, $"Campo '{fieldName}' não encontrado na estrutura: '{s2.Name}'.");
+                var field = s2.FindField(fieldName) ?? throw new CompilerException(expression.Interval, $"Campo '{fieldName}' não encontrado na estrutura: '{s2.Name}'.");
 
                 assembler.Emit(operandAssembler);
 
@@ -282,7 +282,7 @@ public partial class Compiler
 
                 assembler.EmitLoadStackPtr();
 
-                Function func = unitySystem.FindFunction("ComprimentoTexto");
+                var func = unitySystem.FindFunction("ComprimentoTexto");
                 int index = GetOrAddExternalFunction(func.Name, func.ParameterSize);
                 assembler.EmitExternCall(index);
 
@@ -298,8 +298,8 @@ public partial class Compiler
         tempVar = null;
 
         Expression indexer;
-        Expression operand = expression.Operand;
-        AbstractType operandType = CompileAssignableExpression(context, assembler, operand, out _, out _);
+        var operand = expression.Operand;
+        var operandType = CompileAssignableExpression(context, assembler, operand, out _, out _);
         AbstractType result;
 
         if (operandType is ArrayType at)
@@ -449,7 +449,7 @@ public partial class Compiler
             {
                 string name = id.Name;
 
-                Variable var = context.FindVariable(name);
+                var var = context.FindVariable(name);
                 if (var == null)
                 {
                     var = unity.FindGlobalVariable(name);
@@ -486,14 +486,14 @@ public partial class Compiler
     {
         tempVar = null;
 
-        Expression operand = c.Operand;
+        var operand = c.Operand;
         if (operand is not IdentifierExpression id)
             throw new CompilerException(c.Interval, "Expressão de nome de função inválida.");
 
         string functionName = id.Name;
-        Function func = unity.FindFunction(functionName) ?? throw new CompilerException(id.Interval, $"Função '{functionName}' não declarada.");
+        var func = unity.FindFunction(functionName) ?? throw new CompilerException(id.Interval, $"Função '{functionName}' não declarada.");
 
-        AbstractType returnType = func.ReturnType;
+        var returnType = func.ReturnType;
         if (!PrimitiveType.IsPrimitiveVoid(returnType))
         {
             if (returnType is StringType)
@@ -511,12 +511,12 @@ public partial class Compiler
         var castTempVars = new Variable[func.ParamCount];
         for (int j = 0; j < func.ParamCount; j++)
         {
-            Parameter parameter = func[j];
-            Expression expressionParameter = c[j];
+            var parameter = func[j];
+            var expressionParameter = c[j];
 
             if (parameter.ByRef)
             {
-                AbstractType paramType = CompileAssignableExpression(context, assembler, expressionParameter, out _, out _, true);
+                var paramType = CompileAssignableExpression(context, assembler, expressionParameter, out _, out _, true);
                 if (paramType != parameter.Type)
                 {
                     if (paramType is ArrayType at)
@@ -529,7 +529,7 @@ public partial class Compiler
             else
             {
                 Assembler castAssembler = new();
-                AbstractType paramType = CompileExpression(context, castAssembler, expressionParameter, out Variable paramTempVar, parameter.Type is PointerType);
+                var paramType = CompileExpression(context, castAssembler, expressionParameter, out var paramTempVar, parameter.Type is PointerType);
                 CompileCast(context, castAssembler, assembler, paramType, parameter.Type, false, expressionParameter.Interval, out castTempVars[j]);
                 assembler.Emit(castAssembler);
 
@@ -552,7 +552,7 @@ public partial class Compiler
 
         if (tempVar != null)
         {
-            Function f = unitySystem.FindFunction("AtribuiTexto");
+            var f = unitySystem.FindFunction("AtribuiTexto");
             int index = GetOrAddExternalFunction(f.Name, f.ParameterSize);
             assembler.EmitExternCall(index);
 
@@ -564,11 +564,11 @@ public partial class Compiler
 
     private AbstractType CompileCastExpression(Context context, Assembler assembler, CastExpression cs, out Variable tempVar)
     {
-        Expression operand = cs.Operand;
-        AbstractType type = cs.Type;
+        var operand = cs.Operand;
+        var type = cs.Type;
 
         Assembler castAssembler = new();
-        AbstractType operandType = CompileExpression(context, castAssembler, operand, out Variable operandTempVar);
+        var operandType = CompileExpression(context, castAssembler, operand, out var operandTempVar);
         CompileCast(context, castAssembler, assembler, operandType, type, true, operand.Interval, out tempVar);
         assembler.Emit(castAssembler);
 

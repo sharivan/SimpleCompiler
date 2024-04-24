@@ -2,7 +2,7 @@
 
 public class Keyword : Token
 {
-    public static readonly string[] KEYWORDS = { 
+    public static readonly string[] KEYWORDS = [ 
         // tipos
         "void",
         "bool",
@@ -63,7 +63,7 @@ public class Keyword : Token
         "tente", // try
         "capture", // catch
         "finalmente" // finally
-    };
+    ];
 
     public static bool IsKeyword(string s)
     {

@@ -147,7 +147,7 @@ public class ArrayAccessorExpression : Expression
     {
         Operand = operand;
 
-        indexers = new List<Expression>();
+        indexers = [];
     }
 
     internal void AddIndexer(Expression indexer)
@@ -173,7 +173,7 @@ public class CallExpression : Expression
     {
         Operand = operand;
 
-        parameters = new List<Expression>();
+        parameters = [];
     }
 
     internal void AddParameter(Expression parameter)
