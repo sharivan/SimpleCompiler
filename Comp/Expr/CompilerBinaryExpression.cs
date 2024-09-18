@@ -941,32 +941,61 @@ public partial class Compiler
 
                             case StringType:
                             {
+                                Assembler beforeLeftAssembler = new();
                                 Assembler beforeRightAssembler = new();
                                 Variable rightCastTempVar = null;
-                                if (rightType is PointerType rptr)
-                                {
-                                    if (!PrimitiveType.IsPrimitiveChar(rptr.Type))
-                                        throw new CompilerException(rightOperand.Interval, $"Concatenação de strings não pode ser feita com um ponteiro do tipo '{rptr.Type}'.");
 
-                                    CompileCast(context, rightAssembler, beforeRightAssembler, rightType, leftType, false, rightOperand.Interval, out rightCastTempVar);
-                                }
-                                else if (rightType is not StringType)
+                                CompileCast(context, leftAssembler, beforeLeftAssembler, leftType, StringType.STRING, false, leftOperand.Interval, out var leftCastTempVar);
+
+                                switch (rightType)
                                 {
-                                    throw new CompilerException(rightOperand.Interval, $"Concatenação de strings não pode ser feita com o tipo '{rightType}'.");
+                                    case PrimitiveType rp: // Concatenação de uma string com um tipo primitivo, isso exige a conversão do primitivo para string para então realizar a concatenação
+                                    {
+                                        var rightTempVar = context.AcquireTemporaryVariable(StringType.STRING, rightOperand.Interval);
+                                        beforeRightAssembler.EmitLoadLocalHostAddress(rightTempVar.Offset);
+
+                                        var func = rp.Primitive switch
+                                        {
+                                            Primitive.BOOL => unitySystem.FindFunction("BoolParaTexto"),
+                                            Primitive.CHAR => unitySystem.FindFunction("CharParaTexto"),
+                                            Primitive.BYTE or Primitive.SHORT or Primitive.INT => unitySystem.FindFunction("IntParaTexto"),
+                                            Primitive.LONG => unitySystem.FindFunction("LongParaTexto"),
+                                            Primitive.FLOAT => unitySystem.FindFunction("FloatParaTexto"),
+                                            Primitive.DOUBLE => unitySystem.FindFunction("DoubleParaTexto"),
+                                            _ => throw new CompilerException(rightOperand.Interval, "Operando inválido."),
+                                        };
+                                        int index = GetOrAddExternalFunction(func.Name, func.ParameterSize);
+                                        rightAssembler.EmitExternCall(index);
+                                        rightAssembler.EmitLoadLocalPtr(rightTempVar.Offset);
+                                        break;
+                                    }
+
+                                    case PointerType rptr:
+                                    {
+                                        if (!PrimitiveType.IsPrimitiveChar(rptr.Type))
+                                            throw new CompilerException(rightOperand.Interval, $"Concatenação de strings não pode ser feita com um ponteiro do tipo '{rptr.Type}'.");
+
+                                        CompileCast(context, rightAssembler, beforeRightAssembler, rightType, leftType, false, rightOperand.Interval, out rightCastTempVar);
+                                        break;
+                                    }
+
+                                    default:
+                                        throw new CompilerException(rightOperand.Interval, $"Concatenação de strings não pode ser feita com o tipo '{rightType}'.");
                                 }
 
                                 tempVar = context.AcquireTemporaryVariable(StringType.STRING, expression.Interval);
                                 assembler.EmitLoadLocalHostAddress(tempVar.Offset);
 
+                                assembler.Emit(beforeLeftAssembler);
                                 assembler.Emit(leftAssembler);
                                 assembler.Emit(beforeRightAssembler);
                                 assembler.Emit(rightAssembler);
 
                                 rightCastTempVar?.Release();
 
-                                var func = unitySystem.FindFunction("ConcatenaTextos2");
-                                int index = GetOrAddExternalFunction(func.Name, func.ParameterSize);
-                                assembler.EmitExternCall(index);
+                                var concat = unitySystem.FindFunction("ConcatenaTextos2");
+                                int concatIndex = GetOrAddExternalFunction(concat.Name, concat.ParameterSize);
+                                assembler.EmitExternCall(concatIndex);
 
                                 assembler.EmitLoadLocalPtr(tempVar.Offset);
 

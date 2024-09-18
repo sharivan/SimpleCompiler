@@ -5,22 +5,21 @@ usando Sorts;
 {
 	// Teste da unidade padrão System:
 		
-	var str:char[256];
-	CopiaString("abcdefgh", str);
-	ConcatenaStrings(str, str, "1234567890");
-	escrevaln "\"abcdefgh\"+\"1234567890\"=\"", str, '"';
+	var str:texto = "abcdefgh"; // string dinâmica contada por referência
+	str = str + 1234567890; // concatenação de string com tipos numéricos
+	escrevaln "\"abcdefgh\" + \"1234567890\" = \"", str, '"';
 		
-	escrevaln "ComprimentoString(\"", str, "\")=", ComprimentoString(str);
+	escrevaln "Tamanho do texto \"", str, "\" = ", str.tamanho;
 		
-	var str2:char[16];
+	var str2:char[16]; // string estática
 	CopiaString("4567", str2);
 	var str2Int:int;
 	StringParaInt(str2, str2Int);
 	escrevaln "StringParaInt(\"", str2, "\")=", str2Int;
 		
 	// saída esperada:
-	// "abcdefgh"+"1234567890"="abcdefgh1234567890"
-	// ComprimentoString("abcdefgh1234567890")=18;
+	// "abcdefgh" + "1234567890" = "abcdefgh1234567890"
+	// Tamanho do texto "abcdefgh1234567890" = 18;
 	// StringParaInt("4567")=4567
 		
 	// Teste da unidade Sorts:
