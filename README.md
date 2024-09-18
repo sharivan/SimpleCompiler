@@ -24,7 +24,7 @@ usando Sorts;
 	// Teste da unidade padrão System:
 		
 	var str:texto = "abcdefgh"; // string dinâmica contada por referência
-	str = str + "1234567890";
+	str = str + 1234567890; // concatenação de string com tipos numéricos
 	escrevaln "\"abcdefgh\" + \"1234567890\" = \"", str, '"';
 		
 	escrevaln "Tamanho do texto \"", str, "\" = ", str.tamanho;
@@ -47,7 +47,7 @@ usando Sorts;
 
 	para (var i:int = 0; i < 4; i++)
 	{
-		escrevaln "Digite um númeero inteiro para a[", i, "]";
+		escrevaln "Digite um número inteiro para a[", i, "]";
 		leia a[i];
 	}
 		
