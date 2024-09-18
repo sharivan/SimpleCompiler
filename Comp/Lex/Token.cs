@@ -1,14 +1,9 @@
 ﻿namespace Comp.Lex;
 
-public abstract class Token
+public abstract class Token(SourceInterval interval)
 {
     public SourceInterval Interval
     {
         get;
-    }
-
-    protected Token(SourceInterval interval)
-    {
-        Interval = interval;
-    }
+    } = interval;
 }

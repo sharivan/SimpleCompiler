@@ -1,22 +1,16 @@
-﻿using System.Collections;
+﻿using Comp.Types;
+using System.Collections;
 using System.Collections.Generic;
-
-using Comp.Types;
 
 namespace Comp;
 
-public abstract class Statement
+public abstract class Statement(SourceInterval interval)
 {
     public SourceInterval Interval
     {
         get;
         internal set;
-    }
-
-    protected Statement(SourceInterval interval)
-    {
-        Interval = interval;
-    }
+    } = interval;
 }
 
 public class EmptyStatement : Statement
@@ -26,11 +20,8 @@ public class EmptyStatement : Statement
     }
 }
 
-public abstract class InitializerStatement : Statement
+public abstract class InitializerStatement(SourceInterval interval) : Statement(interval)
 {
-    protected InitializerStatement(SourceInterval interval) : base(interval)
-    {
-    }
 }
 
 public class DeclarationStatement : InitializerStatement, IEnumerable<(string, Expression)>

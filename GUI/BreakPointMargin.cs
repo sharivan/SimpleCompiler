@@ -1,11 +1,9 @@
-﻿using System;
+﻿using ICSharpCode.AvalonEdit.Editing;
+using ICSharpCode.AvalonEdit.Rendering;
+using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Media;
-
-using ICSharpCode.AvalonEdit.Editing;
-using ICSharpCode.AvalonEdit.Rendering;
-
 using VM;
 
 namespace SimpleCompiler.GUI;

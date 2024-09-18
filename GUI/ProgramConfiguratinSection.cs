@@ -117,6 +117,7 @@ public sealed class ProgramConfiguratinSection : ConfigurationSection
 
         set => this["viewVariablesChecked"] = value;
     }
+
     [ConfigurationProperty("viewMemoryChecked",
         DefaultValue = false,
         IsRequired = false
@@ -126,6 +127,28 @@ public sealed class ProgramConfiguratinSection : ConfigurationSection
         get => (bool) this["viewMemoryChecked"];
 
         set => this["viewMemoryChecked"] = value;
+    }
+
+    [ConfigurationProperty("consoleZoomFactor",
+        DefaultValue = 1F,
+        IsRequired = false
+        )]
+    public float ConsoleZoomFactor
+    {
+        get => (float) this["consoleZoomFactor"];
+
+        set => this["consoleZoomFactor"] = value;
+    }
+
+    [ConfigurationProperty("assemblyZoomFactor",
+        DefaultValue = 1.0,
+        IsRequired = false
+        )]
+    public double AssemblyZoomFactor
+    {
+        get => (double) this["assemblyZoomFactor"];
+
+        set => this["assemblyZoomFactor"] = value;
     }
 
     [ConfigurationProperty("documents", IsDefaultCollection = true)]

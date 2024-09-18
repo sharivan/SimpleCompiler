@@ -1,11 +1,7 @@
 ﻿namespace Comp.Lex;
 
-public abstract class NumericLiteral : Literal
+public abstract class NumericLiteral(SourceInterval interval) : Literal(interval)
 {
-    protected NumericLiteral(SourceInterval interval) : base(interval)
-    {
-    }
-
     public abstract byte AsByte();
 
     public abstract short AsShort();

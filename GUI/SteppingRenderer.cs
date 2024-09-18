@@ -1,8 +1,7 @@
-﻿using System.Linq;
+﻿using ICSharpCode.AvalonEdit.Rendering;
+using System.Linq;
 using System.Windows;
 using System.Windows.Media;
-
-using ICSharpCode.AvalonEdit.Rendering;
 
 namespace SimpleCompiler.GUI;
 

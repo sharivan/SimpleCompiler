@@ -1,7 +1,6 @@
-﻿using System.IO;
-
-using Comp.Lex;
+﻿using Comp.Lex;
 using Comp.Types;
+using System.IO;
 
 namespace Comp;
 

@@ -1,21 +1,15 @@
-﻿using System;
+﻿using Comp.Types;
+using System;
 using System.Collections.Generic;
-
-using Comp.Types;
 
 namespace Comp;
 
-public abstract class Expression
+public abstract class Expression(SourceInterval interval)
 {
     public SourceInterval Interval
     {
         get;
-    }
-
-    protected Expression(SourceInterval interval)
-    {
-        Interval = interval;
-    }
+    } = interval;
 }
 
 public enum UnaryOperation
@@ -220,18 +214,14 @@ public enum PrimaryType
     IDENTIFIER, // x
 }
 
-public abstract class PrimaryExpression : Expression
+public abstract class PrimaryExpression(SourceInterval interval, PrimaryType primaryType) : Expression(interval)
 {
     public PrimaryType PrimaryType
     {
         get;
-    }
+    } = primaryType;
 
     public AbstractType Type => GetType();
-    protected PrimaryExpression(SourceInterval interval, PrimaryType primaryType) : base(interval)
-    {
-        PrimaryType = primaryType;
-    }
 
 #pragma warning disable CS0108 // O membro oculta o membro herdado; nova palavra-chave ausente
     protected abstract AbstractType GetType();

@@ -1,9 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-
-using Asm;
-
+﻿using Asm;
 using Comp.Types;
+using System;
+using System.Collections.Generic;
 
 namespace Comp;
 
@@ -11,6 +9,8 @@ public class Function : IMember
 {
     private readonly List<Parameter> parameters;
     private AbstractType returnType;
+
+    private List<TypeEntry> types;
 
     public CompilationUnity Unity
     {
@@ -107,6 +107,41 @@ public class Function : IMember
         ParameterSize = 0;
         LocalVariableOffset = 0;
         ReturnOffset = -2 * sizeof(int);
+
+        types = [];
+    }
+
+    internal int AcquireFreeOffset(AbstractType type, int fromOffset = 0, bool tempVar = false)
+    {
+        int offset = 0;
+        foreach (var entry in types)
+        {
+            if (!entry.acquired && entry.tempVar == tempVar && entry.offset >= fromOffset && ReferenceEquals(entry.type, type))
+            {
+                entry.acquired = true;
+                return entry.offset;
+            }
+
+            offset += Compiler.GetAlignedSize(entry.type.Size);
+        }
+
+        types.Add(new TypeEntry(offset, type, true, tempVar));
+        LocalVariableOffset = offset + Compiler.GetAlignedSize(type.Size);
+        return offset;
+    }
+
+    internal bool ReleaseOffset(int offset)
+    {
+        foreach (var entry in types)
+        {
+            if (entry.acquired && entry.offset == offset)
+            {
+                entry.acquired = false;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     internal void CreateEntryLabel()
@@ -203,11 +238,5 @@ public class Function : IMember
         AbstractType.Resolve(ref returnType);
         if (!PrimitiveType.IsPrimitiveVoid(returnType))
             ReturnOffset -= Compiler.GetAlignedSize(returnType.Size);
-    }
-
-    internal void CheckLocalVariableOffset(int offset)
-    {
-        if (offset > LocalVariableOffset)
-            LocalVariableOffset = offset;
     }
 }

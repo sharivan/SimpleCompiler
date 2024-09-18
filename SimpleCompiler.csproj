@@ -85,8 +85,10 @@
     <Compile Include="Comp\IMember.cs" />
     <Compile Include="Comp\Types\NamedType.cs" />
     <Compile Include="Comp\Types\StringType.cs" />
+    <Compile Include="Comp\Types\TypeEntry.cs" />
     <Compile Include="Comp\Types\TypeSetType.cs" />
     <Compile Include="Comp\Types\UnresolvedType.cs" />
+    <None Include=".editorconfig" />
     <None Include="Examples\TesteAritimetico.sl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -100,6 +102,7 @@
     <Compile Include="GUI\SourceTab.cs" />
     <Compile Include="GUI\SteppingRenderer.cs" />
     <Compile Include="VM\Breakpoint.cs" />
+    <Compile Include="VM\Error.cs" />
     <Compile Include="VM\IPRange.cs" />
     <Compile Include="VM\LineKey.cs" />
     <Compile Include="VM\LocalVariableNode.cs" />

@@ -1,4 +1,7 @@
-﻿using System;
+﻿using ICSharpCode.AvalonEdit;
+using ICSharpCode.AvalonEdit.Document;
+using ICSharpCode.AvalonEdit.Highlighting;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Windows.Forms;
@@ -7,29 +10,10 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
-using ICSharpCode.AvalonEdit;
-using ICSharpCode.AvalonEdit.Document;
-using ICSharpCode.AvalonEdit.Highlighting;
-
 namespace SimpleCompiler.GUI;
 
 public class SourceTab
 {
-    public const double DEFAULT_FONT_SIZE = 14;
-    public const double MIN_FONT_SIZE = 6;
-    public const double MAX_FONT_SIZE = 200;
-
-    private static double ComputeZoom(double fontSize)
-    {
-        return fontSize / DEFAULT_FONT_SIZE;
-    }
-
-    private static double ComputeFontSize(double zoom)
-    {
-        double fontSize = zoom * DEFAULT_FONT_SIZE;
-        return fontSize < MIN_FONT_SIZE ? MIN_FONT_SIZE : fontSize > MAX_FONT_SIZE ? MAX_FONT_SIZE : fontSize;
-    }
-
     private FrmSimpleCompiler form;
     internal TabPage page;
     internal string m_SourceCode;
@@ -50,8 +34,8 @@ public class SourceTab
 
     public double Zoom
     {
-        get => ComputeZoom(txtSource.FontSize);
-        set => txtSource.FontSize = ComputeFontSize(value);
+        get => FrmSimpleCompiler.ComputeZoom(txtSource.FontSize);
+        set => txtSource.FontSize = FrmSimpleCompiler.ComputeFontSize(value);
     }
 
     public SourceTab(FrmSimpleCompiler form, double zoom = 1)
@@ -93,7 +77,7 @@ public class SourceTab
         txtSource.ShowLineNumbers = true;
         txtSource.TextArea.IndentationStrategy = new ICSharpCode.AvalonEdit.Indentation.CSharp.CSharpIndentationStrategy(txtSource.Options);
         txtSource.SyntaxHighlighting = HighlightingManager.Instance.GetDefinitionByExtension(".sl");
-        txtSource.FontSize = ComputeFontSize(zoom);
+        txtSource.FontSize = FrmSimpleCompiler.ComputeFontSize(zoom);
         txtSource.Foreground = new SolidColorBrush((Color) ColorConverter.ConvertFromString("#DCDCDC"));
         txtSource.Background = new SolidColorBrush((Color) ColorConverter.ConvertFromString("#1E1E1E"));
         txtSource.PreviewMouseWheel += TxtSource_PreviewMouseWheel;
@@ -109,12 +93,12 @@ public class SourceTab
         txtSource.TextArea.LeftMargins.Insert(0, breakpointMargin);
     }
 
-    private void TxtSource_PreviewMouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
+    private void TxtSource_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
         if (Keyboard.Modifiers == ModifierKeys.Control)
         {
             double fontSize = txtSource.FontSize + e.Delta / 25.0;
-            Zoom = ComputeZoom(fontSize);
+            Zoom = FrmSimpleCompiler.ComputeZoom(fontSize);
             e.Handled = true;
         }
     }

@@ -1,6 +1,5 @@
-﻿using System.Collections.Generic;
-
-using Asm;
+﻿using Asm;
+using System.Collections.Generic;
 
 namespace Comp.Types;
 

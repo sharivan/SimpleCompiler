@@ -1,8 +1,5 @@
 ﻿namespace Comp.Lex;
 
-public abstract class Literal : Token
+public abstract class Literal(SourceInterval interval) : Token(interval)
 {
-    protected Literal(SourceInterval interval) : base(interval)
-    {
-    }
 }

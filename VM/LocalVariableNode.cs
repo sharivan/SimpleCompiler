@@ -1,6 +1,5 @@
-﻿using System.Collections.Generic;
-
-using Comp;
+﻿using Comp;
+using System.Collections.Generic;
 
 namespace SimpleCompiler.VM;
 

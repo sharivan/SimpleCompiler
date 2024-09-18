@@ -1,11 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-
-using Asm;
-
+﻿using Asm;
 using Comp.Lex;
 using Comp.Types;
+using System;
+using System.Collections.Generic;
+using System.IO;
 
 namespace Comp;
 
@@ -17,7 +15,8 @@ public partial class Compiler
         return r != 0 ? sizeInBytes + alignSize - r : sizeInBytes;
     }
 
-    public delegate void CompileError(SourceInterval interval, string message);
+    public delegate void InternalErrorEvent(Exception e);
+    public delegate void CompileErrorEvent(SourceInterval interval, string message);
 
     private Lexer lexer;
     private readonly List<Label> labels;
@@ -34,7 +33,8 @@ public partial class Compiler
 
     internal int globalVariableOffset;
 
-    public event CompileError OnCompileError;
+    public event InternalErrorEvent OnInternalError;
+    public event CompileErrorEvent OnCompileError;
 
     public string UnityPath
     {
@@ -246,6 +246,7 @@ public partial class Compiler
                         return;
 
                     case PointerType:
+                    {
                         switch (p.Primitive)
                         {
                             case Primitive.VOID:
@@ -276,6 +277,7 @@ public partial class Compiler
                         }
 
                         return;
+                    }
 
                     default:
                         throw new CompilerException(interval, $"Tipo desconhecido: '{toType}'.");
@@ -495,7 +497,6 @@ public partial class Compiler
             case BreakStatement b:
             {
                 var breakLabel = context.FindNearestBreakLabel() ?? throw new CompilerException(b.Interval, "Instrução 'quebra' deve estar dentro de um loop.");
-
                 assembler.EmitJump(breakLabel);
                 break;
             }
@@ -728,60 +729,68 @@ public partial class Compiler
 
             case ForStatement f:
             {
+                var forAssembler = new Assembler();
+
                 Context forContext = new(function, f.Interval, context);
 
                 // inicializadores
                 foreach (var initializer in f.Initializers)
-                    CompileStatement(forContext, assembler, initializer);
+                    CompileStatement(forContext, forAssembler, initializer);
 
                 var lblLoop = CreateLabel();
-                assembler.BindLabel(lblLoop);
+                forAssembler.BindLabel(lblLoop);
 
                 // expressão de controle
                 var expression = f.Expression;
                 if (expression != null)
                 {
-                    var expressionType = CompileExpression(forContext, assembler, expression, out _);
+                    var expressionType = CompileExpression(forContext, forAssembler, expression, out _);
                     if (!PrimitiveType.IsPrimitiveBool(expressionType))
                         throw new CompilerException(expression.Interval, "Expressão do tipo bool esperada.");
                 }
                 else
                 {
-                    assembler.EmitLoadConst(true);
+                    forAssembler.EmitLoadConst(true);
                 }
 
                 var lblEnd = CreateLabel();
                 forContext.PushBreakLabel(lblEnd);
 
-                assembler.EmitJumpIfFalse(lblEnd);
+                forAssembler.EmitJumpIfFalse(lblEnd);
 
                 var stm = f.Statement;
-                CompileStatement(forContext, assembler, stm);
+                CompileStatement(forContext, forAssembler, stm);
 
                 // atualizadores
                 foreach (var updater in f.Updaters)
                 {
-                    var updaterType = CompileExpression(forContext, assembler, updater, out var tempVar);
-                    CompilePop(assembler, updaterType);
+                    var updaterType = CompileExpression(forContext, forAssembler, updater, out var tempVar);
+                    CompilePop(forAssembler, updaterType);
 
                     tempVar?.Release();
                 }
 
-                assembler.EmitJump(lblLoop);
-                assembler.BindLabel(lblEnd);
+                forAssembler.EmitJump(lblLoop);
+                forAssembler.BindLabel(lblEnd);
 
                 forContext.DropBreakLabel();
-                forContext.Release(assembler);
+                forContext.Release(forAssembler);
+
+                assembler.Emit(forAssembler);
                 break;
             }
 
             case BlockStatement bl:
             {
+                var blockAssembler = new Assembler();
+
                 Context blockContext = new(function, bl.Interval, context);
                 foreach (var stm in bl)
-                    CompileStatement(blockContext, assembler, stm);
+                    CompileStatement(blockContext, blockAssembler, stm);
 
-                blockContext.Release(assembler);
+                blockContext.Release(blockAssembler);
+
+                assembler.Emit(blockAssembler);
                 break;
             }
 
@@ -848,8 +857,8 @@ public partial class Compiler
         if (function.IsExtern)
             return;
 
+        var tempAssembler = new Assembler();
         Context context = new(function, function.Interval);
-        Assembler tempAssembler = new();
 
         CompileStatement(context, tempAssembler, function.Block);
         context.Release(tempAssembler);
@@ -1036,6 +1045,10 @@ public partial class Compiler
         catch (CompilerException e)
         {
             OnCompileError?.Invoke(e.Interval, e.Message);
+        }
+        catch (Exception e)
+        {
+            OnInternalError?.Invoke(e);
         }
 
         return false;

@@ -22,4 +22,10 @@ public class LocalVariable : Variable
         Function = function;
         Scope = declaration;
     }
+
+    protected internal override void Release()
+    {
+        base.Release();
+        Function.ReleaseOffset(Offset);
+    }
 }

@@ -2,26 +2,26 @@
 
 namespace Comp;
 
-public abstract class Variable
+public abstract class Variable(string name, AbstractType type, SourceInterval interval, int offset = -1)
 {
-    private AbstractType type;
+    private AbstractType type = type;
 
     public string Name
     {
         get;
-    }
+    } = name;
 
     public AbstractType Type => type;
 
     public SourceInterval Interval
     {
         get;
-    }
+    } = interval;
 
     public int Offset
     {
         get; internal set;
-    }
+    } = offset;
 
     public bool Temporary
     {
@@ -31,14 +31,6 @@ public abstract class Variable
     public bool Acquired
     {
         get; internal set;
-    }
-
-    protected Variable(string name, AbstractType type, SourceInterval interval, int offset = -1)
-    {
-        Name = name;
-        this.type = type;
-        Interval = interval;
-        Offset = offset;
     }
 
     public override string ToString()
@@ -51,7 +43,7 @@ public abstract class Variable
         AbstractType.Resolve(ref type);
     }
 
-    internal void Release()
+    protected internal virtual void Release()
     {
         Acquired = false;
     }

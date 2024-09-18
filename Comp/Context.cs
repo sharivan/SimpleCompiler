@@ -1,8 +1,6 @@
-﻿using System.Collections.Generic;
-
-using Asm;
-
+﻿using Asm;
 using Comp.Types;
+using System.Collections.Generic;
 
 namespace Comp;
 
@@ -84,7 +82,7 @@ public class Context
         return Parent == null;
     }
 
-    internal Variable DeclareVariable(string name, AbstractType type, SourceInterval interval, bool recursive = true)
+    internal Variable DeclareVariable(string name, AbstractType type, SourceInterval interval, bool recursive = true, bool tempVar = false)
     {
         if (variableTable.TryGetValue(name, out var result))
             return result;
@@ -94,9 +92,13 @@ public class Context
 
         if (Function != null)
         {
-            result = new LocalVariable(Function, name, type, interval, RealOffset);
-            offset += Compiler.GetAlignedSize(type.Size);
-            Function.CheckLocalVariableOffset(RealOffset);
+            int realOffset = RealOffset;
+            int varOffset = Function.AcquireFreeOffset(type, realOffset, tempVar);
+            result = new LocalVariable(Function, name, type, interval, varOffset);
+
+            int typeSize = Compiler.GetAlignedSize(type.Size);
+            if (varOffset + typeSize > realOffset)
+                offset = varOffset - realOffset + typeSize;
         }
         else
         {
@@ -112,7 +114,7 @@ public class Context
 
     internal Variable DeclareTemporaryVariable(AbstractType type, SourceInterval interval)
     {
-        var tempVar = DeclareVariable($"@tempvar_{type}_{temporaryVariables.Count}", type, interval, false);
+        var tempVar = DeclareVariable($"@tempvar_{type}_{temporaryVariables.Count}", type, interval, false, true);
         tempVar.Temporary = true;
         return tempVar;
     }
@@ -161,7 +163,7 @@ public class Context
 
     public Label FindNearestBreakLabel()
     {
-        return breakLabels.Count == 0 ? Parent?.FindNearestBreakLabel() : breakLabels.Pop();
+        return breakLabels.Count == 0 ? Parent?.FindNearestBreakLabel() : breakLabels.Peek();
     }
 
     public void Release(Assembler assembler)

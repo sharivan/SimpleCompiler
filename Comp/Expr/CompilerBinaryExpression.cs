@@ -751,6 +751,57 @@ public partial class Compiler
                     {
                         switch (leftType)
                         {
+                            case PrimitiveType p:
+                            {
+                                if (rightType is not PointerType and not StringType)
+                                    throw new CompilerException(rightOperand.Interval, $"Operação inválida com o tipo '{rightType}'.");
+
+                                if (rightType is PointerType rptr && !PrimitiveType.IsPrimitiveChar(rptr.Type))
+                                    throw new CompilerException(rightOperand.Interval, $"Concatenação de strings não pode ser feita com um ponteiro do tipo '{rptr.Type}'.");
+
+                                Assembler beforeLeftAssembler = new();
+                                Assembler beforeRightAssembler = new();
+
+                                var leftTempVar = context.AcquireTemporaryVariable(StringType.STRING, leftOperand.Interval);
+                                beforeLeftAssembler.EmitLoadLocalHostAddress(leftTempVar.Offset);
+
+                                Function func = p.Primitive switch
+                                {
+                                    Primitive.BOOL => unitySystem.FindFunction("BoolParaTexto"),
+                                    Primitive.CHAR => unitySystem.FindFunction("CharParaTexto"),
+                                    Primitive.BYTE or Primitive.SHORT or Primitive.INT => unitySystem.FindFunction("IntParaTexto"),
+                                    Primitive.LONG => unitySystem.FindFunction("LongParaTexto"),
+                                    Primitive.FLOAT => unitySystem.FindFunction("FloatParaTexto"),
+                                    Primitive.DOUBLE => unitySystem.FindFunction("DoubleParaTexto"),
+                                    _ => throw new CompilerException(leftOperand.Interval, "Operando inválido."),
+                                };
+                                int index = GetOrAddExternalFunction(func.Name, func.ParameterSize);
+                                leftAssembler.EmitExternCall(index);
+                                leftAssembler.EmitLoadLocalPtr(leftTempVar.Offset);
+
+                                CompileCast(context, rightAssembler, beforeRightAssembler, rightType, StringType.STRING, false, rightOperand.Interval, out var rightCastTempVar);
+
+                                tempVar = context.AcquireTemporaryVariable(StringType.STRING, expression.Interval);
+                                assembler.EmitLoadLocalHostAddress(tempVar.Offset);
+
+                                assembler.Emit(beforeLeftAssembler);
+                                assembler.Emit(leftAssembler);
+                                assembler.Emit(beforeRightAssembler);
+                                assembler.Emit(rightAssembler);
+
+                                func = unitySystem.FindFunction("ConcatenaTextos2");
+                                index = GetOrAddExternalFunction(func.Name, func.ParameterSize);
+                                assembler.EmitExternCall(index);
+
+                                leftTempVar?.Release();
+                                rightCastTempVar?.Release();
+
+                                assembler.EmitLoadLocalPtr(tempVar.Offset);
+
+                                result = StringType.STRING;
+                                break;
+                            }
+
                             case PointerType ptr:
                             {
                                 if (PrimitiveType.IsPrimitiveVoid(ptr.Type))
@@ -758,22 +809,71 @@ public partial class Compiler
 
                                 switch (rightType)
                                 {
-                                    case PrimitiveType rp:
-                                        if (!PrimitiveType.IsPrimitiveInteger(rp))
-                                            throw new CompilerException(rightOperand.Interval, $"Adição de ponteiros inválida com deslocamento do tipo '{rp}'.");
+                                    case PrimitiveType rp: // Concatenação de uma string com um tipo primitivo, isso exige a conversão do primitivo para string para então realizar a concatenação
+                                    {
+                                        if (PrimitiveType.IsPrimitiveChar(ptr.Type))
+                                        {
+                                            Assembler beforeLeftAssembler = new();
+                                            Assembler beforeRightAssembler = new();
 
-                                        assembler.Emit(leftAssembler);
-                                        assembler.Emit(rightAssembler);
-                                        assembler.EmitLoadConst(ptr.Type.Size);
-                                        assembler.EmitMul();
+                                            CompileCast(context, leftAssembler, beforeLeftAssembler, leftType, StringType.STRING, false, leftOperand.Interval, out var leftCastTempVar);
 
-                                        if (rp.Primitive == Primitive.INT)
-                                            assembler.EmitPtrAdd();
+                                            var rightTempVar = context.AcquireTemporaryVariable(StringType.STRING, rightOperand.Interval);
+                                            beforeRightAssembler.EmitLoadLocalHostAddress(rightTempVar.Offset);
+
+                                            Function func = rp.Primitive switch
+                                            {
+                                                Primitive.BOOL => unitySystem.FindFunction("BoolParaTexto"),
+                                                Primitive.CHAR => unitySystem.FindFunction("CharParaTexto"),
+                                                Primitive.BYTE or Primitive.SHORT or Primitive.INT => unitySystem.FindFunction("IntParaTexto"),
+                                                Primitive.LONG => unitySystem.FindFunction("LongParaTexto"),
+                                                Primitive.FLOAT => unitySystem.FindFunction("FloatParaTexto"),
+                                                Primitive.DOUBLE => unitySystem.FindFunction("DoubleParaTexto"),
+                                                _ => throw new CompilerException(rightOperand.Interval, "Operando inválido."),
+                                            };
+                                            int index = GetOrAddExternalFunction(func.Name, func.ParameterSize);
+                                            rightAssembler.EmitExternCall(index);
+                                            rightAssembler.EmitLoadLocalPtr(rightTempVar.Offset);
+
+                                            tempVar = context.AcquireTemporaryVariable(StringType.STRING, expression.Interval);
+                                            assembler.EmitLoadLocalHostAddress(tempVar.Offset);
+
+                                            assembler.Emit(beforeLeftAssembler);
+                                            assembler.Emit(leftAssembler);
+                                            assembler.Emit(beforeRightAssembler);
+                                            assembler.Emit(rightAssembler);
+
+                                            func = unitySystem.FindFunction("ConcatenaTextos2");
+                                            index = GetOrAddExternalFunction(func.Name, func.ParameterSize);
+                                            assembler.EmitExternCall(index);
+
+                                            leftCastTempVar?.Release();
+                                            rightTempVar?.Release();
+
+                                            assembler.EmitLoadLocalPtr(tempVar.Offset);
+
+                                            result = StringType.STRING;
+                                        }
                                         else
-                                            assembler.EmitPtrAdd64();
+                                        {
+                                            if (!PrimitiveType.IsPrimitiveInteger(rp))
+                                                throw new CompilerException(rightOperand.Interval, $"Adição de ponteiros inválida com deslocamento do tipo '{rp}'.");
 
-                                        result = leftType;
+                                            assembler.Emit(leftAssembler);
+                                            assembler.Emit(rightAssembler);
+                                            assembler.EmitLoadConst(ptr.Type.Size);
+                                            assembler.EmitMul();
+
+                                            if (rp.Primitive == Primitive.INT)
+                                                assembler.EmitPtrAdd();
+                                            else
+                                                assembler.EmitPtrAdd64();
+
+                                            result = leftType;
+                                        }
+
                                         break;
+                                    }
 
                                     case PointerType rptr:
                                     {

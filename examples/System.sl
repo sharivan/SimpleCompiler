@@ -51,3 +51,29 @@ função esterna IncrementaReferenciaTexto(str:texto);
 função esterna DecrementaReferenciaTexto(&str:texto, anule:bool);
 
 função esterna DecrementaReferenciaArrayTexto(str:texto[], count:int, anule:bool);
+
+função esterna BoolParaTexto(&dst:texto, flag:bool);
+
+função esterna CharParaTexto(&dst:texto, c:char);
+
+função esterna IntParaTexto(&dst:texto, num:int);
+
+função esterna LongParaTexto(&dst:texto, num:long);
+
+função esterna FloatParaTexto(&dst:texto, num:float);
+
+função esterna RealParaTexto(&dst:texto, num:real);
+
+função esterna TextoParaBool(txt:texto):bool;
+
+função esterna TextoParaChar(txt:texto):char;
+
+função esterna TextoParaInt(txt:texto):int;
+
+função esterna TextoParaLong(txt:texto):long;
+
+função esterna TextoParaFloat(txt:texto):float;
+
+função esterna TextoParaReal(txt:texto):real;
+
+função esterna UltimoErro():int;

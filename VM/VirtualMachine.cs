@@ -1,17 +1,13 @@
-﻿using System;
+﻿using Asm;
+using Comp;
+using Comp.Types;
+using SimpleCompiler.VM;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
-
-using Asm;
-
-using Comp;
-using Comp.Types;
-
-using SimpleCompiler.VM;
-
 using Units;
 
 namespace VM;
@@ -116,21 +112,28 @@ public class VirtualMachine
     public event SteppingDelegate OnStep;
     public event BreakpointDelegate OnBreakpoint;
 
+    public Error LastError
+    {
+        get;
+        internal set;
+    }
+
     public int IP
     {
         get => ip;
-
         set => ip = value;
     }
 
     public int SP
     {
-        get; set;
+        get;
+        set;
     }
 
     public int BP
     {
-        get; set;
+        get;
+        set;
     }
 
     public bool Paused
@@ -208,6 +211,7 @@ public class VirtualMachine
         code = new byte[assembler.CodeSize];
         assembler.CopyCode(code);
         SP = 0;
+        LastError = 0;
 
         foreach (var (fileName, line, ip) in assembler.SourceCodeLines)
         {
@@ -277,11 +281,11 @@ public class VirtualMachine
 
             if (!function.IsExtern)
             {
-                var fileName = function.Interval.FileName;
-                var firstLine = function.Interval.FirstLine;
-                var lastLine = function.Interval.LastLine;
-                var firstIP = GetIPFromLine(fileName, firstLine);
-                var lastIP = GetIPFromLine(fileName, lastLine);
+                string fileName = function.Interval.FileName;
+                int firstLine = function.Interval.FirstLine;
+                int lastLine = function.Interval.LastLine;
+                int firstIP = GetIPFromLine(fileName, firstLine);
+                int lastIP = GetIPFromLine(fileName, lastLine);
                 if (firstIP != -1 && lastIP != -1)
                     ipToFunction.Add(firstIP, (function, (firstIP, lastIP)));
             }
@@ -305,6 +309,7 @@ public class VirtualMachine
             Push(constantBuffer);
         }
 
+        LastError = 0;
         initialSP = SP;
         LastObject = IntPtr.Zero;
         ObjectCount = 0;
@@ -358,6 +363,8 @@ public class VirtualMachine
     {
         try
         {
+            LastError = Error.NONE;
+
             var result = Marshal.AllocHGlobal(size + OBJECT_REC_SIZE);
             result += OBJECT_REC_SIZE;
 
@@ -389,6 +396,7 @@ public class VirtualMachine
         }
         catch (OutOfMemoryException)
         {
+            LastError = Error.OUT_OF_MEMORY;
         }
 
         return IntPtr.Zero;
@@ -431,7 +439,7 @@ public class VirtualMachine
         unsafe
         {
             var rec = (ObjectRec*) (str - OBJECT_REC_SIZE).ToPointer();
-            return rec->size - 1;
+            return rec->size / sizeof(char) - 1;
         }
     }
 
@@ -591,7 +599,7 @@ public class VirtualMachine
         if (selection.Count() == 0)
             return LineKey.INVALID_KEY;
 
-        var nearest = ip - selection.Min(k => ip - k);
+        int nearest = ip - selection.Min(k => ip - k);
         return ipToLine[nearest];
     }
 
@@ -624,7 +632,7 @@ public class VirtualMachine
         if (selection.Count() == 0)
             return null;
 
-        var nearest = ip - selection.Min(k => ip - k);
+        int nearest = ip - selection.Min(k => ip - k);
         var (function, range) = ipToFunction[nearest];
         return range.Contains(nearest) ? function : null;
     }

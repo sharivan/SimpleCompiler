@@ -31,14 +31,14 @@ var t:E1;
 	123
 	123456
 	789123456
-	abcdef
-	123abcdef
+	abc123def
+	123abc123def
 	193
-	123cbcdef
-	9
-	9
-	1 texto 2 textoabcdef 3.1
-	3 textotextoabcdef 4
+	1233bc123def
+	12
+	15
+	1 texto 2 textoabc123def 3.1
+	3 textotextoabc123def 4
 	987123-- 789321++ abcxyz a1b2c3
 	Digite o valor de s: string
 	Digite o valor de s2: 123
@@ -57,34 +57,34 @@ var t:E1;
 	s = "789" + s; // s = "789123456"
 	escrevaln s;
 	
-	var s3:texto = "abc" + "def"; // s3 = "abcdef"
+	var s3:texto = "abc" + 123 + "def"; // s3 = "abc123def"
 	escrevaln s3;
 	
-	s = s2 + s3; // s = "123abcdef"
+	s = s2 + s3; // s = "123abc123def"
 	escrevaln s;
 	
-	s2[1] = '9'; // s2 = "192"
+	s2[1] = '9'; // s2 = "193"
 	escrevaln s2;
 	
-	s[3] = s3[2]; // s = "123cbcdef"
+	s[3] = s3[2]; // s = "1233bc123def"
 	escrevaln s;
 	
-	escrevaln s.tamanho;
+	escrevaln s.tamanho; // 12
 	
-	var l:int = s2.tamanho + s3.tamanho;
+	var l:int = s2.tamanho + s3.tamanho; // l = 15
 	escrevaln l;
 	
 	t.i = 1;
 	t.s1 = "texto";
 	t.j = 2;
-	t.s2 = t.s1 + s3; // t.s2 = "textoabcdef"
+	t.s2 = t.s1 + s3; // t.s2 = "textoabc123def"
 	t.r = 3.1;
 	
 	escrevaln t.i, " ", t.s1, " ", t.j, " ", t.s2, " ", t.r;
 	
 	var s4:E2;
 	s4.i = t.i + t.j; // s4.i = 3
-	s4.s = t.s1 + t.s2; // s4.s = "textotextoabcdef"
+	s4.s = t.s1 + t.s2; // s4.s = "textotextoabc123def"
 	s4.j = t.j - t.i + cast<int>(t.r); // s4.j = 4
 	
 	escrevaln s4.i, " ", s4.s, " ", s4.j;

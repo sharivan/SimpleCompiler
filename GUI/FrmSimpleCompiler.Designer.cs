@@ -46,6 +46,8 @@ partial class FrmSimpleCompiler
             this.columnName = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.columnValue = new System.Windows.Forms.DataGridViewButtonColumn();
             this.columnType = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.columnRA = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.columnHA = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.tpMemory = new System.Windows.Forms.TabPage();
             this.splitContainerData = new System.Windows.Forms.SplitContainer();
             this.gbStack = new System.Windows.Forms.GroupBox();
@@ -313,7 +315,9 @@ partial class FrmSimpleCompiler
             this.dgvVariables.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.columnName,
             this.columnValue,
-            this.columnType});
+            this.columnType,
+            this.columnRA,
+            this.columnHA});
             this.dgvVariables.Dock = System.Windows.Forms.DockStyle.Fill;
             this.dgvVariables.Location = new System.Drawing.Point(3, 3);
             this.dgvVariables.Name = "dgvVariables";
@@ -346,6 +350,18 @@ partial class FrmSimpleCompiler
             this.columnType.Name = "columnType";
             this.columnType.ReadOnly = true;
             this.columnType.Width = 53;
+            // 
+            // columnRA
+            // 
+            this.columnRA.HeaderText = "RA";
+            this.columnRA.Name = "columnRA";
+            this.columnRA.ReadOnly = true;
+            // 
+            // columnHA
+            // 
+            this.columnHA.HeaderText = "HA";
+            this.columnHA.Name = "columnHA";
+            this.columnHA.ReadOnly = true;
             // 
             // tpMemory
             // 
@@ -729,7 +745,7 @@ partial class FrmSimpleCompiler
             this.btnStepInto.Name = "btnStepInto";
             this.btnStepInto.Size = new System.Drawing.Size(24, 24);
             this.btnStepInto.Text = "Entrar na Função";
-            this.btnStepInto.ToolTipText = "Entrar na Função";
+            this.btnStepInto.ToolTipText = "Intervir";
             this.btnStepInto.Click += new System.EventHandler(this.BtnStepInto_Click);
             // 
             // btnStepOut
@@ -992,7 +1008,8 @@ partial class FrmSimpleCompiler
             this.mnuRun.Image = global::SimpleCompiler.Properties.Resources.run;
             this.mnuRun.ImageTransparentColor = System.Drawing.Color.Magenta;
             this.mnuRun.Name = "mnuRun";
-            this.mnuRun.Size = new System.Drawing.Size(186, 22);
+            this.mnuRun.ShortcutKeys = System.Windows.Forms.Keys.F5;
+            this.mnuRun.Size = new System.Drawing.Size(238, 22);
             this.mnuRun.Text = "Executar";
             this.mnuRun.Click += new System.EventHandler(this.MnuRun_Click);
             // 
@@ -1002,7 +1019,9 @@ partial class FrmSimpleCompiler
             this.mnuPause.Image = global::SimpleCompiler.Properties.Resources.pause;
             this.mnuPause.ImageTransparentColor = System.Drawing.Color.Magenta;
             this.mnuPause.Name = "mnuPause";
-            this.mnuPause.Size = new System.Drawing.Size(186, 22);
+            this.mnuPause.ShortcutKeys = ((System.Windows.Forms.Keys)(((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.Alt) 
+            | System.Windows.Forms.Keys.Pause)));
+            this.mnuPause.Size = new System.Drawing.Size(238, 22);
             this.mnuPause.Text = "Pausar";
             this.mnuPause.Click += new System.EventHandler(this.MnuPause_Click);
             // 
@@ -1012,7 +1031,8 @@ partial class FrmSimpleCompiler
             this.mnuStop.Image = global::SimpleCompiler.Properties.Resources.stop;
             this.mnuStop.ImageTransparentColor = System.Drawing.Color.Fuchsia;
             this.mnuStop.Name = "mnuStop";
-            this.mnuStop.Size = new System.Drawing.Size(186, 22);
+            this.mnuStop.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Shift | System.Windows.Forms.Keys.F5)));
+            this.mnuStop.Size = new System.Drawing.Size(238, 22);
             this.mnuStop.Text = "Parar";
             this.mnuStop.Click += new System.EventHandler(this.MnuStop_Click);
             // 
@@ -1021,7 +1041,8 @@ partial class FrmSimpleCompiler
             this.mnuStepOver.Enabled = false;
             this.mnuStepOver.Image = global::SimpleCompiler.Properties.Resources.StepOver_6328;
             this.mnuStepOver.Name = "mnuStepOver";
-            this.mnuStepOver.Size = new System.Drawing.Size(186, 22);
+            this.mnuStepOver.ShortcutKeys = System.Windows.Forms.Keys.F10;
+            this.mnuStepOver.Size = new System.Drawing.Size(238, 22);
             this.mnuStepOver.Text = "Pular Função";
             this.mnuStepOver.Click += new System.EventHandler(this.MnuStepOver_Click);
             // 
@@ -1031,8 +1052,9 @@ partial class FrmSimpleCompiler
             this.mnuStepInto.Image = global::SimpleCompiler.Properties.Resources.StepIn_6326;
             this.mnuStepInto.ImageTransparentColor = System.Drawing.Color.Transparent;
             this.mnuStepInto.Name = "mnuStepInto";
-            this.mnuStepInto.Size = new System.Drawing.Size(186, 22);
-            this.mnuStepInto.Text = "Entrar na Função";
+            this.mnuStepInto.ShortcutKeys = System.Windows.Forms.Keys.F11;
+            this.mnuStepInto.Size = new System.Drawing.Size(238, 22);
+            this.mnuStepInto.Text = "Intervir";
             this.mnuStepInto.Click += new System.EventHandler(this.MnuStepInto_Click);
             // 
             // mnuStepOut
@@ -1041,7 +1063,8 @@ partial class FrmSimpleCompiler
             this.mnuStepOut.Image = global::SimpleCompiler.Properties.Resources.Stepout_6327;
             this.mnuStepOut.ImageTransparentColor = System.Drawing.Color.Transparent;
             this.mnuStepOut.Name = "mnuStepOut";
-            this.mnuStepOut.Size = new System.Drawing.Size(186, 22);
+            this.mnuStepOut.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Shift | System.Windows.Forms.Keys.F11)));
+            this.mnuStepOut.Size = new System.Drawing.Size(238, 22);
             this.mnuStepOut.Text = "Sair da Função";
             this.mnuStepOut.Click += new System.EventHandler(this.MnuStepOut_Click);
             // 
@@ -1051,7 +1074,8 @@ partial class FrmSimpleCompiler
             this.mnuRunToCursor.Image = global::SimpleCompiler.Properties.Resources.run_to_cursor;
             this.mnuRunToCursor.ImageTransparentColor = System.Drawing.Color.Magenta;
             this.mnuRunToCursor.Name = "mnuRunToCursor";
-            this.mnuRunToCursor.Size = new System.Drawing.Size(186, 22);
+            this.mnuRunToCursor.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.F11)));
+            this.mnuRunToCursor.Size = new System.Drawing.Size(238, 22);
             this.mnuRunToCursor.Text = "Executar até o Cursor";
             this.mnuRunToCursor.Click += new System.EventHandler(this.MnuRunToCursor_Click);
             // 
@@ -1060,7 +1084,8 @@ partial class FrmSimpleCompiler
             this.mnuToggleBreakpoint.Image = global::SimpleCompiler.Properties.Resources.BreakpointEnabled_6584_32x;
             this.mnuToggleBreakpoint.ImageTransparentColor = System.Drawing.Color.Transparent;
             this.mnuToggleBreakpoint.Name = "mnuToggleBreakpoint";
-            this.mnuToggleBreakpoint.Size = new System.Drawing.Size(186, 22);
+            this.mnuToggleBreakpoint.ShortcutKeys = System.Windows.Forms.Keys.F9;
+            this.mnuToggleBreakpoint.Size = new System.Drawing.Size(238, 22);
             this.mnuToggleBreakpoint.Text = "Alternar Breakpoint";
             this.mnuToggleBreakpoint.Click += new System.EventHandler(this.MnuToggleBreakpoint_Click);
             // 
@@ -1075,7 +1100,7 @@ partial class FrmSimpleCompiler
             // mnuAbout
             // 
             this.mnuAbout.Name = "mnuAbout";
-            this.mnuAbout.Size = new System.Drawing.Size(180, 22);
+            this.mnuAbout.Size = new System.Drawing.Size(113, 22);
             this.mnuAbout.Text = "Sobre...";
             this.mnuAbout.Click += new System.EventHandler(this.MnuAbout_Click);
             // 
@@ -1169,9 +1194,6 @@ partial class FrmSimpleCompiler
     private System.Windows.Forms.ImageList imageList;
     private System.ComponentModel.BackgroundWorker bwCompiler;
     private System.Windows.Forms.Integration.ElementHost wpfAssemblyHost;
-    private System.Windows.Forms.DataGridViewTextBoxColumn columnName;
-    private System.Windows.Forms.DataGridViewButtonColumn columnValue;
-    private System.Windows.Forms.DataGridViewTextBoxColumn columnType;
     private System.Windows.Forms.SplitContainer scBottom;
     private System.Windows.Forms.DataGridView dgvStack;
     private System.Windows.Forms.ContextMenuStrip mnuStackView;
@@ -1229,5 +1251,10 @@ partial class FrmSimpleCompiler
     private System.Windows.Forms.ToolStripMenuItem mnuEditSelectAll;
     private System.Windows.Forms.ContextMenuStrip mnuConsole;
     private System.Windows.Forms.ToolStripMenuItem mnuConsoleClear;
+    private System.Windows.Forms.DataGridViewTextBoxColumn columnName;
+    private System.Windows.Forms.DataGridViewButtonColumn columnValue;
+    private System.Windows.Forms.DataGridViewTextBoxColumn columnType;
+    private System.Windows.Forms.DataGridViewTextBoxColumn columnRA;
+    private System.Windows.Forms.DataGridViewTextBoxColumn columnHA;
 }
 

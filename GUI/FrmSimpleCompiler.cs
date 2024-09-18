@@ -1,4 +1,8 @@
-﻿using System;
+﻿using Asm;
+using Comp;
+using ICSharpCode.AvalonEdit;
+using ICSharpCode.AvalonEdit.Highlighting;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Configuration;
@@ -10,20 +14,14 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Xml;
-
-using Asm;
-
-using Comp;
-
-using ICSharpCode.AvalonEdit;
-using ICSharpCode.AvalonEdit.Highlighting;
-
 using VM;
-
 using MessageBox = System.Windows.Forms.MessageBox;
+using MouseEventArgs = System.Windows.Forms.MouseEventArgs;
 
 namespace SimpleCompiler.GUI;
 
@@ -32,6 +30,21 @@ public partial class FrmSimpleCompiler : Form
     [DllImport("user32.dll")]
     private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wp, IntPtr lp);
     private const int TCM_SETMINTABWIDTH = 0x1300 + 49;
+
+    public const double DEFAULT_FONT_SIZE = 14;
+    public const double MIN_FONT_SIZE = 6;
+    public const double MAX_FONT_SIZE = 200;
+
+    public static double ComputeZoom(double fontSize)
+    {
+        return fontSize / DEFAULT_FONT_SIZE;
+    }
+
+    public static double ComputeFontSize(double zoom)
+    {
+        double fontSize = zoom * DEFAULT_FONT_SIZE;
+        return fontSize < MIN_FONT_SIZE ? MIN_FONT_SIZE : fontSize > MAX_FONT_SIZE ? MAX_FONT_SIZE : fontSize;
+    }
 
     private delegate void ParsingDelegate(int lineNumber);
 
@@ -75,11 +88,24 @@ public partial class FrmSimpleCompiler : Form
     private readonly Image addImage;
     private readonly Image closeImage;
 
+    public double AssemblyZoom
+    {
+        get => ComputeZoom(txtAssembly.FontSize);
+        set => txtAssembly.FontSize = ComputeFontSize(value);
+    }
+
+    public string ConsoleText
+    {
+        get => txtConsole.Text == "\0" ? "" : txtConsole.Text;
+        set => txtConsole.Text = value == "" ? "\0" : value;
+    }
+
     public FrmSimpleCompiler()
     {
         InitializeComponent();
 
-        compiler = new Comp.Compiler("examples");
+        compiler = new Compiler("examples");
+        compiler.OnInternalError += OnInternalError;
         compiler.OnCompileError += OnCompileError;
 
         assembler = new Assembler();
@@ -123,6 +149,7 @@ public partial class FrmSimpleCompiler : Form
         txtAssembly.Background = new SolidColorBrush((System.Windows.Media.Color) System.Windows.Media.ColorConverter.ConvertFromString("#1E1E1E"));
         txtAssembly.IsReadOnly = true;
         txtAssembly.Focusable = true;
+        txtAssembly.PreviewMouseWheel += TxtAssembly_PreviewMouseWheel;
 
         lineBackgroundRenderer = new SteppingRenderer(txtAssembly.TextArea.TextView);
         txtAssembly.TextArea.TextView.BackgroundRenderers.Add(lineBackgroundRenderer);
@@ -137,6 +164,15 @@ public partial class FrmSimpleCompiler : Form
         closeImage = Image.FromStream(Assembly.GetEntryAssembly().GetManifestResourceStream("SimpleCompiler.Resources.Img.5657.close.png"));
 
         tcSources.HandleCreated += TcSources_HandleCreated;
+    }
+
+    private void OnInternalError(Exception e)
+    {
+        BeginInvoke((MethodInvoker) delegate
+        {
+            ConsolePrintLn($"Erro interno: {e.Message}.");
+            ConsolePrintLn(e.StackTrace);
+        });
     }
 
     private void OnCompileError(SourceInterval interval, string message)
@@ -217,7 +253,7 @@ public partial class FrmSimpleCompiler : Form
 
                 BeginInvoke((MethodInvoker) delegate
                 {
-                    inputPos = txtConsole.Text.Length;
+                    inputPos = ConsoleText.Length;
                     consoleForeColor = txtConsole.ForeColor;
                     consoleBackColor = txtConsole.BackColor;
                     txtConsole.ForeColor = System.Drawing.Color.White;
@@ -267,8 +303,15 @@ public partial class FrmSimpleCompiler : Form
         {
             lock (inputLock)
             {
-                txtConsole.Text += message;
-                txtConsole.SelectionStart = txtConsole.Text.Length;
+                if (message != "")
+                {
+                    if (txtConsole.Text == "\0")
+                        txtConsole.Text = message;
+                    else
+                        txtConsole.Text += message;
+                }
+
+                txtConsole.SelectionStart = ConsoleText.Length;
                 txtConsole.SelectionLength = 0;
             }
         }
@@ -483,6 +526,8 @@ public partial class FrmSimpleCompiler : Form
 
         if (vm.BP == firstAddr)
             residentAddress += "[BP]";
+        else
+            residentAddress += "[BP" + (firstAddr < vm.BP ? "-" : "+") + Math.Abs(firstAddr - vm.BP).ToString("x2") + "]";
 
         if (vm.SP == firstAddr)
         {
@@ -565,7 +610,24 @@ public partial class FrmSimpleCompiler : Form
         vm.FetchDeclaredVariablesAtLine(fileName, lineNumber, variables);
 
         foreach (var variable in variables)
-            dgvVariables.Rows.Add(variable.Name, ToString(vm.GetVariableValue(variable)), variable.Type.ToString());
+        {
+            int ra;
+            string comment;
+            if (variable is GlobalVariable global)
+            {
+                ra = global.Unity.GlobalStartOffset + global.Offset;
+                comment = null;
+            }
+            else
+            {
+                ra = vm.BP + variable.Offset;
+                comment = variable.Offset == 0 ? "BP" : "BP" + (variable.Offset > 0 ? "+" : "-") + Math.Abs(variable.Offset).ToString("x2");
+            }
+
+            string residentAddress = ra.ToString("x8") + (comment != null ? " (" + comment + ")" : "");
+            string hostAddress = vm.ResidentToHostAddr(vm.BP + variable.Offset).ToString("x8");
+            dgvVariables.Rows.Add(variable.Name, ToString(vm.GetVariableValue(variable)), variable.Type.ToString(), residentAddress, hostAddress);
+        }
 
         dgvVariables.ResumeLayout();
     }
@@ -783,7 +845,7 @@ public partial class FrmSimpleCompiler : Form
 
     private void MnuConsoleCopy_Click(object sender, EventArgs e)
     {
-        System.Windows.Clipboard.SetText(txtConsole.Text);
+        System.Windows.Clipboard.SetText(ConsoleText);
     }
 
     private void MnuConsoleSelectAll_Click(object sender, EventArgs e)
@@ -799,7 +861,8 @@ public partial class FrmSimpleCompiler : Form
             {
                 try
                 {
-                    input = txtConsole.Text.Substring(inputPos, txtConsole.Text.Length - inputPos - 1);
+                    string consoleText = ConsoleText;
+                    input = consoleText.Substring(inputPos, consoleText.Length - inputPos - 1);
                 }
                 catch (ArgumentOutOfRangeException)
                 {
@@ -1321,6 +1384,19 @@ public partial class FrmSimpleCompiler : Form
         var collection = section.Documents;
         foreach (DocumentConfigElement element in collection)
             NewSourceTab(element.FileName, element.Selected, element.Focused, element.Zoom);
+
+        txtConsole.ZoomFactor = section.ConsoleZoomFactor;
+        AssemblyZoom = section.AssemblyZoomFactor;
+    }
+
+    private void TxtAssembly_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (Keyboard.Modifiers == System.Windows.Input.ModifierKeys.Control)
+        {
+            double fontSize = txtAssembly.FontSize + e.Delta / 25.0;
+            AssemblyZoom = FrmSimpleCompiler.ComputeZoom(fontSize);
+            e.Handled = true;
+        }
     }
 
     private void FrmSimpleCompiler_FormClosing(object sender, FormClosingEventArgs e)
@@ -1374,6 +1450,9 @@ public partial class FrmSimpleCompiler : Form
                 element.Zoom = tab.Zoom;
             }
         }
+
+        section.ConsoleZoomFactor = txtConsole.ZoomFactor;
+        section.AssemblyZoomFactor = AssemblyZoom;
 
         config.Save();
     }
@@ -1798,7 +1877,7 @@ public partial class FrmSimpleCompiler : Form
 
     private void MnuConsoleClear_Click(object sender, EventArgs e)
     {
-        txtConsole.Clear();
+        txtConsole.Text = "\0";
     }
 
     private void MnuAbout_Click(object sender, EventArgs e)

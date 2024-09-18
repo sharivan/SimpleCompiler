@@ -25,7 +25,7 @@ função É_Perfeito(n:int):bool
 	leia n;
 
 	se (É_Perfeito(n))
-		escrevaln n, " é perfeito.";
+		escrevaln n + " é perfeito.";
 	senão
-		escrevaln n, " não é perfeito.";
+		escrevaln n + " não é perfeito.";
 }

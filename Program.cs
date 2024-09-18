@@ -1,7 +1,6 @@
-﻿using System;
+﻿using SimpleCompiler.GUI;
+using System;
 using System.Windows.Forms;
-
-using SimpleCompiler.GUI;
 
 namespace SimpleCompiler;
 

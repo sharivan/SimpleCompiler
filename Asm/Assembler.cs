@@ -1,9 +1,7 @@
-﻿using System;
+﻿using Comp;
+using System;
 using System.Collections.Generic;
 using System.IO;
-
-using Comp;
-
 using VM;
 
 namespace Asm;
@@ -141,7 +139,7 @@ public class Assembler
 
     public void CopyCode(byte[] output, int off, int len)
     {
-        var position = this.output.Position;
+        long position = this.output.Position;
         this.output.Position = 0;
         this.output.Read(output, off, len);
         this.output.Position = position;
@@ -149,7 +147,7 @@ public class Assembler
 
     public void CopyCode(Stream output)
     {
-        var position = this.output.Position;
+        long position = this.output.Position;
         this.output.Position = 0;
         this.output.WriteTo(output);
         this.output.Position = position;
@@ -162,7 +160,7 @@ public class Assembler
 
     public void CopyConstantBuffer(byte[] output, int off, int len)
     {
-        var position = constantOut.Position;
+        long position = constantOut.Position;
         constantOut.Position = 0;
         constantOut.Read(output, off, len);
         constantOut.Position = position;
@@ -433,11 +431,7 @@ public class Assembler
     public void EmitLoadConst(IntPtr ptr)
     {
         writer.Write((byte) Opcode.LC64);
-
-        if (IntPtr.Size == sizeof(int))
-            writer.Write((int) ptr);
-        else
-            writer.Write((long) ptr);
+        writer.Write((long) ptr);
     }
 
     public void EmitLoadIP()

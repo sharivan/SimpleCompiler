@@ -1,26 +1,19 @@
 ﻿namespace Comp.Types;
 
-public abstract class NamedType : AbstractType
+public abstract class NamedType(CompilationUnity unity, string name, SourceInterval interval) : AbstractType
 {
     public CompilationUnity Unity
     {
         get;
-    }
+    } = unity;
 
     public string Name
     {
         get;
-    }
+    } = name;
 
     public SourceInterval Interval
     {
         get;
-    }
-
-    protected NamedType(CompilationUnity unity, string name, SourceInterval interval)
-    {
-        Unity = unity;
-        Name = name;
-        Interval = interval;
-    }
+    } = interval;
 }
