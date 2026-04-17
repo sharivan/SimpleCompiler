@@ -2409,7 +2409,7 @@ public class VirtualMachine
             {
                 int operand2 = Pop();
                 long operand1 = PopLong();
-                long result = operand1 << operand2;
+                long result = operand1 >> operand2;
                 Push(result);
                 break;
             }
@@ -2529,11 +2529,29 @@ public class VirtualMachine
                 break;
             }
 
+            case Opcode.PTRADD64:
+            {
+                long operand2 = PopLong();
+                var operand1 = PopPtr();
+                var result = new IntPtr(operand1.ToInt64() + operand2);
+                Push(result);
+                break;
+            }
+
             case Opcode.PTRSUB:
             {
                 int operand2 = Pop();
                 var operand1 = PopPtr();
                 var result = operand1 - operand2;
+                Push(result);
+                break;
+            }
+
+            case Opcode.PTRSUB64:
+            {
+                long operand2 = PopLong();
+                var operand1 = PopPtr();
+                var result = new IntPtr(operand1.ToInt64() - operand2);
                 Push(result);
                 break;
             }

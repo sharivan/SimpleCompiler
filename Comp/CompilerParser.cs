@@ -370,11 +370,11 @@ public partial class Compiler
         var leftOperand = ParseBitwiseAndExpression();
         while (true)
         {
-            if (lexer.NextSymbol("|", false) == null)
+            if (lexer.NextSymbol("^", false) == null)
                 return leftOperand;
 
             var rightOperand = ParseBitwiseAndExpression();
-            leftOperand = new BinaryExpression(leftOperand.Interval.Merge(rightOperand.Interval), BinaryOperation.BITWISE_AND, leftOperand, rightOperand);
+            leftOperand = new BinaryExpression(leftOperand.Interval.Merge(rightOperand.Interval), BinaryOperation.BITWISE_XOR, leftOperand, rightOperand);
         }
     }
 

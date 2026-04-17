@@ -428,12 +428,6 @@ public class Assembler
         writer.Write(BitConverter.ToInt64(BitConverter.GetBytes(number), 0));
     }
 
-    public void EmitLoadConst(IntPtr ptr)
-    {
-        writer.Write((byte) Opcode.LC64);
-        writer.Write((long) ptr);
-    }
-
     public void EmitLoadIP()
     {
         writer.Write((byte) Opcode.LIP);
